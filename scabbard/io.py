@@ -5,6 +5,7 @@ Authors: B.G.
 import numpy as np
 import rasterio as rio
 from rasterio.transform import from_bounds
+import dagger as dag
 
 
 def load_raster(fname):
@@ -65,7 +66,15 @@ def load_raster(fname):
 
 
 
+def raster2graphcon(file_name):
+	"""
+	Ingest a raster with rasterio adn load a connector and graph from it
+	"""
+		
+	# Loading DEM data with rasterio
+	dem = load_raster(file_name)
 
-
-
-
+	connector = dag.D8N(dem["nx"], dem["ny"], dem["dx"], dem["dy"], dem["x_min"], dem["y_min"])
+	graph = dag.graph(connector)
+	
+	return connector, graph, dem
