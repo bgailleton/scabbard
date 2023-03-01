@@ -49,7 +49,7 @@ def load_raster(fname):
 	out["y_max"] = this_raster.bounds[3]
 	corr = out['dx'] + out['dy']
 	out["extent"] = [out["x_min"],out["x_max"]-corr,out["y_min"],out["y_max"]-corr]
-	out["array"] = this_raster.read(1)
+	out["array"] = this_raster.read(1).astype(np.float64)
 	try:
 		out['crs'] = this_raster.crs['init']
 	except (TypeError, KeyError) as e:
@@ -77,4 +77,18 @@ def raster2graphcon(file_name):
 	connector = dag.D8N(dem["nx"], dem["ny"], dem["dx"], dem["dy"], dem["x_min"], dem["y_min"])
 	graph = dag.graph(connector)
 	
+	
+	
 	return connector, graph, dem
+
+def raster2con(file_name):
+	"""
+	Ingest a raster with rasterio adn load a connector and graph from it
+	"""
+		
+	# Loading DEM data with rasterio
+	dem = load_raster(file_name)
+
+	connector = dag.D8N(dem["nx"], dem["ny"], dem["dx"], dem["dy"], dem["x_min"], dem["y_min"])
+	
+	return connector, dem

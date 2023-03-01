@@ -7,3 +7,9 @@ __version__ = '0.0.1'
 from .enumeration import *
 from .io import *
 from .fastflood import *
+from .geography import *
+from .grid import *
+from .Dax import *
+from .Dfig import *
+from .Dplot import *
+from .phineas import *
