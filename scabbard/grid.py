@@ -44,6 +44,7 @@ class RGrid(object):
 		self._Z = Z.ravel()
 
 		self.con = None
+		self.graph = None
 
 		
 
@@ -80,19 +81,30 @@ class RGrid(object):
 			con = self.con
 		return dag.hillshade(con, self._Z).reshape(self.rshp)
 
-	def get_graphcon(self, process = True):
+	def export_graphcon(self, process = True):
+		
 		con = dag.D8N(self.nx, self.ny, self.dx, self.dy, self.geography.xmin, self.geography.ymin)
 		graph = dag.graph(con)
 		if(process):
 			graph.compute_graph(self._Z, True, False)
-
 		return graph, con
+
+	def compute_graphcon(self, SFD = False):
+		self.con = dag.D8N(self.nx, self.ny, self.dx, self.dy, self.geography.xmin, self.geography.ymin)
+		self.graph = dag.graph(self.con)
+		self.graph.compute_graph(self._Z, SFD, False)
+
+	def zeros(self):
+		return np.zeros(self.rshp)
 
 	def min(self):
 		return np.nanmin(self._Z)
 
 	def max(self):
 		return np.nanmax(self._Z)
+
+	def add_random_noise(self, rmin = 0, rmax = 1):
+		self._Z += np.random.uniform(low=rmin, high=rmax, size=(self.nxy,))
 
 
 
@@ -131,6 +143,58 @@ def raster2RGrid(fname):
 	dem = io.load_raster(fname)
 	geog = geo.geog(dem["x_min"],dem["x_max"],dem["y_min"],dem["y_max"],dem["crs"])
 	return RGrid(dem["nx"], dem["ny"], dem["dx"], dem["dy"], dem["array"].ravel(),geography=geog)
+
+
+
+def slope_RGrid(
+	nx = 512, 
+	ny = 512, 
+	dx = 5,
+	dy = 5,
+	z_base = 0,
+	slope = 1e-3, 
+	noise_magnitude = 1,
+	EW_periodic = True
+	):
+	'''
+		Generates a slopping grid. It comes with a connector and a graph set up so that the top part of the topo inputs fluxes and the bottom part output
+	'''
+
+	# Zeros Topo
+	Z = np.zeros(ny * nx)
+
+	# Generating the grid
+	grid = RGrid(nx, ny, dx, dy, Z)
+
+	# Getting the matrix
+	X,Y,Z = grid.XYZ
+
+	Z = - slope * Y
+	Z += z_base -  Z.min()
+
+	grid._Z = Z.ravel()
+
+	if(noise_magnitude > 0):
+		grid.add_random_noise(0, noise_magnitude)
+
+
+	bc = np.ones((ny,nx),dtype = np.int32)
+	bc[:,[0,-1]] = 9 if EW_periodic else 0 #9 is periodic, 0 is no flow
+	bc[0,:] = 8
+	bc[-1,:] = 5
+	
+
+	con = dag.D8N(nx,ny,dx,dy,0,0)
+	con.set_custom_boundaries(bc.ravel())
+	
+	graph = dag.graph(con)
+	graph.compute_graph(grid._Z, True, False)
+
+	grid.con = con
+	grid.graph = graph
+
+	return grid
+
 
 
 

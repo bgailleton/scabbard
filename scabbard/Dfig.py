@@ -22,17 +22,19 @@ class Dfig(object):
 		super(Dfig, self).__init__()
 
 		self.fig = None
-		self.axes = []
+		self.axes = {}
 
 		if(fig == None):
 			self.init_default_fig()
 		else:
-			self.fig = fig
-			if( isinstance(axes,list)):
-				self.axes = axes
-			else:
-				self.axes.append(axes)
 
+			self.fig = fig
+
+			if( isinstance(axes,list)):
+				for ax in axes:
+					self.axes[ax.key] = ax
+			else:
+				self.axes[axes.key] = axes
 				
 	def init_default_fig(self):
 		"""
@@ -41,9 +43,13 @@ class Dfig(object):
 		fig, ax = plt.subplots()
 		self.fig = fig
 		tdax = Dax(ax)
-		if(axes is None):
-			self.axes = []
-		self.axes.append(tdax)
+		self.axes = {}
+		self.axes[tdax.key] =  tdax
+
+	def update(self):
+		for ax in self.axes:
+			ax.update()
+		self.fig.canvas.draw()
 			
 
 # class Map(object):

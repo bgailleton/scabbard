@@ -32,6 +32,7 @@ setup(
 	entry_points={
 		'console_scripts': [
 				'scb-baseplot=scabbard.phineas:simplemapwizard' ,
+				'scb-debugger=scabbard.phineas:_debug_1' ,
 		],
 	},
 	install_requires=requirements,
