@@ -154,7 +154,10 @@ def slope_RGrid(
 	z_base = 0,
 	slope = 1e-3, 
 	noise_magnitude = 1,
-	EW_periodic = True
+	EW = "periodic",
+	S = "force",
+	N = "force"
+
 	):
 	'''
 		Generates a slopping grid. It comes with a connector and a graph set up so that the top part of the topo inputs fluxes and the bottom part output
@@ -179,15 +182,21 @@ def slope_RGrid(
 
 
 	bc = np.ones((ny,nx),dtype = np.int32)
-	bc[:,[0,-1]] = 9 if EW_periodic else 0 #9 is periodic, 0 is no flow
-	bc[0,:] = 8
-	bc[-1,:] = 5
+	bc[:,[0,-1]] = 9 if EW == "periodic" else (0 if EW == "noflow" else 3) #9 is periodic, 0 is no flow, 4 is normal out
+	bc[0,:] = 8 if N == "force" else (0 if N == "noflow" else 3)
+	bc[-1,:] = 5 if S == "force" else 3
+	
+	if(EW == "noflow"):
+		bc[[0,-1],0] = 0
+		bc[[0,-1],-1] = 0
+	print("DEBUG::", np.unique(bc))
 	
 
 	con = dag.D8N(nx,ny,dx,dy,0,0)
 	con.set_custom_boundaries(bc.ravel())
 	
 	graph = dag.graph(con)
+
 	graph.compute_graph(grid._Z, True, False)
 
 	grid.con = con

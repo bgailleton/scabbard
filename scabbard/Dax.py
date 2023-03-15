@@ -38,25 +38,30 @@ class Dax(object):
 
 class callbax_image(object):
 	
-	def __init__(self, im, callback, rshp, clim = None):
+	def __init__(self, im, callback, rshp, clim = None, callback_params = None):
 		self.im = im
 		self.callback = callback
+		self.callback_params = callback_params
 		self.rshp = rshp
 		self.clim = clim
 
 	def update(self):
-		arr = self.callback().reshape(self.rshp)
+		if self.callback_params is None :
+			arr = self.callback().reshape(self.rshp)
+		else:
+			arr = self.callback(*self.callback_params).reshape(self.rshp)
 		self.im.set_data(arr)
 		if(self.clim is None):
 			self.im.set_clim(np.nanmin(arr), np.nanmax(arr))
 
 class callbax_sline(object):
 	
-	def __init__(self, ax, sline, callback, axylim = None):
+	def __init__(self, ax, sline, callback, axylim = None, axylim_ignore = False):
 		self.ax = ax
 		self.sline = sline[0]
 		self.callback = callback
 		self.axylim = axylim
+		self.axylim_ignore = axylim_ignore
 
 	def update(self):
 		
@@ -64,11 +69,12 @@ class callbax_sline(object):
 		self.sline.set_xdata(arr[0])
 		self.sline.set_ydata(arr[1])
 
-		if(self.axylim is None):
+		if(self.axylim is None and self.axylim_ignore == False):
 			perc = 0.05 * (np.nanmax(arr[1]) - np.nanmin(arr[1]))
 			self.ax.set_ylim(np.nanmin(arr[1]) - perc, np.nanmax(arr[1]) + perc)
 			perc = 0.05 * (np.nanmax(arr[0]) - np.nanmin(arr[0]))
 			self.ax.set_xlim(np.nanmin(arr[0]) - perc, np.nanmax(arr[0]) + perc)
+
 
 
 
@@ -97,7 +103,7 @@ class RGridDax(Dax):
 			self.hillshade_ax.set_data(self.grid.hillshade)
 
 
-	def drape_on(self, array, cmap = cm.cm.imola, clim = None, delta_zorder = 1, alpha = 0.5, callback = None):
+	def drape_on(self, array, cmap = cm.cm.imola, clim = None, delta_zorder = 1, alpha = 0.5, callback = None, callback_params = None):
 
 		if clim is not None:
 			vmin = clim[0]
@@ -115,7 +121,7 @@ class RGridDax(Dax):
 			callback = nonecback
 
 
-		return callbax_image(ttaaxx, callback, self.grid.rshp, clim = clim)
+		return callbax_image(ttaaxx, callback, self.grid.rshp, clim = clim, callback_params = callback_params)
 
 
 

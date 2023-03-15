@@ -47,6 +47,8 @@ class GraphFlood(object):
 		self.active_figs = []
 		self._callbacks = []
 
+		self.hydro_dt = 1e-3 	
+
 		self.verbose = verbose
 
 
@@ -90,14 +92,17 @@ class GraphFlood(object):
 
 		if("dt" in kwargs.keys()):
 			self.flood.set_dt_hydro(kwargs["dt"])
+			self.hydro_dt = kwargs["dt"]
 
 		if("hydro_dt" in kwargs.keys()):
 			self.flood.set_dt_hydro(kwargs["hydro_dt"])
+			self.hydro_dt = kwargs["hydro_dt"]
 
 		if("n_trackers" in kwargs.keys()):
 			self.n_trackers = kwargs['n_trackers']
 
 	def init_convergence_tracking(self, yes = True):
+
 		self.convergence_trackers = yes
 		self.n_trackers = 50
 		self.n_pits = []
@@ -120,7 +125,7 @@ class GraphFlood(object):
 			self.flood.set_water_input_by_constant_precipitation_rate(values)
 
 
-	def set_input_discharge(self, nodes, values):
+	def set_input_discharge(self, nodes, values, asprec = False):
 		'''
 			Sets the input discharge at given locations (nodes need to be in flattened node indices)
 		'''
@@ -132,12 +137,18 @@ class GraphFlood(object):
 		if(np.prod(nodes.shape) != np.prod(values.shape)):
 			raise RuntimeError(f"nodes and values need to be the same size. Currently {np.prod(nodes)} vs {np.prod(values)}")
 
-		# YOLO	
-		self.flood.set_water_input_by_entry_points(values, nodes)
+		# YOLO
+		if(asprec == False):
+			self.flood.set_water_input_by_entry_points(values, nodes)
+		else:
+			P = np.zeros(self.grid.nxy)
+			P[nodes] = values
+			self.flood.set_water_input_by_variable_precipitation_rate( P.ravel())
 
 
-
-	def run_hydro(self, n_steps = 1, fig_update_step = 1, force_morpho = False):
+	def run_hydro(self, n_steps = 1, fig_update_step = 1,
+	 force_morpho = False, run_morpho_every = 5, min_iteration_morpho = 500,
+	 runtime_callback = [], RAT = False, RAT_step = 1000, **kwargs):
 		'''
 		'''
 		# Only hydro on this version
@@ -145,10 +156,19 @@ class GraphFlood(object):
 			self.flood.enable_morpho()
 		else:
 			self.flood.disable_morpho()
-		
+
+		self.flood.set_dt_hydro(self.hydro_dt)
+		print("DEBUG::DT is", self.hydro_dt)
 
 		# Running loop
 		for i in range(n_steps):
+
+			if i> min_iteration_morpho and i%run_morpho_every == 0 and force_morpho:
+				self.flood.enable_morpho()
+			else:
+				self.flood.disable_morpho()
+			# if(i > 5000 and i%5 == 0):
+			# 	input("tttt")
 
 			self.cumulative_time_hydro += self.flood.get_dt_hydro()
 			self.nit_hydro += 1
@@ -161,6 +181,22 @@ class GraphFlood(object):
 			if(balance > 1):
 				print("WARNING::Qw-in imbalance -> " + str(self.flood.get_tot_Qw_input()) + " got in and " + str(self.flood.get_tot_Qwin_output()) + " got out. Unbalance is: " + str(balance))
 
+			if(i%500 == 0):
+				print(i)
+
+			if(RAT):
+				if(i>0 and i%RAT_step == 0):
+					newdt = input("new_dt: ")
+					if(newdt == ''):
+						newdt = self.hydro_dt
+					else:
+						self.hydro_dt = float(newdt)
+
+					self.flood.set_dt_hydro(self.hydro_dt)
+
+
+			for rtcb in runtime_callback:
+				rtcb()
 
 			# Monitoring the water convergence now:
 			if(self.convergence_trackers):
@@ -171,12 +207,12 @@ class GraphFlood(object):
 
 				self.n_pits.append(self.grid.graph.get_n_pits())
 				arr = self.flood.get_dhw_recording()
-				self.dhw_monitoring.append([np.percentile(arr,10), np.percentile(arr,25), np.percentile(arr,50), np.percentile(arr,75), np.percentile(arr,90)])
+				self.dhw_monitoring.append([np.percentile(arr,5), np.percentile(arr,25), np.median(arr), np.percentile(arr,75), np.percentile(arr,95)])
 				arr = self.flood.get_Qwout_recording()
 				mask = arr == 0
 				arr = self.flood.get_Qwin()/arr
 				arr[mask] = 1
-				self.Qwratio.append([np.percentile(arr,10), np.percentile(arr,25), np.percentile(arr,50), np.percentile(arr,75), np.percentile(arr,90)])
+				self.Qwratio.append([np.percentile(arr,5), np.percentile(arr,25), np.median(arr), np.percentile(arr,75), np.percentile(arr,95)])
 
 				if(self.verbose):
 					print("\n###############################")
@@ -210,6 +246,17 @@ class GraphFlood(object):
 
 	def get_monitor_pits(self):
 		return [self.get_xmonitor_HYDRO(), self.n_pits]
+
+	def get_monitor_median_hw_pits(self):
+		# print(self.dhw_monitoring[2], "KKKK")
+		return [self.get_xmonitor_HYDRO(), np.array(self.dhw_monitoring)[:,2]]
+
+	def get_monitor_10th_hw_pits(self):
+		return [self.get_xmonitor_HYDRO(), np.array(self.dhw_monitoring)[:,0]]
+
+
+	def get_monitor_90th_hw_pits(self):
+		return [self.get_xmonitor_HYDRO(), np.array(self.dhw_monitoring)[:,4]]
 
 	def debugyolo(self):
 		return np.array(self.grid.graph.get_debug_mask())
@@ -261,7 +308,10 @@ class GraphFlood(object):
 		fig.canvas.start_event_loop(0.001)
 
 
-	def pop_topo_fig(self, jupyter = False, clim = None):
+	def pop_custom_fig(self, jupyter = False, clim = None, callback = None,callback_params = None, cmap = 'magma'):
+
+		if(callback is None):
+			raise RuntimeError("Need callback for custom fig")
 
 		if(jupyter == False):
 			plt.ioff()
@@ -274,7 +324,31 @@ class GraphFlood(object):
 		else:
 			arr.reshape(self.grid.rshp)
 
-		topo = dax.drape_on(arr, cmap = "gist_earth", clim = clim, delta_zorder = 1, alpha = 0.5, callback = self.flood.get_surface_topo)
+		Qwax = dax.drape_on(arr, cmap = cmap, clim = clim, delta_zorder = 1, alpha = 0.7, callback = callback, callback_params = callback_params)
+
+		plt.colorbar(Qwax.im, label = "Water depth (m)")
+		self.active_figs.append(fig)
+		self._callbacks.append(dax)
+		self._callbacks.append(Qwax)
+		fig.show()
+		fig.canvas.draw_idle()
+		fig.canvas.start_event_loop(0.001)
+
+
+	def pop_topo_fig(self, jupyter = False, clim = None, bedrock = False, alpha_hillshade =0.5):
+
+		if(jupyter == False):
+			plt.ioff()
+
+		fig,ax = plt.subplots()
+		dax = scb.RGridDax(self.grid, ax, alpha_hillshade=1)
+		arr = self.flood.get_Qwin()
+		if(np.prod(arr.shape) == 0):
+			arr = self.grid.zeros()
+		else:
+			arr.reshape(self.grid.rshp)
+
+		topo = dax.drape_on(arr, cmap = "gist_earth", clim = clim, delta_zorder = 1, alpha =1 - alpha_hillshade, callback = self.flood.get_bedrock_topo if bedrock else self.flood.get_surface_topo)
 
 		plt.colorbar(topo.im, label = "Surface (hw + Z) (m)")
 		self.active_figs.append(fig)
@@ -287,6 +361,9 @@ class GraphFlood(object):
 
 
 	def pop_monitor_fig(self, jupyter = False):
+
+		if(self.convergence_trackers == False):
+			raise AttributeError("cannot pop monitor figure if convergence_trackers is not activated")
 
 		if(jupyter == False):
 			plt.ioff()
@@ -304,12 +381,23 @@ class GraphFlood(object):
 
 		l1 = ax1.plot([0],[0], lw = 2, color = 'r')
 
+		l3 = ax2.plot([0],[0], lw = 1, ls = '--', color = 'k')
+		l4 = ax2.plot([0],[0], lw = 1, ls = '--', color = 'k')
+		l2 = ax2.plot([0],[0], lw = 2, color = 'k')
+
 		dax1 = scb.callbax_sline(ax1, l1, self.get_monitor_pits, axylim = None)
 
+		dax2 = scb.callbax_sline(ax2, l2, self.get_monitor_median_hw_pits, axylim = None)
+		dax3 = scb.callbax_sline(ax2, l3, self.get_monitor_10th_hw_pits, axylim = None, axylim_ignore = True)
+		dax4 = scb.callbax_sline(ax2, l4, self.get_monitor_90th_hw_pits, axylim = None, axylim_ignore = True)
 		
+
 
 		self.active_figs.append(fig)
 		self._callbacks.append(dax1)
+		self._callbacks.append(dax2)
+		self._callbacks.append(dax3)
+		self._callbacks.append(dax4)
 		# self._callbacks.append(topo)
 		fig.show()
 		fig.canvas.draw_idle()
