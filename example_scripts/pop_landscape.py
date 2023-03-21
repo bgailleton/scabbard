@@ -8,7 +8,7 @@ import math
 noise = scb.generate_noise_RGrid(nx = 8, ny = 8)
 
 
-graph, con = noise.get_graphcon()
+graph, con = noise.export_graphcon()
 pop = dag.popscape(graph,con)
 pop.set_topo(noise.Z.ravel())
 rshp = list(noise.rshp)
@@ -54,6 +54,14 @@ def smooth(event):
 	im.set_clim(ttop.min(),ttop.max())
 	plt.draw()
 
+def swoosh(event):
+	pop.simple_Kfz(0.5,0.2,0.5);
+	# ttop = pop.get_chistar()
+	ttop = pop.get_topo()
+	im.set_data(ttop.reshape(rshp))
+	im.set_clim(ttop.min(),ttop.max())
+	plt.draw()
+
 
 axbrun = fig.add_axes([0.87, 0.88, 0.1, 0.075])
 b_run = Button(axbrun, "iter") 
@@ -70,6 +78,10 @@ b_interp.on_clicked(interp)
 axbsmooth = fig.add_axes([0.87, 0.55, 0.1, 0.075])
 b_smooth = Button(axbsmooth, "smooth") 
 b_smooth.on_clicked(smooth)
+
+axbswoosh = fig.add_axes([0.87, 0.45, 0.1, 0.075])
+b_swoosh = Button(axbswoosh, "swoosh") 
+b_swoosh.on_clicked(swoosh)
 
 plt.ion()
 plt.show()

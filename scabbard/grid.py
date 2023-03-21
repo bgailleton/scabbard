@@ -107,6 +107,15 @@ class RGrid(object):
 		self._Z += np.random.uniform(low=rmin, high=rmax, size=(self.nxy,))
 
 
+	def __str__(self):
+		return f"""
+Regular Grid object
+nx = {self.nx} ny = {self.ny} -> n nodes = {self.nxy}
+lx = {self.lx} ly = {self.ly} 
+dx = {self.dx} dy = {self.dy}
+"""
+
+
 
 
 

@@ -148,7 +148,7 @@ class GraphFlood(object):
 
 	def run_hydro(self, n_steps = 1, fig_update_step = 1,
 	 force_morpho = False, run_morpho_every = 5, min_iteration_morpho = 500,
-	 runtime_callback = [], RAT = False, RAT_step = 1000, **kwargs):
+	 runtime_callback = [], RAT = False, RAT_step = 1000, courant = True, **kwargs):
 		'''
 		'''
 		# Only hydro on this version
@@ -157,8 +157,11 @@ class GraphFlood(object):
 		else:
 			self.flood.disable_morpho()
 
-		self.flood.set_dt_hydro(self.hydro_dt)
-		print("DEBUG::DT is", self.hydro_dt)
+		if(courant):
+			self.flood.enable_courant_dt_hydro()
+		else:
+			self.flood.set_dt_hydro(self.hydro_dt)
+		# print("DEBUG::DT is", self.hydro_dt)
 
 		# Running loop
 		for i in range(n_steps):
@@ -404,7 +407,39 @@ class GraphFlood(object):
 		fig.canvas.start_event_loop(0.001)
 
 
+	def pop_Qwratio_fig(self, jupyter = False, clim = None):
 
+		self.flood.enable_Qwout_recording()
+
+		if(jupyter == False):
+			plt.ioff()
+
+		fig,ax = plt.subplots()
+		dax = scb.RGridDax(self.grid, ax, alpha_hillshade=1)
+		arr = self.flood.get_Qwin()
+		if(np.prod(arr.shape) == 0):
+			arr = self.grid.zeros()
+		else:
+			arr.reshape(self.grid.rshp)
+
+		def _cback():
+			Qwin = self.flood.get_Qwin()
+			mask = Qwin == 0
+			tarr = self.flood.get_Qwout_recording()/Qwin
+			tarr[mask] = 1.
+			return tarr
+
+		Qwax = dax.drape_on(arr, cmap = "RdBu_r", clim = (0.75,1.25), delta_zorder = 1, alpha = 0.7, callback = _cback)
+		# Qwax = dax.drape_on(arr, cmap = "Blues", clim = None, delta_zorder = 1, alpha = 0.9, callback = self.debugyolo)
+
+		plt.colorbar(Qwax.im, label = "Qwin - Qwout")
+
+		self.active_figs.append(fig)
+		self._callbacks.append(dax)
+		self._callbacks.append(Qwax)
+		fig.show()
+		fig.canvas.draw_idle()
+		fig.canvas.start_event_loop(0.001)
 
 
 
