@@ -5,7 +5,7 @@ import dagger as dag
 import scabbard as scb
 import numpy as np
 import matplotlib.pyplot as plt
-import cmcrameri as cm
+import cmcrameri.cm as cm
 
 
 
@@ -50,6 +50,8 @@ class GraphFlood(object):
 		self.hydro_dt = 1e-3 	
 
 		self.verbose = verbose
+
+		self.update_grid = True
 
 
 		# time
@@ -147,7 +149,7 @@ class GraphFlood(object):
 
 
 	def run_hydro(self, n_steps = 1, fig_update_step = 1,
-	 force_morpho = False, run_morpho_every = 5, min_iteration_morpho = 500,
+	 force_morpho = False, run_morpho_every = 5, min_iteration_morpho = 500, run_morpho_ratio = 0.95,
 	 runtime_callback = [], RAT = False, RAT_step = 1000, courant = True, **kwargs):
 		'''
 		'''
@@ -166,8 +168,13 @@ class GraphFlood(object):
 		# Running loop
 		for i in range(n_steps):
 
-			if i> min_iteration_morpho and i%run_morpho_every == 0 and force_morpho:
+			# if i> min_iteration_morpho and i%run_morpho_every == 0 and force_morpho:
+			totin = self.flood.get_tot_Qw_input()
+			if(totin >0 and self.flood.get_tot_Qw_output() / totin > run_morpho_ratio and force_morpho):
+				# print("DEGUB::MORPHO ON")
 				self.flood.enable_morpho()
+				if("block_uplift_rate" in kwargs):
+					self.flood.block_uplift(kwargs["block_uplift_rate"])
 			else:
 				self.flood.disable_morpho()
 			# if(i > 5000 and i%5 == 0):
@@ -199,7 +206,10 @@ class GraphFlood(object):
 
 
 			for rtcb in runtime_callback:
-				rtcb()
+				if(isinstance(rtcb,list)):
+					rtcb[0](*rtcb[1])
+				else:
+					rtcb()
 
 			# Monitoring the water convergence now:
 			if(self.convergence_trackers):
@@ -232,6 +242,10 @@ class GraphFlood(object):
 			# updating the figures
 			if(i%fig_update_step == 0):
 				self.update_figs()
+				if self.update_grid:
+					self.grid._Z = self.flood.get_bedrock_topo()
+		if self.update_grid:
+			self.grid._Z = self.flood.get_bedrock_topo()
 
 	def update_figs(self):
 		for tax in self._callbacks:
@@ -264,7 +278,7 @@ class GraphFlood(object):
 	def debugyolo(self):
 		return np.array(self.grid.graph.get_debug_mask())
 
-	def pop_Qw_fig(self, jupyter = False, clim = None):
+	def pop_Qw_fig(self, jupyter = False, clim = None, alpha_hillshade = 0.3):
 
 		if(jupyter == False):
 			plt.ioff()
@@ -277,7 +291,7 @@ class GraphFlood(object):
 		else:
 			arr.reshape(self.grid.rshp)
 
-		Qwax = dax.drape_on(arr, cmap = "Blues", clim = clim, delta_zorder = 1, alpha = 0.7, callback = self.flood.get_Qwin)
+		Qwax = dax.drape_on(arr, cmap = "Blues", clim = clim, delta_zorder = 1, alpha = 1 - alpha_hillshade, callback = self.flood.get_Qwin)
 		# Qwax = dax.drape_on(arr, cmap = "Blues", clim = None, delta_zorder = 1, alpha = 0.9, callback = self.debugyolo)
 
 		self.active_figs.append(fig)
@@ -287,7 +301,7 @@ class GraphFlood(object):
 		fig.canvas.draw_idle()
 		fig.canvas.start_event_loop(0.001)
 
-	def pop_hw_fig(self, jupyter = False, clim = None):
+	def pop_hw_fig(self, jupyter = False, clim = None, alpha_hillshade = 0.3):
 
 		if(jupyter == False):
 			plt.ioff()
@@ -300,7 +314,7 @@ class GraphFlood(object):
 		else:
 			arr.reshape(self.grid.rshp)
 
-		Qwax = dax.drape_on(arr, cmap = "Blues", clim = clim, delta_zorder = 1, alpha = 0.7, callback = self.flood.get_hw)
+		Qwax = dax.drape_on(arr, cmap = "Blues", clim = clim, delta_zorder = 1, alpha = 1 - alpha_hillshade, callback = self.flood.get_hw)
 
 		plt.colorbar(Qwax.im, label = "Water depth (m)")
 		self.active_figs.append(fig)
@@ -311,7 +325,7 @@ class GraphFlood(object):
 		fig.canvas.start_event_loop(0.001)
 
 
-	def pop_custom_fig(self, jupyter = False, clim = None, callback = None,callback_params = None, cmap = 'magma'):
+	def pop_custom_fig(self, jupyter = False, clim = None, callback = None,callback_params = None, cmap = 'magma', alpha_hillshade = 0.3):
 
 		if(callback is None):
 			raise RuntimeError("Need callback for custom fig")
@@ -327,7 +341,7 @@ class GraphFlood(object):
 		else:
 			arr.reshape(self.grid.rshp)
 
-		Qwax = dax.drape_on(arr, cmap = cmap, clim = clim, delta_zorder = 1, alpha = 0.7, callback = callback, callback_params = callback_params)
+		Qwax = dax.drape_on(arr, cmap = cmap, clim = clim, delta_zorder = 1, alpha = 1 - alpha_hillshade, callback = callback, callback_params = callback_params)
 
 		plt.colorbar(Qwax.im, label = "Water depth (m)")
 		self.active_figs.append(fig)
@@ -353,7 +367,35 @@ class GraphFlood(object):
 
 		topo = dax.drape_on(arr, cmap = "gist_earth", clim = clim, delta_zorder = 1, alpha =1 - alpha_hillshade, callback = self.flood.get_bedrock_topo if bedrock else self.flood.get_surface_topo)
 
-		plt.colorbar(topo.im, label = "Surface (hw + Z) (m)")
+		plt.colorbar(topo.im, label = "Surface (hw + Z) (m)" if bedrock == False else "Z (m)")
+		self.active_figs.append(fig)
+		self._callbacks.append(dax)
+		self._callbacks.append(topo)
+		fig.show()
+		fig.canvas.draw_idle()
+		fig.canvas.start_event_loop(0.001)
+
+	def pop_dtopo_fig(self, jupyter = False, clim = None, alpha_hillshade = 0.5):
+
+		if(jupyter == False):
+			plt.ioff()
+
+		self.otopo = np.copy(self.grid.Z2D)
+
+		fig,ax = plt.subplots()
+		dax = scb.RGridDax(self.grid, ax, alpha_hillshade=1)
+		arr = self.flood.get_Qwin()
+		if(np.prod(arr.shape) == 0):
+			arr = self.grid.zeros()
+		else:
+			arr.reshape(self.grid.rshp)
+
+		def _pop_dtopo_fig():
+			return self.otopo - self.flood.get_bedrock_topo().reshape(self.grid.rshp)
+
+		topo = dax.drape_on(arr, cmap = cm.bam, clim = clim, delta_zorder = 1, alpha = 1 - alpha_hillshade, callback = _pop_dtopo_fig)
+
+		plt.colorbar(topo.im, label = "$\Delta Z$")
 		self.active_figs.append(fig)
 		self._callbacks.append(dax)
 		self._callbacks.append(topo)
@@ -407,7 +449,7 @@ class GraphFlood(object):
 		fig.canvas.start_event_loop(0.001)
 
 
-	def pop_Qwratio_fig(self, jupyter = False, clim = None):
+	def pop_Qwratio_fig(self, jupyter = False, clim = None, alpha_hillshade = 0.3):
 
 		self.flood.enable_Qwout_recording()
 
@@ -429,10 +471,10 @@ class GraphFlood(object):
 			tarr[mask] = 1.
 			return tarr
 
-		Qwax = dax.drape_on(arr, cmap = "RdBu_r", clim = (0.75,1.25), delta_zorder = 1, alpha = 0.7, callback = _cback)
+		Qwax = dax.drape_on(arr, cmap = "RdBu_r", clim = (0.75,1.25), delta_zorder = 1, alpha = 1 - alpha_hillshade, callback = _cback)
 		# Qwax = dax.drape_on(arr, cmap = "Blues", clim = None, delta_zorder = 1, alpha = 0.9, callback = self.debugyolo)
 
-		plt.colorbar(Qwax.im, label = "Qwin - Qwout")
+		plt.colorbar(Qwax.im, label = "$Q_{wout}/Q_{win}")
 
 		self.active_figs.append(fig)
 		self._callbacks.append(dax)

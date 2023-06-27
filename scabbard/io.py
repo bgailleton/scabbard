@@ -6,6 +6,7 @@ import numpy as np
 import rasterio as rio
 from rasterio.transform import from_bounds
 import dagger as dag
+from rasterio.transform import from_origin
 
 
 def load_raster(fname):
@@ -92,3 +93,29 @@ def raster2con(file_name):
 	connector = dag.D8N(dem["nx"], dem["ny"], dem["dx"], dem["dy"], dem["x_min"], dem["y_min"])
 	
 	return connector, dem
+
+
+# import rasterio
+def save_raster(file_name, array, x_min, x_max, y_min, y_max, dx, dy, crs = None):
+	# Define file name and file mode
+	# file_name = "output.tif"
+	file_mode = "w+"
+
+	# Specify dimensions of the array
+	height, width = array.shape
+	count = 1  # Number of bands in the array
+	dtype = array.dtype
+
+	# Specify transformation parameters
+	x_min = 0  # X-coordinate of the top-left corner
+	y_max = 0  # Y-coordinate of the top-left corner
+	x_res = 1  # Pixel size in the x-direction
+	y_res = 1  # Pixel size in the y-direction
+	transform = from_origin(x_min, y_max, dx, dy)
+
+	if(crs is None):
+		crs = "EPSG::35653"
+
+	# Create output GeoTIFF file
+	with rio.open(file_name, file_mode, driver='GTiff', height=height, width=width, dtype=dtype, count=count, transform=transform, nodata = -9999, crs = crs) as dst:
+	    dst.write(array, 1)  # Write the array to the GeoTIFF file as the first band (band index is 1-based)

@@ -80,7 +80,7 @@ class callbax_sline(object):
 
 class RGridDax(Dax):
 	"""docstring for RGridDax"""
-	def __init__(self,Rgrid, ax, key = None, cmap = cm.cm.davos, hillshade = True, alpha_hillshade = 0.45, clim = None):
+	def __init__(self,Rgrid, ax, key = None, cmap = "gist_earth", hillshade = True, alpha_hillshade = 0.45, clim = None, callback_topo = None):
 		
 		super(RGridDax, self).__init__(ax, key)
 		self.grid = Rgrid
@@ -90,7 +90,7 @@ class RGridDax(Dax):
 		self.clim = clim if clim is not None else [self.grid.min(), self.grid.max()]
 
 		if(hillshade):
-			self.hillshade_ax = self.ax.imshow(self.grid.hillshade, extent = self.grid.extent(), cmap = cm.cm.grayC_r, alpha = alpha_hillshade, zorder = self.zorder)
+			self.hillshade_ax = self.ax.imshow(self.grid.hillshade, extent = self.grid.extent(), cmap = "gray", alpha = alpha_hillshade, zorder = self.zorder)
 
 		self.ax.set_xlabel("X (m)")
 		self.ax.set_ylabel("Y (m)")
@@ -103,7 +103,7 @@ class RGridDax(Dax):
 			self.hillshade_ax.set_data(self.grid.hillshade)
 
 
-	def drape_on(self, array, cmap = cm.cm.imola, clim = None, delta_zorder = 1, alpha = 0.5, callback = None, callback_params = None):
+	def drape_on(self, array, cmap = "gray", clim = None, delta_zorder = 1, alpha = 0.5, callback = None, callback_params = None):
 
 		if clim is not None:
 			vmin = clim[0]
