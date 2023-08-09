@@ -32,6 +32,7 @@ setup(
 	entry_points={
 		'console_scripts': [
 				'scb-baseplot=scabbard.phineas:simplemapwizard' ,
+				'scb-graphflood=scabbard.phineas:graphflood_basic' ,
 				'scb-debugger=scabbard.phineas:_debug_1' ,
 		],
 	},
@@ -40,11 +41,11 @@ setup(
 	long_description=readme + '\n\n' + history,
 	include_package_data=True,
 	keywords='scabbard',
-	name='scabbard',
+	name='pyscabbard',
 	packages=find_packages(include=['scabbard', 'scabbard.*']),
 	test_suite='tests',
 	tests_require=test_requirements,
 	url='https://github.com/bgailleton/scabbard',
-	version='0.0.1',
+	version='0.0.2',
 	zip_safe=False,
 )

@@ -2,6 +2,7 @@
 grid module to help with generic grid manipulations
 '''
 import numpy as np
+import matplotlib.pyplot as plt
 from scabbard import io
 from scabbard import geography as geo
 import dagger as dag
@@ -11,12 +12,28 @@ import random
 class RGrid(object):
 
 	"""
-	Small helper class for regular grid
+	Manages a regular grid with helper functions
 	"""
 	
 
 	def __init__(self, nx, ny, dx, dy, Z, geography = None):
 
+		'''
+		Contruct a grid from base char:
+		- nx = number of cols
+		- ny = number of rows
+		- dx = spacing in the X direction
+		- dy = spacing in the Y direction
+		- Z = a numpy array of ny * nx coordinates containing elevation data
+
+		And optional specs:
+		- geography: custom geogrphic info
+
+		It is recommended to use premade automatic functions (bellow) as much as you can: they would create grid from loading a DEM or with random noise or slope surface for example
+
+		'''
+
+		# Ignore
 		super(RGrid, self).__init__()
 		
 		# Number of col
@@ -30,6 +47,8 @@ class RGrid(object):
 		# Spatial step in Y dir
 		self.dy = dy
 
+		self.cellarea = dx*dy
+
 		self.lx = (nx+1) * dx
 		self.ly = (ny+1) * dy
 
@@ -41,45 +60,72 @@ class RGrid(object):
 		else:
 			self.geography = geography
 
+		# Elevation flat array 
 		self._Z = Z.ravel()
 
+		# Placeholders for connector and graph objects
 		self.con = None
 		self.graph = None
 
 		
 
 	def extent(self, y_min_top = True):
+		'''
+		Bounding box for the dem: [xmin,xmax, ymin, ymax].
+		Can be directly used in matplotlib's imshow function
+		'''
 		return [self.geography.xmin, self.geography.xmax, self.geography.ymin if y_min_top else self.geography.ymax, self.geography.ymax if y_min_top else self.geography.ymin ]
 
 
 	@property
 	def X(self):
+		'''
+		1D array [nx] of flat X coordinates
+		'''
 		return np.linspace(self.geography.xmin + self.dx/2, self.geography.xmax - self.dx/2, self.nx)
 
 	@property
 	def Y(self):
+		'''
+		1D array [ny] of flat Y coordinates
+		'''
 		return np.linspace(self.geography.ymin + self.dy/2, self.geography.ymax - self.dy/2, self.ny)
 
 	@property
 	def XY(self):
+		'''
+		2D array of XY coordinates for each node -  as a  meshgrid.
+		'''
 		xx,yy = np.meshgrid(self.X, self.Y)
-		return xx, yy
+		return xx, yy[::-1]
 
 	@property
 	def Z(self):
+		'''
+		Accessing the 1D flat elevation array [nx * ny]
+		'''
 		return self._Z
 
 	@property
 	def Z2D(self):
+		'''
+		Accessing the 2D elevation array [ny,nx]
+		'''
 		return self._Z.reshape(self.ny,self.nx)
 
 	@property
 	def XYZ(self):
+		'''
+		meshgrid of XYZ coordinates
+		'''
 		xx,yy = np.meshgrid(self.X, self.Y)
 		return xx, yy, self.Z2D
 
 	@property
 	def hillshade(self):
+		'''
+		2D array of hillshaded relief (values between 0 and 1)
+		'''
 		if(self.con is None):
 			con = dag.D8N(self.nx, self.ny, self.dx, self.dy, self.geography.xmin, self.geography.ymin)
 		else:
@@ -101,15 +147,21 @@ class RGrid(object):
 			graph.compute_graph(self._Z, True, False)
 		return graph, con
 
-	def compute_graphcon(self, SFD = False, BCs = None):
+	def compute_graphcon(self, SFD = False, BCs = None, LM = dag.LMR.none, preprocess_topo = False, Z0 = None ):
 		self.con = dag.D8N(self.nx, self.ny, self.dx, self.dy, self.geography.xmin, self.geography.ymin)
 		
 		if(BCs is not None):
 			self.con.set_custom_boundaries(BCs.ravel())
+
+		if(Z0 is not None):
+			dag.set_BC_to_remove_seas(self.con, self._Z, Z0) 
 		
 		self.graph = dag.graph(self.con)
-		self.graph.set_LMR_method(dag.LMR.none)
-		self.graph.compute_graph(self._Z, SFD, False)
+		self.graph.set_LMR_method(LM)
+		if(preprocess_topo):
+			self._Z = self.graph.compute_graph(self._Z, SFD, False)
+		else:
+			self.graph.compute_graph(self._Z, SFD, False)
 
 	def zeros(self):
 		return np.zeros(self.rshp)
@@ -122,6 +174,59 @@ class RGrid(object):
 
 	def add_random_noise(self, rmin = 0, rmax = 1):
 		self._Z += np.random.uniform(low=rmin, high=rmax, size=(self.nxy,))
+
+	def quick_river_network(self, DAT = 1e6, custom_QA = None):
+		if(self.graph is None):
+			self.compute_graphcon(SFD = True, BCs = None, LM = dag.LMR.cordonnier_carve, preprocess_topo = False)
+		A = self.graph.accumulate_constant_downstream_SFD(self.cellarea) if (custom_QA is None) else custom_QA
+
+		rivdict = dag.RiverNetwork(DAT, A,self._Z, self.con, self.graph)
+
+		rivdict["rows"] = rivdict["nodes"] // self.nx
+		rivdict["cols"] = rivdict["nodes"] % self.nx
+		rivdict["X"] = self.XY[0].ravel()[rivdict["nodes"]]
+		rivdict["Y"] = self.XY[1].ravel()[rivdict["nodes"]]
+
+		return rivdict
+
+	def quick_basin_extraction(self, basinID = None, return_basinID = False):
+		if(self.graph is None):
+			self.compute_graphcon(SFD = True, BCs = None, LM = dag.LMR.cordonnier_carve, preprocess_topo = False)
+
+		if(basinID is None):
+			basinID = self.graph.get_SFD_basin_labels()
+
+		DDdict = dag.DrainageDivides(self.con, self.graph, self._Z, basinID.ravel())
+		DDdict["rows"] = DDdict["nodes"] // self.nx
+		DDdict["cols"] = DDdict["nodes"] % self.nx
+		DDdict["X"] = self.XY[0].ravel()[DDdict["nodes"]]
+		DDdict["Y"] = self.XY[1].ravel()[DDdict["nodes"]]
+
+
+		if(return_basinID):
+			return DDdict, basinID.reshape(self.rshp)
+		else:
+			return DDdict
+
+	def baseplot(self, alpha_hs = 0.65, cmap = "gist_earth", clim = None, figsize = None, fig = None, ax = None, colorbar = True ):
+		need_return = False
+		if(fig is None):
+			fig,ax = plt.subplots(figsize = figsize)
+			need_return = True
+		cb = ax.imshow(self.Z2D, cmap = cmap, vmin = self._Z.min() if clim is None else clim[0], vmax = self._Z.max() if clim is None else clim[1], extent = self.extent())
+		
+		if(colorbar):
+			plt.colorbar(cb, label = "elevation (m)")
+
+		ax.imshow(self.hillshade, cmap = "gray", vmin = 0, vmax = 1, alpha = alpha_hs, extent = self.extent())
+		ax.set_xlabel("X (m)")
+		ax.set_ylabel("Y (m)")
+		
+		if(need_return):
+			return fig,ax
+
+
+
 
 
 	def __str__(self):
@@ -215,19 +320,15 @@ def slope_RGrid(
 	if(EW == "noflow" or EW == "periodic"):
 		bc[[0,-1],0] = 0
 		bc[[0,-1],-1] = 0
-	print("DEBUG::", np.unique(bc))
 	
 
 	con = dag.D8N(nx,ny,dx,dy,0,0)
 	con.set_custom_boundaries(bc.ravel())
-	print("CONNECTOR CREATED")
 	
 	graph = dag.graph(con)
-	print("GRAPH CREATED")
 
 
 	graph.compute_graph(grid._Z, True, False)
-	print("GRAPH COMPUTED")
 
 	grid.con = con
 	grid.graph = graph

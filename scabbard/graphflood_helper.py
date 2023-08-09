@@ -3,6 +3,7 @@ import numpy as np
 import dagger as dag
 import matplotlib.pyplot as plt
 from cmcrameri import cm
+import time
 
 class ModelHelper:
 
@@ -90,7 +91,7 @@ class ModelHelper:
 		self.gf.flood.set_dt_hydro(self.dt)
 		if(self.courant):
 			self.gf.flood.enable_courant_dt_hydro()
-			self.gf.flood.set_courant_numer(self.courant_number)
+			self.gf.flood.set_courant_number(self.courant_number)
 			self.gf.flood.set_min_courant_dt_hydro(self.min_courant_dt)
 		if(self.SFD):
 			self.gf.flood.enable_SFD()
@@ -129,9 +130,12 @@ class ModelHelper:
 	def courant(self,val):
 		self._courant = val
 		if(self.gf is not None and val == True):
+			# print("enabling courant")
 			self.gf.flood.enable_courant_dt_hydro()
-			self.gf.flood.set_courant_numer(self.courant_number)
+			self.gf.flood.set_courant_number(self._courant_number)
 			self.gf.flood.set_min_courant_dt_hydro(self.min_courant_dt)
+		elif (self.gf is not None):
+			self.gf.flood.disable_courant_dt_hydro()
 
 	@property
 	def courant_number(self):
@@ -141,7 +145,7 @@ class ModelHelper:
 	def courant_number(self,val):
 		self._courant_number = val
 		if(self.gf is not None):
-			self.gf.flood.set_courant_numer(self.courant_number)
+			self.gf.flood.set_courant_number(self._courant_number)
 
 	@property
 	def min_courant_dt(self):
@@ -151,7 +155,8 @@ class ModelHelper:
 	def min_courant_dt(self,val):
 		self._min_courant_dt = val
 		if(self.gf is not None):
-			self.gf.flood.set_min_courant_dt_hydro(self.min_courant_dt)
+			# print("DEBUG:setting min courant dt to ", self._min_courant_dt)
+			self.gf.flood.set_min_courant_dt_hydro(self._min_courant_dt)
 
 	@property
 	def SFD(self):
@@ -213,12 +218,14 @@ class ModelHelper:
 
 class PlotHelper(object):
 	"""docstring for PlotHelper"""
-	def __init__(self, mod):
+	def __init__(self, mod, jupyter = False):
 		super(PlotHelper, self).__init__()
 		self.mod = mod
 		self.figs = []
 		self.figaxel = {}
-		self.hw_plot = False 	
+		self.hw_plot = False \
+
+		self.jupyter = jupyter	
 
 
 
@@ -236,7 +243,8 @@ class PlotHelper(object):
 		self.figaxel["ax_hw"] = ax
 		self.figaxel["hs_hw"] = imhs
 		self.figaxel["hw_hw"] = imhw
-		fig.show()
+		if(self.jupyter == False):
+			fig.show()
 
 	def update(self):
 
@@ -244,8 +252,15 @@ class PlotHelper(object):
 			self.figaxel["hs_hw"].set_data(self.mod.grid.hillshade)
 			self.figaxel["hw_hw"].set_data(self.mod.hw)
 
-		for fig in self.figs:
-			fig.canvas.draw_idle()
-			fig.canvas.start_event_loop(0.001)
+		if(self.jupyter == False):
+			for fig in self.figs:
+				fig.canvas.draw_idle()
+				fig.canvas.start_event_loop(0.001)
+		else:
+			for fig in self.figs:
+				fig.canvas.draw()
+				time.sleep(0.001)
+
+			
 
 
