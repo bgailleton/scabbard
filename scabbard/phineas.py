@@ -32,7 +32,8 @@ def simplemapwizard(fname):
 @click.option('-S', '--SFD', 'SFD', type = bool, default=False)
 @click.option('-U', '--update_step', 'nupdate', type = int, default=10)
 @click.option('-exp', '--experimental', 'experimental', type = bool, default=False, is_flag = True)
-@click.argument('fname', type = str, default = 1e-3)
+# @click.option('-h', '--help', 'help', type = bool, is_flag = True)
+@click.argument('fname', type = str)
 def graphflood_basic(fname,courant,dt,precipitations,manning,SFD,nupdate, experimental):
 	print("EXPERIMENTAL IS ", experimental)
 
@@ -48,7 +49,7 @@ def graphflood_basic(fname,courant,dt,precipitations,manning,SFD,nupdate, experi
 
 
 	mod = scb.ModelHelper()
-	mod.init_dem_model(fname, sea_level = 0., P = 1e-5)
+	mod.init_dem_model(fname, sea_level = 0., P = precipitations)
 
 	# Number of nodes in the Y direction
 	ny = mod.grid.ny

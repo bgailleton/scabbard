@@ -22,10 +22,28 @@ class ModelHelper:
 		self.mannings = 0.033
 		self.dt = 1e-3
 		self.courant = True
-		self.courant_number = 0.1
+		self.courant_number = 0.01
 		self.SFD = False
 		self.min_courant_dt = 1e-4
 		self.stationary = True
+
+
+	def init_from_grid(self,grid, S0 = 1e-2):
+		
+
+		self.grid = grid
+		self.nx = grid.nx
+		self.ny = grid.ny
+		self.dx = grid.dx
+		self.dy = grid.dy
+		self.S0 = S0
+		self.gf = scb.GraphFlood(self.grid,verbose = False)
+		self.gf.flood.set_fixed_slope_at_boundaries(self.S0)
+		self.gf.flood.set_partition_method(dag.MFD_PARTITIONNING.PROPOSLOPE)
+		self.apply_model_params()
+		self.grid.compute_graphcon() if self.grid.graph is None else 0
+		self.grid.graph.set_LMR_method(dag.LMR.priority_flood)
+
 
 
 
@@ -53,7 +71,7 @@ class ModelHelper:
 		self.gf.flood.set_partition_method(dag.MFD_PARTITIONNING.PROPOSLOPE)
 		self.apply_model_params()
 
-	def init_dem_model(self, file_name, sea_level = 0., P = 1e-5):
+	def init_dem_model(self, file_name, sea_level = 0., P = 1e-5, BCs = None):
 		
 
 		self.P = P
@@ -70,12 +88,19 @@ class ModelHelper:
 		self.dy = self.grid.dy
 		self.S0 = 0.
 
-		BCs = np.zeros((self.ny,self.nx), dtype = np.uint8) + 1
-		BCs[[0,-1],:] = 3
-		BCs[:, [0,-1]] = 3
-		BCs[BCs <= 0] = 0
+		if(sea_level != 0. and  BCs is not None):
+			print("warning: Ignoring sea level as you gave custom boundary condistions. The latter will prevail.")
+
+		if(BCs is None):
+			BCs = np.zeros((self.ny,self.nx), dtype = np.uint8) + 1
+			BCs[[0,-1],:] = 3
+			BCs[:, [0,-1]] = 3
+			BCs[BCs <= 0] = 0
+			
 		self.grid.con.set_custom_boundaries(BCs.ravel())
-		dag.set_BC_to_remove_seas(self.grid.con, self.grid._Z, sea_level)
+		
+		if(BCs is None):
+			dag.set_BC_to_remove_seas(self.grid.con, self.grid._Z, sea_level)
 
 
 		## graphflood python object
@@ -236,7 +261,7 @@ class PlotHelper(object):
 		fig,ax = plt.subplots(*kwargs_subplots)
 		textent = self.mod.grid.extent() if use_extent else None
 
-		imhs = ax.imshow(self.mod.grid.hillshade, extent = textent, vmin =0, vmax = 1, cmap = cm.grayC_r)
+		imhs = ax.imshow(self.mod.grid.hillshade, extent = textent, vmin =0, vmax = 1, cmap = cm.grayC)
 		imhw = ax.imshow(self.mod.hw, extent = textent, vmin =vmin, vmax = vmax, cmap = "Blues", alpha = alpha_hw)
 		self.figs.append(fig)
 		self.figaxel["fig_hw"] = fig

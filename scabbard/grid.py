@@ -16,7 +16,7 @@ class RGrid(object):
 	"""
 	
 
-	def __init__(self, nx, ny, dx, dy, Z, geography = None):
+	def __init__(self, nx, ny, dx, dy, Z, geography = None, dtype = np.float32):
 
 		'''
 		Contruct a grid from base char:
@@ -61,7 +61,7 @@ class RGrid(object):
 			self.geography = geography
 
 		# Elevation flat array 
-		self._Z = Z.ravel()
+		self._Z = Z.ravel().astype(dtype)
 
 		# Placeholders for connector and graph objects
 		self.con = None
@@ -176,6 +176,7 @@ class RGrid(object):
 		self._Z += np.random.uniform(low=rmin, high=rmax, size=(self.nxy,))
 
 	def quick_river_network(self, DAT = 1e6, custom_QA = None):
+		
 		if(self.graph is None):
 			self.compute_graphcon(SFD = True, BCs = None, LM = dag.LMR.cordonnier_carve, preprocess_topo = False)
 		A = self.graph.accumulate_constant_downstream_SFD(self.cellarea) if (custom_QA is None) else custom_QA
@@ -269,11 +270,11 @@ def generate_noise_RGrid(
 
 
 
-def raster2RGrid(fname):
+def raster2RGrid(fname, dtype = np.float32):
 
 	dem = io.load_raster(fname)
 	geog = geo.geog(dem["x_min"],dem["y_min"],dem["x_max"],dem["y_max"],dem["crs"])
-	return RGrid(dem["nx"], dem["ny"], dem["dx"], dem["dy"], dem["array"].ravel(),geography=geog)
+	return RGrid(dem["nx"], dem["ny"], dem["dx"], dem["dy"], dem["array"].ravel().astype(dtype), geography=geog, dtype = dtype)
 
 
 
@@ -334,6 +335,12 @@ def slope_RGrid(
 	grid.graph = graph
 
 	return grid
+
+
+
+# // TO DO
+# def gridFromTrackscape(ts):
+# 	RGrid(nx, ny, dx, dy, Z, geography = None, dtype = np.float32)
 
 
 

@@ -107,10 +107,10 @@ def save_raster(file_name, array, x_min, x_max, y_min, y_max, dx, dy, crs = None
 	dtype = array.dtype
 
 	# Specify transformation parameters
-	x_min = 0  # X-coordinate of the top-left corner
-	y_max = 0  # Y-coordinate of the top-left corner
-	x_res = 1  # Pixel size in the x-direction
-	y_res = 1  # Pixel size in the y-direction
+	# x_min = 0  # X-coordinate of the top-left corner
+	# y_max = 0  # Y-coordinate of the top-left corner
+	x_res = dx  # Pixel size in the x-direction
+	y_res = dy  # Pixel size in the y-direction
 	transform = from_origin(x_min, y_max, dx, dy)
 
 	if(crs is None):
