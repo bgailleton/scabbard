@@ -289,7 +289,6 @@ def slope_RGrid(
 	EW = "periodic",
 	S = "force",
 	N = "force"
-
 	):
 	'''
 		Generates a slopping grid. It comes with a connector and a graph set up so that the top part of the topo inputs fluxes and the bottom part output
