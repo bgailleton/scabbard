@@ -3,6 +3,20 @@
 """The setup script."""
 
 from setuptools import setup, find_packages
+from setuptools.command.install import install
+
+
+class PostInstallCommand(install):
+    """Post-installation for installation mode."""
+    def run(self):
+        # Call superclass's run method
+        install.run(self)
+        
+        # Your post-installation logic here
+        os.system("scb-reset-config")
+        print("KDSFDSJKFSLDKHF")
+
+
 
 with open('README.rst') as readme_file:
 		readme = readme_file.read()
@@ -34,6 +48,7 @@ setup(
 				'scb-baseplot=scabbard.phineas:simplemapwizard' ,
 				'scb-graphflood=scabbard.phineas:graphflood_basic' ,
 				'scb-debugger=scabbard.phineas:_debug_1' ,
+				'scb-reset-config=scabbard.config:defaultConfig' ,
 		],
 	},
 	install_requires=requirements,
@@ -43,9 +58,12 @@ setup(
 	keywords='scabbard',
 	name='pyscabbard',
 	packages=find_packages(include=['scabbard', 'scabbard.*']),
+	cmdclass={
+        'install': PostInstallCommand,
+    },
 	test_suite='tests',
 	tests_require=test_requirements,
 	url='https://github.com/bgailleton/scabbard',
-	version='0.0.4',
+	version='0.0.6',
 	zip_safe=False,
 )

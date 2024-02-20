@@ -2,6 +2,13 @@
 History
 =======
 
+0.0.3 - 0.0.4 (2023-10-23)
+--------------------------
+
+* Fixing couple of bugs on the grid
+* Experimental support for DAGGER's experimental stuff
+* Adding environment object (WIP, future main structure)
+
 0.0.2 (2023-07-31)
 ------------------
 

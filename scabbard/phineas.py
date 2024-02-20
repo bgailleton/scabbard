@@ -24,6 +24,17 @@ def simplemapwizard(fname):
 	input("press Enter to continue")
 
 
+
+
+
+
+
+
+
+
+	
+
+
 @click.command()
 @click.option('-c', '--courant', 'courant',  type = float, default = 1e-3)
 @click.option('-d', '--dt', 'dt',  type = float, default = None)

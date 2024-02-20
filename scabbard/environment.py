@@ -17,6 +17,7 @@ class Environment(object):
 		self.graph = None
 		self.connector = None
 		self.graphflood = None
+		self.param = dag.ParamBag()
 
 	def init_connector(self):
 		'''
@@ -31,8 +32,25 @@ class Environment(object):
 		'''
 		TODO:: WRITE THE TO DO
 		'''
-		self.graphflood = dag.GF2(self.connector,0,self.data)
-		self.graphflood.init() 
+		self.graphflood = dag.GF2(self.connector,0,self.data, self.param)
+		self.graphflood.init()
+
+
+	def change_BCs(self, BCs):
+		self.data.set_boundaries(BCs.ravel())
+		self.connector = dag.Connector8(self.grid.nx, self.grid.ny, self.grid.dx, self.grid.dy, self.data)
+		self.connector.set_condou(dag.CONBOU.CUSTOM)
+		self.connector.init()
+
+	def get_data(self, data_name = 'hw'):
+		'''
+		Returns the 2D array corresponding to the data needed
+		'''
+
+		if(data_name.lower().replace(' ','') == 'hw'):
+			return self.data.get_hw().reshape(self.grid.rshp)
+		elif(data_name.replace(' ','') == 'Qw'):
+			return self.data.get_Qwin().reshape(self.grid.rshp)
 
 
 
@@ -108,5 +126,50 @@ def env_from_slope(
 	env.connector.set_condou(dag.CONBOU.CUSTOM)
 
 	return env
+
+
+def env_from_array(
+	arr,
+	nx = 512, 
+	ny = 512, 
+	dx = 5,
+	dy = 5,
+	EW = "periodic",
+	S = "out",
+	N = "force"
+
+	):
+	'''
+		Generates a slopping grid adn initialise an env with given boundaries to it. 
+		It comes with a connector and a graph (todo) alredy pre-prepared for boundaries
+	'''
+
+	# Zeros Topo
+	Z = arr.ravel()
+
+	# Generating the grid
+	grid = scb.RGrid(nx, ny, dx, dy, Z)
+
+	bc = np.ones((ny,nx),dtype = np.uint8)
+	bc[:,[0,-1]] = 9 if EW == "periodic" else (0 if EW == "noflow" else (4 if EW == "out" else 3)) #9 is periodic, 0 is no flow, 4 is normal out
+	bc[0,:] = 8 if N == "force" else (0 if N == "noflow" else (4 if N == "out" else 3))
+	bc[-1,:] = 5 if S == "force" else (4 if S == "out" else 3)
+	
+	if(EW == "noflow" or EW == "periodic"):
+		bc[[0,-1],0] = 0
+		bc[[0,-1],-1] = 0
+
+	env = Environment()
+	env.grid = grid
+	env.data = dag.Hermes()
+	env.data.set_surface(grid._Z)
+	env.data.set_boundaries(bc.ravel())
+	env.connector = dag.Connector8(env.grid.nx, env.grid.ny, env.grid.dx, env.grid.dy, env.data)
+	env.connector.set_condou(dag.CONBOU.CUSTOM)
+
+	return env
+
+
+
 
 

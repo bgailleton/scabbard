@@ -28,6 +28,23 @@ Features
 
 * TODO
 
+
+Experimental
+------------
+
+Among the experimental features is a tentative link to Blender to make nice 3D plots. The latter will only get activated if called from blender and will happily be ignored by most.
+
+Only tested on Ubuntu, it requires the following steps:
+
+1. identify the `python` version of your blender version
+2. create a new env with this python version
+3. install all the packages you need either with conda or pip.
+4. AFTER EVERY NEW ADDITIONS (of one or multiple packages at once) YOU'LL NEED TO LINK THE PACKAGES TO BLENDER:
+
+`ln -s /path/to/your/environment/site-packages/* ~/.config/blender/3.X/scripts/addons/modules/`
+
+Where you obviously need to adapts the paths and version number (yes I had multiple times the question "urgh it cannot find /path/to/your/environment")
+
 Credits
 -------
 
