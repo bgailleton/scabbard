@@ -7,14 +7,14 @@ from setuptools.command.install import install
 
 
 class PostInstallCommand(install):
-    """Post-installation for installation mode."""
-    def run(self):
-        # Call superclass's run method
-        install.run(self)
-        
-        # Your post-installation logic here
-        os.system("scb-reset-config")
-        print("KDSFDSJKFSLDKHF")
+	"""Post-installation for installation mode."""
+	def run(self):
+		# Call superclass's run method
+		install.run(self)
+		
+		# Your post-installation logic here
+		os.system("scb-reset-config")
+		print("KDSFDSJKFSLDKHF")
 
 
 
@@ -58,9 +58,12 @@ setup(
 	keywords='scabbard',
 	name='pyscabbard',
 	packages=find_packages(include=['scabbard', 'scabbard.*']),
+	package_data={
+		'': ['data/config.json'],  # Include your config.json file
+	},
 	cmdclass={
-        'install': PostInstallCommand,
-    },
+		'install': PostInstallCommand,
+	},
 	test_suite='tests',
 	tests_require=test_requirements,
 	url='https://github.com/bgailleton/scabbard',

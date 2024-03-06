@@ -6,6 +6,7 @@ __version__ = '0.0.1'
 
 from .config import *
 from .enumeration import *
+from .shape_functions import *
 from .io import *
 from .fastflood import *
 from .geography import *
