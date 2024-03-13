@@ -57,9 +57,10 @@ setup(
 	include_package_data=True,
 	keywords='scabbard',
 	name='pyscabbard',
-	packages=find_packages(include=['scabbard', 'scabbard.*']),
+	packages=find_packages(),
 	package_data={
-		'': ['data/config.json'],  # Include your config.json file
+		'scabbard': ['data/*.json'],  # Include your config.json file
+		'scabbard': ['steenbok/*.cu'],  # Include your config.json file
 	},
 	cmdclass={
 		'install': PostInstallCommand,

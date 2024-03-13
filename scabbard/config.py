@@ -2,13 +2,15 @@ import json
 import click
 import pkg_resources
 from importlib import resources 
-
+import os
 
 try:
 	# Path to your JSON file
 	# with resources.open_text('scabbard', 'config.json') as config_file:
 		# config_fname = config_file.name
-	config_fname = pkg_resources.resource_filename('scabbard', 'data/config.json')
+	# config_fname = pkg_resources.resource_filename('scabbard', 'data/config.json')
+	config_fname = os.path.join(os.path.dirname(__file__), 'data', 'config.json')
+
 except:
 	print("Unable to read config")
 	pass

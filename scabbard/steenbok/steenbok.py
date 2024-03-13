@@ -1,0 +1,230 @@
+# try:
+import pycuda
+import pycuda.autoinit
+import pycuda.driver as drv
+from pycuda.compiler import SourceModule
+import scabbard.steenbok._functions as funcu
+import scabbard.steenbok.dtype_helper as typh
+import scabbard.steenbok.kernel_utils as kut
+from scabbard.steenbok.paramGf import *
+# except:
+# 	print('pycuda is not importable, please check its installation in order to use steenbok submodules')
+
+import scabbard as scb
+import numpy as np
+import math as m
+import os
+
+
+class cuenv:
+
+	def __init__(self, env, topology = "D4"):
+		'''
+
+		'''
+		
+		self.env = env
+		
+		self._constants = {}
+		
+		self._arrays = {}
+		
+		self.topology = topology
+		
+		self.mod, self.functions = funcu.build_kernel(self.topology)
+
+		self.gBlock = None
+		self.gGrid = None
+
+		self.grid_setup = False
+
+
+		self.param_graphflood = None
+		
+
+	def setup_grid(self):
+		'''
+
+		'''
+		nodata = -2147483648
+		nx,ny = self.env.grid.nx, self.env.grid.ny
+		dx,dy = self.env.grid.dx, self.env.grid.dy
+		dxy = m.sqrt(dx**2 + dy**2)
+
+
+		# grid dimensions
+		kut.set_constant(self.mod, self.env.grid.nx, "NX", 'i32')
+		kut.set_constant(self.mod, self.env.grid.ny, "NY", 'i32')
+		kut.set_constant(self.mod, nodata, "NODATA", 'i32')
+		kut.set_constant(self.mod, self.env.grid.nxy, "NXY", 'i32')
+
+		# grid spacing
+		kut.set_constant(self.mod, self.env.grid.dy, "DY", 'f32')
+		kut.set_constant(self.mod, self.env.grid.dx, "DX", 'f32')
+		kut.set_constant(self.mod, self.env.grid.dx * self.env.grid.dy, "CELLAREA", 'f32')
+
+
+		# neighbourer and other spatialisers
+		# Initialize and copy the constant arrays
+		neighbourers = []
+		if(self.topology == "D8"):
+			neighbourers.append(np.array([ -nx-1 , -nx , -nx+1 , -1 , 1 , nx-1 , nx , nx+1 ], dtype=np.int32))
+			neighbourers.append(np.array([nodata, nodata , nodata , nodata , 1 , nodata , nx , nx+1 ], dtype=np.int32))
+			neighbourers.append(np.array([ nodata , nodata , nodata , -1 , 1 , nx-1 , nx , nx+1 ], dtype=np.int32))
+			neighbourers.append(np.array([ nodata , nodata , nodata , -1 , nodata , nx-1 , nx , nodata ], dtype=np.int32))
+			neighbourers.append(np.array([ nodata , -nx , -nx+1 , nodata , 1 , nodata , nx , nx+1 ], dtype=np.int32))
+			neighbourers.append(np.array([ -nx-1 , -nx , nodata , -1 , nodata , nx-1 , nx , nodata ], dtype=np.int32))
+			neighbourers.append(np.array([ nodata , -nx , -nx+1 , nodata , 1 , nodata , nodata , nodata ], dtype=np.int32))
+			neighbourers.append(np.array([ -nx-1 , -nx , -nx+1 , -1 , 1 , nodata , nodata , nodata ], dtype=np.int32))
+			neighbourers.append(np.array([ -nx-1 , -nx , nodata , -1 , nodata , nodata , nodata , nodata ], dtype=np.int32))
+		elif(self.topology == "D4"):
+			neighbourers.append(np.array([  -nx , -1 , 1 , nx  ], dtype=np.int32))
+			neighbourers.append(np.array([ nodata  , nodata , 1  , nx ], dtype=np.int32))
+			neighbourers.append(np.array([   nodata  , -1 , 1 ,  nx  ], dtype=np.int32))
+			neighbourers.append(np.array([  nodata ,  -1 , nodata ,  nx  ], dtype=np.int32))
+			neighbourers.append(np.array([ -nx , nodata , 1 , nx ], dtype=np.int32))
+			neighbourers.append(np.array([  -nx ,  -1 , nodata , nx  ], dtype=np.int32))
+			neighbourers.append(np.array([   -nx ,  nodata , 1 ,  nodata  ], dtype=np.int32))
+			neighbourers.append(np.array([  -nx ,  -1 , 1 ,  nodata  ], dtype=np.int32))
+			neighbourers.append(np.array([  -nx ,  -1 , nodata , nodata  ], dtype=np.int32))
+
+		kut.set_constant(self.mod, neighbourers, "NEIGHBOURERS", 'i32')
+		dXs = np.array([dxy, dy, dxy, dx, dx, dxy, dy, dxy], dtype=np.float32) if self.topology == "D8" else np.array([ dy, dx, dx, dy], dtype=np.float32)
+		dYs = np.array([dxy, dx, dxy, dy, dy, dxy, dx, dxy], dtype=np.float32) if self.topology == "D8" else np.array([ dx, dy, dy, dx], dtype=np.float32)
+
+		kut.set_constant(self.mod, dXs, "DXS", 'f32')
+		kut.set_constant(self.mod, dYs, "DYS", 'f32')
+
+
+		self._arrays['Z'] = kut.arrayHybrid(self.mod, self.env.grid._Z, "Z", 'f32')
+		self._arrays['BC'] = kut.arrayHybrid(self.mod, self.env.data.get_boundaries(), "BC", 'u8')
+
+		# grid block for the landscape
+		block_size_x = 32
+		block_size_y = 32
+		self.gBlock = (int(block_size_x), int(block_size_y), 1)
+		grid_size_x = (nx + block_size_x - 1) // block_size_x
+		grid_size_y = (ny + block_size_y - 1) // block_size_y
+		self.gGrid = (int(grid_size_x), int(grid_size_y))
+
+		self.grid_setup = True
+
+
+	def setup_graphflood(self, paramGf = ParamGf()):
+		'''
+
+		'''
+
+		# Setting up the morpho part of the code
+
+		self.param_graphflood = paramGf
+
+		self._arrays['hw'] = kut.aH_zeros(self.mod, self.env.grid.nxy, 'f32', ref = "hw")
+
+		self._arrays['QwA'] = kut.aH_zeros(self.mod, self.env.grid.nxy, 'f32', ref = "QwA")
+
+		self._arrays['QwB'] = kut.aH_zeros(self.mod, self.env.grid.nxy, 'f32', ref = "QwB")
+
+		if(self.param_graphflood.mode == InputMode.input_point):
+			self._arrays['input_Qw'] = kut.arrayHybrid(self.mod, self.param_graphflood.input_Qw, 'input_Qw', 'f32')
+			self._arrays['input_Qs'] = kut.arrayHybrid(self.mod, self.param_graphflood.input_Qs, 'input_Qs', 'f32')
+			self._arrays['input_nodes'] = kut.arrayHybrid(self.mod, self.param_graphflood.input_nodes, 'input_nodes', 'i32')
+
+		kut.set_constant(self.mod, self.param_graphflood.manning, "MANNING", 'f32')
+		kut.set_constant(self.mod, self.param_graphflood.dt_hydro, "DT_HYDRO", 'f32')
+
+		if(self.param_graphflood.mode == InputMode.input_point):
+			block_input = 256  # This is an arbitrary value; tune it based on your GPU architecture
+			grid_input = (self.param_graphflood.input_nodes.shape[0] + block_input - 1) // block_input
+			self.param_graphflood.iBlock = (block_input,1,1)
+			self.param_graphflood.iGrid = (grid_input,1)
+
+
+		if(self.param_graphflood.morpho):
+			kut.set_constant(self.mod, self.param_graphflood.rho_water , "RHO_WATER", 'f32')
+			kut.set_constant(self.mod, self.param_graphflood.rho_sediment , "RHO_SEDIMENT", 'f32')
+			kut.set_constant(self.mod, self.param_graphflood.gravity , "GRAVITY", 'f32')
+			kut.set_constant(self.mod, self.param_graphflood.E_MPM , "E_MPM", 'f32')
+			kut.set_constant(self.mod, self.param_graphflood.tau_c , "TAU_C", 'f32')
+			kut.set_constant(self.mod, self.param_graphflood.dt_morpho , "DT_MORPHO", 'f32')
+
+			self._arrays['QsA'] = kut.aH_zeros(self.mod, self.env.grid.nxy, 'f32', ref = "QsA")
+			self._arrays['QsB'] = kut.aH_zeros(self.mod, self.env.grid.nxy, 'f32', ref = "QsB")
+
+
+	def run_graphflood(self, n_iterations = 100, verbose = False, nmorpho = 10):
+		for i in range(n_iterations):
+			if(i % 1000 == 0):
+				print(i,end='     \r') if verbose else 0
+			self.functions["grid2val"](self._arrays['QwB']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
+			
+			if(self.param_graphflood.mode == InputMode.input_point):
+				self.functions["add_Qw_local"](self._arrays['input_nodes']._gpu , self._arrays['input_Qw']._gpu , self._arrays['QwA']._gpu , self._arrays['QwB']._gpu , np.int32(self.param_graphflood.input_nodes.shape[0]), block = self.param_graphflood.iBlock, grid = self.param_graphflood.iGrid)
+			else:
+				self.functions["add_Qw_global"](self._arrays['QwA']._gpu, np.float32(self.param_graphflood.Prate), self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+
+			self.functions["compute_Qwin"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+			self.functions["swapQwin"](self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, block = self.gBlock, grid = self.gGrid)
+			self.functions["compute_Qwout"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwB']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+			self.functions["increment_hw"](self._arrays['hw']._gpu, self._arrays['Z']._gpu,self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+
+			if(self.param_graphflood.morpho and i % nmorpho ==0):
+				self.functions["grid2val"](self._arrays['QsA']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
+				self.functions["grid2val"](self._arrays['QsB']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
+			
+				if(self.param_graphflood.mode == InputMode.input_point):
+					self.functions["add_Qs_local"](self._arrays['input_nodes']._gpu , self._arrays['input_Qs']._gpu , self._arrays['QsA']._gpu , self._arrays['QsB']._gpu , np.int32(self.param_graphflood.input_nodes.shape[0]), block = self.param_graphflood.iBlock, grid = self.param_graphflood.iGrid)
+				# else:
+				# 	self.functions["add_Qs_global"](self._arrays['QsA']._gpu, np.float32(self.param_graphflood.Prate), self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+
+				self.functions["compute_MPM"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QsA']._gpu, self._arrays['QsB']._gpu, self._arrays['BC']._gpu,block = self.gBlock, grid = self.gGrid)
+				
+				self.functions["increment_hs"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QsA']._gpu, self._arrays['QsB']._gpu, self._arrays['BC']._gpu,block = self.gBlock, grid = self.gGrid)
+
+
+
+	def testSS(self):
+
+		if(self.grid_setup == False):
+			print('need to set up the grid before running', kut.get_current_function_name())
+			return
+			
+		tSS = kut.aH_zeros_like(self.mod, self.env.grid._Z, 'f32')
+		self.functions["calculate_SS"](self._arrays['Z']._gpu, tSS._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+		ret = tSS.get()
+		tSS.delete()
+		return ret
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# end of file
+		
+		
+		
+		
+		
+		
+		
+		
