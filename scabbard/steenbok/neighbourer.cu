@@ -72,6 +72,20 @@ __device__ bool get_neighbour(int idx, int adder, int j, int& nidx){
 	return true;
 }
 
+// __device__ bool get_oneighbourA(int idx, int adder, int j, int& nidx){
+// 	int tadd = ONEIGHBOURERSA[adder][j];
+// 	if( tadd == NODATA) return false;
+// 	nidx = idx + tadd;
+// 	return true;
+// }
+
+// __device__ bool get_oneighbourB(int idx, int adder, int j, int& nidx){
+// 	int tadd = ONEIGHBOURERSB[adder][j];
+// 	if( tadd == NODATA) return false;
+// 	nidx = idx + tadd;
+// 	return true;
+// }
+
 
 
 

@@ -8,6 +8,7 @@
 
 
 #ifdef ISD8
+// #if True
 // computes MPM equations
 __global__ void compute_MPM(float *hw, float *Z, float *QsA, float *QsB, uint8_t *BC) {
 
@@ -132,3 +133,147 @@ __global__ void compute_MPM(float *hw, float *Z, float *QsA, float *QsB, uint8_t
 
 }
 #endif
+
+
+
+
+
+__global__ void compute_MPM_SS(float *hw, float *Z, float *QsA, float *QsB, uint8_t *BC) {
+
+    // Getting the right IF
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    int idx,adder;
+	if(get_index(x, y, idx, adder, BC) == false) return;
+	if(BC::can_out(BC[idx]) == true){return;};
+
+    float surface_idx = hw[idx] + Z[idx];
+
+    float SSdy = 1.;
+    float SS = -1;
+    int SSnidx = -1;
+
+    for(int j=0;j<NNEIGHBOURS;++j){
+
+		int nidx;
+		if(get_neighbour(idx, adder, j, nidx) == false) continue;
+		
+        
+        // calculating local weight (i.e. Sw * dy)
+        float ts = surface_idx - (hw[nidx] + Z[nidx]);
+
+        if(ts<0) continue; // aborting if higher neighbour
+        
+        // finishing slope calc
+        ts /= DXS[j];
+
+        if(ts > SS){
+            SS = ts;
+            SSdy = DYS[j];
+        	SSnidx = nidx;
+        }
+
+    }
+
+    if(SSnidx == -1) return;
+
+    if(RHO_WATER * GRAVITY * SS * hw[idx] <= TAU_C) return;
+
+    float capacity = E_MPM * pow(RHO_WATER * GRAVITY * SS * hw[idx] - TAU_C, 1.5) * SSdy;
+
+    QsB[idx] = capacity;
+	atomicAdd(&QsA[SSnidx], capacity );
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// end of file

@@ -47,13 +47,26 @@ __global__ void increment_hs(float *hw, float *Z,float *QsA, float *QsB, unsigne
 	double dhs = (double(QsA[idx]) - double(QsB[idx]))/ CELLAREA * DT_MORPHO;
 	// if(dhs > 0) printf("dhs = %f", dhs);
     // if(QsA[idx]>0) printf(" %f / %f  => %f\n", QsA[idx] -  QsB[idx], CELLAREA, dhs);
-
+	// dhs = min(dhs,1e-2);
+	
 	Z[idx] += float(dhs);
 
 
 }
 
+// intermediate function required tofinalise the new Qwin
+__global__ void swapQsin(float *QsA, float *QsB) {
 
+	// Getting the right IF
+	int x = threadIdx.x + blockIdx.x * blockDim.x;
+	int y = threadIdx.y + blockIdx.y * blockDim.y;
+	int idx;
+	if(get_index_raw(x, y, idx) == false) return;
+	
+	QsA[idx] = QsB[idx];
+	QsB[idx] = 0.;
+
+}
 
 
 

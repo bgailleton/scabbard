@@ -105,7 +105,9 @@ __global__ void swapQwin(float *QwA, float *QwB) {
 }
 
 
-#ifdef ISD8
+// #ifdef ISD8
+// #if true
+#if true // Forcing stencil approach whatever
 // compute Qwout using Gailleton et al 2024
 __global__ void compute_Qwout(float *hw, float *Z, float *QwB, unsigned char *BC) {
 
@@ -142,12 +144,113 @@ __global__ void compute_Qwout(float *hw, float *Z, float *QwB, unsigned char *BC
 
 	if(SS == -1) return;
 
-	QwB[idx] = SSdy/MANNING * hw[idx] * sqrt(SS);
+	QwB[idx] = SSdy/MANNING * pow(hw[idx],5./3.) * sqrt(SS);
 
 }
 #else
 // compute Qwout using Gailleton et al 2024
 __global__ void compute_Qwout(float *hw, float *Z, float *QwB, unsigned char *BC) {
+
+	// Getting the right IF
+	int x = threadIdx.x + blockIdx.x * blockDim.x;
+	int y = threadIdx.y + blockIdx.y * blockDim.y;
+	int idx,adder;
+	if(get_index(x, y, idx, adder, BC) == false) return;
+	if(BC::can_out(BC[idx]) == true){return;}; 
+
+	float surface_idx = hw[idx] + Z[idx];
+
+	QwB[idx] = 0.;
+
+
+	for(int j=0;j<NNEIGHBOURS;++j){
+
+		int nidx;
+		if(get_neighbour(idx, adder, j, nidx) == false) continue;
+		
+		// calculating local weight (i.e. Sw * dy)
+		float ts = surface_idx - (hw[nidx] + Z[nidx]);
+
+		if(ts<0) continue; // aborting if higher neighbour
+		
+		// finishing slope calc
+		ts /= DXS[j];
+
+		QwB[idx] += DYS[j]/MANNING * pow(hw[idx],5./3.) * sqrt(ts);;
+	}
+
+}
+#endif
+
+
+// #ifdef ISD8
+#if true // Forcing stencil approach whatever
+// compute Qwout using Gailleton et al 2024
+__global__ void compute_Qw_dyn(float *hw, float *Z, float *QwA, float *QwB, unsigned char *BC) {
+
+	// Getting the right IF
+	int x = threadIdx.x + blockIdx.x * blockDim.x;
+	int y = threadIdx.y + blockIdx.y * blockDim.y;
+	int idx,adder;
+	if(get_index(x, y, idx, adder, BC) == false) return;
+	if(BC::can_out(BC[idx]) == true){return;}; 
+
+	float surface_idx = hw[idx] + Z[idx];
+
+	float weights[NNEIGHBOURS];
+
+	for(int j=0;j<NNEIGHBOURS;++j){
+		weights[j] = 0.;
+	}
+
+	float sumWeights = 0.;
+
+	float SS = -1;
+	float SSdy = 1.;
+
+	for(int j=0;j<NNEIGHBOURS;++j){
+
+		int nidx;
+		if(get_neighbour(idx, adder, j, nidx) == false) continue;
+		
+		// calculating local weight (i.e. Sw * dy)
+		float ts = surface_idx - (hw[nidx] + Z[nidx]);
+
+		if(ts<0) continue; // aborting if higher neighbour
+		
+		// finishing slope calc
+		ts /= DXS[j];
+
+		float tw = ts * DYS[j];
+
+		// saving weight
+		weights[j] = tw;
+
+		// summing all of em'
+		sumWeights += tw;
+
+		if(ts > SS){
+			SS = ts;
+			SSdy = DYS[j];
+		}
+	}
+
+	if(SS == -1 || sumWeights <= 0 ) return;
+
+	QwB[idx] = SSdy/MANNING * pow(hw[idx],5./3.) * sqrt(SS);
+
+	for(int j=0;j<NNEIGHBOURS;++j){
+		if(weights[j] <= 0) continue;
+		int nidx;
+		if(get_neighbour(idx, adder, j, nidx) == false) continue;
+		
+		atomicAdd(&QwA[nidx], QwB[idx] * weights[j]/sumWeights);
+	}
+
+}
+#else
+// compute Qwout using Gailleton et al 2024
+__global__ void compute_Qw_dyn(float *hw, float *Z, float *QwA, float *QwB, unsigned char *BC) {
 
 	// Getting the right IF
 	int x = threadIdx.x + blockIdx.x * blockDim.x;

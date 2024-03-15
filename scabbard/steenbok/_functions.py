@@ -27,6 +27,7 @@ def concat_kernel_code(topology):
 	"graphflood_hydro.cu",
 	"graphflood_morpho_general.cu",
 	"graphflood_morpho_MPM.cu",
+	"graphflood_morpho_EROS.cu",
 	]
 
 	for file in files:

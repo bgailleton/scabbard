@@ -6,6 +6,14 @@ class InputMode(Enum):
 	varying_P = 1
 	input_point = 2
 
+class HydroMode(Enum):
+	static = 0
+	dynamic = 1
+
+class MorphoMode(Enum):
+	MPM = 0
+	eros_MPM = 1
+
 class ParamGf(object):
 	"""
 		Docstring for ParamGf
@@ -27,6 +35,7 @@ class ParamGf(object):
 
 		
 		self.morpho = False
+		self.morphomode = MorphoMode.eros_MPM
 		self.rho_water = 1000
 		self.rho_sediment = 2650
 		self.gravity = 9.81
@@ -36,11 +45,20 @@ class ParamGf(object):
 		self.dt_morpho = 1e-3
 
 
+		self.k_erosion = 1.
+		self.l_transp = 10.
+		self.k_lat = 0.5
+
+		self.hydro_mode = HydroMode.static
+
+
 	def calculate_MPM_from_D(self, D):
 		R = self.rho_sediment/self.rho_water - 1
 		self.tau_c = self.rho_water * self.gravity * R * D * self.theta_c
 		self.E_MPM = 8/(self.rho_water**0.5 * (self.rho_sediment - self.rho_water) * self.gravity)
-		print("tau_c is", self.tau_c,"E:", self.E_MPM)
+		self.k_erosion = self.E_MPM/self.l_transp
+
+		print("tau_c is", self.tau_c,"E:", self.E_MPM, "K", self.k_erosion)
 
 
 	def set_input_points(self, nodes, Qw, Qs = None):
