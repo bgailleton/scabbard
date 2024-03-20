@@ -21,6 +21,9 @@ __constant__ int NY;
 __constant__ int NXY;
 __constant__ int NODATA;
 
+//Boundary condition
+__constant__ float BOUND_SLOPE;
+
 // Constants to manage time steps
 __constant__ float DT_HYDRO;
 __constant__ float DT_MORPHO;
@@ -36,6 +39,11 @@ __constant__ float GRAVITY;
 __constant__ float K_EROS;
 __constant__ float L_EROS;
 __constant__ float KL_EROS;
+
+__constant__ float BS_K;
+__constant__ float BS_EXP;
+__constant__ float BS_MINHW;
+
 
 
 __constant__ float E_MPM;

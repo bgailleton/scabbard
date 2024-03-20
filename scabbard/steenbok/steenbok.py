@@ -99,36 +99,36 @@ class cuenv:
 			oneighbourersB.append(np.array([neighbourers[-1][1],neighbourers[-1][2],neighbourers[-1][4],neighbourers[-1][0],neighbourers[-1][7],neighbourers[-1][3],neighbourers[-1][5],neighbourers[-1][6]], dtype=np.int32))
 		elif(self.topology == "D4"):
 			neighbourers.append(np.array([  -nx , -1 , 1 , nx  ], dtype=np.int32))
-			oneighbourersA.append(np.array([neighbourers[-1][3],neighbourers[-1][0],neighbourers[-1][1],neighbourers[-1][5],neighbourers[-1][2],neighbourers[-1][6],neighbourers[-1][7],neighbourers[-1][4]], dtype=np.int32))
-			oneighbourersB.append(np.array([neighbourers[-1][1],neighbourers[-1][2],neighbourers[-1][4],neighbourers[-1][0],neighbourers[-1][7],neighbourers[-1][3],neighbourers[-1][5],neighbourers[-1][6]], dtype=np.int32))
+			oneighbourersA.append(np.array([neighbourers[-1][1], neighbourers[-1][0], neighbourers[-1][0],neighbourers[-1][2]], dtype=np.int32))
+			oneighbourersB.append(np.array([neighbourers[-1][2], neighbourers[-1][3], neighbourers[-1][3],neighbourers[-1][1]], dtype=np.int32))
 			neighbourers.append(np.array([ nodata  , nodata , 1  , nx ], dtype=np.int32))
-			oneighbourersA.append(np.array([neighbourers[-1][3],neighbourers[-1][0],neighbourers[-1][1],neighbourers[-1][5],neighbourers[-1][2],neighbourers[-1][6],neighbourers[-1][7],neighbourers[-1][4]], dtype=np.int32))
-			oneighbourersB.append(np.array([neighbourers[-1][1],neighbourers[-1][2],neighbourers[-1][4],neighbourers[-1][0],neighbourers[-1][7],neighbourers[-1][3],neighbourers[-1][5],neighbourers[-1][6]], dtype=np.int32))
+			oneighbourersA.append(np.array([neighbourers[-1][1], neighbourers[-1][0], neighbourers[-1][0],neighbourers[-1][2]], dtype=np.int32))
+			oneighbourersB.append(np.array([neighbourers[-1][2], neighbourers[-1][3], neighbourers[-1][3],neighbourers[-1][1]], dtype=np.int32))
 			neighbourers.append(np.array([   nodata  , -1 , 1 ,  nx  ], dtype=np.int32))
-			oneighbourersA.append(np.array([neighbourers[-1][3],neighbourers[-1][0],neighbourers[-1][1],neighbourers[-1][5],neighbourers[-1][2],neighbourers[-1][6],neighbourers[-1][7],neighbourers[-1][4]], dtype=np.int32))
-			oneighbourersB.append(np.array([neighbourers[-1][1],neighbourers[-1][2],neighbourers[-1][4],neighbourers[-1][0],neighbourers[-1][7],neighbourers[-1][3],neighbourers[-1][5],neighbourers[-1][6]], dtype=np.int32))
+			oneighbourersA.append(np.array([neighbourers[-1][1], neighbourers[-1][0], neighbourers[-1][0],neighbourers[-1][2]], dtype=np.int32))
+			oneighbourersB.append(np.array([neighbourers[-1][2], neighbourers[-1][3], neighbourers[-1][3],neighbourers[-1][1]], dtype=np.int32))
 			neighbourers.append(np.array([  nodata ,  -1 , nodata ,  nx  ], dtype=np.int32))
-			oneighbourersA.append(np.array([neighbourers[-1][3],neighbourers[-1][0],neighbourers[-1][1],neighbourers[-1][5],neighbourers[-1][2],neighbourers[-1][6],neighbourers[-1][7],neighbourers[-1][4]], dtype=np.int32))
-			oneighbourersB.append(np.array([neighbourers[-1][1],neighbourers[-1][2],neighbourers[-1][4],neighbourers[-1][0],neighbourers[-1][7],neighbourers[-1][3],neighbourers[-1][5],neighbourers[-1][6]], dtype=np.int32))
+			oneighbourersA.append(np.array([neighbourers[-1][1], neighbourers[-1][0], neighbourers[-1][0],neighbourers[-1][2]], dtype=np.int32))
+			oneighbourersB.append(np.array([neighbourers[-1][2], neighbourers[-1][3], neighbourers[-1][3],neighbourers[-1][1]], dtype=np.int32))
 			neighbourers.append(np.array([ -nx , nodata , 1 , nx ], dtype=np.int32))
-			oneighbourersA.append(np.array([neighbourers[-1][3],neighbourers[-1][0],neighbourers[-1][1],neighbourers[-1][5],neighbourers[-1][2],neighbourers[-1][6],neighbourers[-1][7],neighbourers[-1][4]], dtype=np.int32))
-			oneighbourersB.append(np.array([neighbourers[-1][1],neighbourers[-1][2],neighbourers[-1][4],neighbourers[-1][0],neighbourers[-1][7],neighbourers[-1][3],neighbourers[-1][5],neighbourers[-1][6]], dtype=np.int32))
+			oneighbourersA.append(np.array([neighbourers[-1][1], neighbourers[-1][0], neighbourers[-1][0],neighbourers[-1][2]], dtype=np.int32))
+			oneighbourersB.append(np.array([neighbourers[-1][2], neighbourers[-1][3], neighbourers[-1][3],neighbourers[-1][1]], dtype=np.int32))
 			neighbourers.append(np.array([  -nx ,  -1 , nodata , nx  ], dtype=np.int32))
-			oneighbourersA.append(np.array([neighbourers[-1][3],neighbourers[-1][0],neighbourers[-1][1],neighbourers[-1][5],neighbourers[-1][2],neighbourers[-1][6],neighbourers[-1][7],neighbourers[-1][4]], dtype=np.int32))
-			oneighbourersB.append(np.array([neighbourers[-1][1],neighbourers[-1][2],neighbourers[-1][4],neighbourers[-1][0],neighbourers[-1][7],neighbourers[-1][3],neighbourers[-1][5],neighbourers[-1][6]], dtype=np.int32))
+			oneighbourersA.append(np.array([neighbourers[-1][1], neighbourers[-1][0], neighbourers[-1][0],neighbourers[-1][2]], dtype=np.int32))
+			oneighbourersB.append(np.array([neighbourers[-1][2], neighbourers[-1][3], neighbourers[-1][3],neighbourers[-1][1]], dtype=np.int32))
 			neighbourers.append(np.array([   -nx ,  nodata , 1 ,  nodata  ], dtype=np.int32))
-			oneighbourersA.append(np.array([neighbourers[-1][3],neighbourers[-1][0],neighbourers[-1][1],neighbourers[-1][5],neighbourers[-1][2],neighbourers[-1][6],neighbourers[-1][7],neighbourers[-1][4]], dtype=np.int32))
-			oneighbourersB.append(np.array([neighbourers[-1][1],neighbourers[-1][2],neighbourers[-1][4],neighbourers[-1][0],neighbourers[-1][7],neighbourers[-1][3],neighbourers[-1][5],neighbourers[-1][6]], dtype=np.int32))
+			oneighbourersA.append(np.array([neighbourers[-1][1], neighbourers[-1][0], neighbourers[-1][0],neighbourers[-1][2]], dtype=np.int32))
+			oneighbourersB.append(np.array([neighbourers[-1][2], neighbourers[-1][3], neighbourers[-1][3],neighbourers[-1][1]], dtype=np.int32))
 			neighbourers.append(np.array([  -nx ,  -1 , 1 ,  nodata  ], dtype=np.int32))
-			oneighbourersA.append(np.array([neighbourers[-1][3],neighbourers[-1][0],neighbourers[-1][1],neighbourers[-1][5],neighbourers[-1][2],neighbourers[-1][6],neighbourers[-1][7],neighbourers[-1][4]], dtype=np.int32))
-			oneighbourersB.append(np.array([neighbourers[-1][1],neighbourers[-1][2],neighbourers[-1][4],neighbourers[-1][0],neighbourers[-1][7],neighbourers[-1][3],neighbourers[-1][5],neighbourers[-1][6]], dtype=np.int32))
+			oneighbourersA.append(np.array([neighbourers[-1][1], neighbourers[-1][0], neighbourers[-1][0],neighbourers[-1][2]], dtype=np.int32))
+			oneighbourersB.append(np.array([neighbourers[-1][2], neighbourers[-1][3], neighbourers[-1][3],neighbourers[-1][1]], dtype=np.int32))
 			neighbourers.append(np.array([  -nx ,  -1 , nodata , nodata  ], dtype=np.int32))
-			oneighbourersA.append(np.array([neighbourers[-1][3],neighbourers[-1][0],neighbourers[-1][1],neighbourers[-1][5],neighbourers[-1][2],neighbourers[-1][6],neighbourers[-1][7],neighbourers[-1][4]], dtype=np.int32))
-			oneighbourersB.append(np.array([neighbourers[-1][1],neighbourers[-1][2],neighbourers[-1][4],neighbourers[-1][0],neighbourers[-1][7],neighbourers[-1][3],neighbourers[-1][5],neighbourers[-1][6]], dtype=np.int32))
+			oneighbourersA.append(np.array([neighbourers[-1][1], neighbourers[-1][0], neighbourers[-1][0],neighbourers[-1][2]], dtype=np.int32))
+			oneighbourersB.append(np.array([neighbourers[-1][2], neighbourers[-1][3], neighbourers[-1][3],neighbourers[-1][1]], dtype=np.int32))
 
 		kut.set_constant(self.mod, neighbourers, "NEIGHBOURERS", 'i32')
-		# kut.set_constant(self.mod, oneighbourersA, "ONEIGHBOURERSA", 'i32')
-		# kut.set_constant(self.mod, oneighbourersB, "ONEIGHBOURERSB", 'i32')
+		kut.set_constant(self.mod, oneighbourersA, "ONEIGHBOURERSA", 'i32')
+		kut.set_constant(self.mod, oneighbourersB, "ONEIGHBOURERSB", 'i32')
 		dXs = np.array([dxy, dy, dxy, dx, dx, dxy, dy, dxy], dtype=np.float32) if self.topology == "D8" else np.array([ dy, dx, dx, dy], dtype=np.float32)
 		dYs = np.array([dxy, dx, dxy, dy, dy, dxy, dx, dxy], dtype=np.float32) if self.topology == "D8" else np.array([ dx, dy, dy, dx], dtype=np.float32)
 
@@ -172,6 +172,8 @@ class cuenv:
 
 		kut.set_constant(self.mod, self.param_graphflood.manning, "MANNING", 'f32')
 		kut.set_constant(self.mod, self.param_graphflood.dt_hydro, "DT_HYDRO", 'f32')
+		kut.set_constant(self.mod, self.param_graphflood.boundary_slope, "BOUND_SLOPE", 'f32')
+
 
 		if(self.param_graphflood.mode == InputMode.input_point):
 			block_input = 256  # This is an arbitrary value; tune it based on your GPU architecture
@@ -189,6 +191,9 @@ class cuenv:
 			kut.set_constant(self.mod, self.param_graphflood.k_erosion , "K_EROS", 'f32')
 			kut.set_constant(self.mod, self.param_graphflood.l_transp , "L_EROS", 'f32')
 			kut.set_constant(self.mod, self.param_graphflood.k_lat , "KL_EROS", 'f32')
+			kut.set_constant(self.mod, self.param_graphflood.bs_hw , "BS_MINHW", 'f32')
+			kut.set_constant(self.mod, self.param_graphflood.bs_k , "BS_K", 'f32')
+			kut.set_constant(self.mod, self.param_graphflood.bs_exp , "BS_EXP", 'f32')
 
 
 
@@ -197,6 +202,7 @@ class cuenv:
 			self._arrays['QsA'] = kut.aH_zeros(self.mod, self.env.grid.nxy, 'f32', ref = "QsA")
 			self._arrays['QsB'] = kut.aH_zeros(self.mod, self.env.grid.nxy, 'f32', ref = "QsB")
 			self._arrays['QsC'] = kut.aH_zeros(self.mod, self.env.grid.nxy, 'f32', ref = "QsC")
+			self._arrays['QsD'] = kut.aH_zeros(self.mod, self.env.grid.nxy, 'f32', ref = "QsD")
 
 
 	def run_graphflood(self, n_iterations = 100, verbose = False, nmorpho = 10):
@@ -225,6 +231,7 @@ class cuenv:
 			if(self.param_graphflood.morpho and i % nmorpho ==0 and self.param_graphflood.morphomode == MorphoMode.MPM):
 				# self.functions["grid2val"](self._arrays['QsA']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
 				self.functions["grid2val"](self._arrays['QsB']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
+				self.functions["grid2val"](self._arrays['QsD']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
 				# self.functions["grid2val"](self._arrays['QsC']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
 			
 				if(self.param_graphflood.mode == InputMode.input_point):
@@ -247,9 +254,10 @@ class cuenv:
 				# else:
 				# 	self.functions["add_Qs_global"](self._arrays['QsA']._gpu, np.float32(self.param_graphflood.Prate), self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
 
-				self.functions["compute_EROS_SS"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QsA']._gpu, self._arrays['QsB']._gpu, self._arrays['QsC']._gpu, self._arrays['BC']._gpu,block = self.gBlock, grid = self.gGrid)
+				self.functions["compute_EROS_SS"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QsA']._gpu, self._arrays['QsB']._gpu, self._arrays['QsC']._gpu, self._arrays['QsD']._gpu, self._arrays['BC']._gpu,block = self.gBlock, grid = self.gGrid)
+				# self.functions["bedslip"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QsA']._gpu, self._arrays['QsD']._gpu, self._arrays['BC']._gpu,block = self.gBlock, grid = self.gGrid)
 				
-				self.functions["increment_hs"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QsA']._gpu, self._arrays['QsB']._gpu, self._arrays['BC']._gpu,block = self.gBlock, grid = self.gGrid)
+				self.functions["increment_hs"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QsA']._gpu, self._arrays['QsB']._gpu, self._arrays['QsD']._gpu, self._arrays['BC']._gpu,block = self.gBlock, grid = self.gGrid)
 				self.functions["swapQsin"](self._arrays['QsA']._gpu, self._arrays['QsC']._gpu, block = self.gBlock, grid = self.gGrid)
 
 			

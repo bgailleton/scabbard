@@ -49,6 +49,7 @@ setup(
 				'scb-graphflood=scabbard.phineas:graphflood_basic' ,
 				'scb-debugger=scabbard.phineas:_debug_1' ,
 				'scb-reset-config=scabbard.config:defaultConfig' ,
+				'scb-visu2D=scabbard.phineas:visu2Dnpy' ,
 		],
 	},
 	install_requires=requirements,

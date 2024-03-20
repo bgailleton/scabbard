@@ -45,16 +45,23 @@ class ParamGf(object):
 		self.dt_morpho = 1e-3
 
 
+
 		self.k_erosion = 1.
 		self.l_transp = 10.
 		self.k_lat = 0.5
 
+		self.bs_k = 1e-6
+		self.bs_hw = 0.05
+		self.bs_exp = 6
+
 		self.hydro_mode = HydroMode.static
+
+		self.boundary_slope = 1e-2
 
 
 	def calculate_MPM_from_D(self, D):
 		R = self.rho_sediment/self.rho_water - 1
-		self.tau_c = self.rho_water * self.gravity * R * D * self.theta_c
+		self.tau_c = (self.rho_sediment - self.rho_water) * self.gravity  * D * self.theta_c
 		self.E_MPM = 8/(self.rho_water**0.5 * (self.rho_sediment - self.rho_water) * self.gravity)
 		self.k_erosion = self.E_MPM/self.l_transp
 

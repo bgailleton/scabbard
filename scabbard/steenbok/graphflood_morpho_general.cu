@@ -31,7 +31,7 @@ __global__ void add_Qs_local(int *indices, float *values, float *QsA, float *QsB
 
 
 // Increment water function of the divergence of the fluxes
-__global__ void increment_hs(float *hw, float *Z,float *QsA, float *QsB, unsigned char *BC) {
+__global__ void increment_hs(float *hw, float *Z,float *QsA, float *QsB, float *QsD, unsigned char *BC) {
 
 	// Getting the right IF
 	int x = threadIdx.x + blockIdx.x * blockDim.x;
@@ -44,7 +44,7 @@ __global__ void increment_hs(float *hw, float *Z,float *QsA, float *QsB, unsigne
     // if(QsA[idx]>0) printf("A%f \n", QsA[idx]);
     // if(QsB[idx]>0) printf("B%f \n", QsB[idx]);
 
-	double dhs = (double(QsA[idx]) - double(QsB[idx]))/ CELLAREA * DT_MORPHO;
+	double dhs = (double(QsA[idx]) - double(QsB[idx]) - double(QsD[idx]))/ CELLAREA * DT_MORPHO;
 	// if(dhs > 0) printf("dhs = %f", dhs);
     // if(QsA[idx]>0) printf(" %f / %f  => %f\n", QsA[idx] -  QsB[idx], CELLAREA, dhs);
 	// dhs = min(dhs,1e-2);
@@ -65,6 +65,53 @@ __global__ void swapQsin(float *QsA, float *QsB) {
 	
 	QsA[idx] = QsB[idx];
 	QsB[idx] = 0.;
+
+}
+
+
+__global__ void bedslip(float *hw, float *Z, float* QsA, float* QsD, unsigned char *BC) {
+
+	// Getting the right IF
+	int x = threadIdx.x + blockIdx.x * blockDim.x;
+	int y = threadIdx.y + blockIdx.y * blockDim.y;
+	int idx,adder;
+	if(get_index(x, y, idx, adder, BC) == false) return;
+	if(BC::can_out(BC[idx]) == true){return;}; 
+
+	if(hw[idx] < BS_MINHW) return;
+
+	
+
+
+
+	float SS = -1;
+	float SSdy = 1.;
+
+	for(int j=0;j<NNEIGHBOURS;++j){
+
+		int nidx;
+		if(get_neighbour(idx, adder, j, nidx) == false) continue;
+		
+		// calculating local weight (i.e. Sw * dy)
+		float ts = Z[idx] - Z[nidx];
+
+		if(ts<0) continue; // aborting if higher neighbour
+		
+		// finishing slope calc
+		ts /= DXS[j];
+
+		float terr = BS_K * pow(ts,BS_EXP);
+		if(BC::can_out(BC[nidx])){
+			continue;
+		}
+
+		QsD[idx] += terr * CELLAREA;
+		atomicAdd(&QsA[nidx], terr * CELLAREA);		
+	}
+
+	if(SS == -1) return;
+
+	// QwB[idx] = SSdy/MANNING * pow(hw[idx],5./3.) * sqrt(SS);
 
 }
 

@@ -4,7 +4,7 @@
 */
 
 
-__global__ void compute_EROS_SS(float *hw, float *Z, float *QsA, float *QsB,  float *QsC, uint8_t *BC) {
+__global__ void compute_EROS_SS(float *hw, float *Z, float *QsA, float *QsB,  float *QsC,  float *QsD, uint8_t *BC) {
 
     // Getting the right IF
     int x = threadIdx.x + blockIdx.x * blockDim.x;
@@ -21,6 +21,8 @@ __global__ void compute_EROS_SS(float *hw, float *Z, float *QsA, float *QsB,  fl
     int SSnidx = -1;
     int SSj = -1;
 
+    bool bound = false;
+
     for(int j=0;j<NNEIGHBOURS;++j){
 
 		int nidx;
@@ -30,10 +32,22 @@ __global__ void compute_EROS_SS(float *hw, float *Z, float *QsA, float *QsB,  fl
         // calculating local weight (i.e. Sw * dy)
         float ts = surface_idx - (hw[nidx] + Z[nidx]);
 
-        if(ts<0) continue; // aborting if higher neighbour
+        if(ts <= 1e-6) continue; // aborting if higher neighbour
         
         // finishing slope calc
         ts /= DXS[j];
+
+        if(BC::can_out(BC[nidx]))
+        {
+            bound = true;
+            ts = BOUND_SLOPE;
+            SS = ts;
+            SSdy = DYS[j];
+            SSdx = DXS[j];
+            SSnidx = nidx;
+            SSj = j;
+            break;
+        }
 
         if(ts > SS){
             SS = ts;
@@ -51,27 +65,32 @@ __global__ void compute_EROS_SS(float *hw, float *Z, float *QsA, float *QsB,  fl
     float eldot = 0.;
 
 
+    // float tau = RHO_WATER * GRAVITY * SS * min(hw[idx],1.);
     float tau = RHO_WATER * GRAVITY * SS * hw[idx];
     if(tau > TAU_C){
         edot = K_EROS * pow(tau - TAU_C,1.5);
 
-        // int onei;
-        // if(get_oneighbourA(idx, adder, SSj, onei)){
-        //     float tlatslope = (Z[onei] - Z[idx])/SSdy;
-        //     if(tlatslope > 0){
-        //         float teldot =  tlatslope * KL_EROS * edot;
-        //         eldot += teldot;
-        //         atomicAdd(&QsB[onei],teldot * SSdy * SSdx);
-        //     }
-        // }
-        // if(get_oneighbourB(idx, adder, SSj, onei)){
-        //     float tlatslope = (Z[onei] - Z[idx])/SSdy;
-        //     if(tlatslope > 0){
-        //         float teldot =  tlatslope * KL_EROS * edot;
-        //         eldot += teldot;
-        //         atomicAdd(&QsB[onei],teldot * SSdy * SSdx);
-        //     }
-        // }
+        int onei;
+        if(bound == false){
+            if(get_oneighbourA(idx, adder, SSj, onei)){
+                float tlatslope = (Z[onei] - Z[idx])/SSdy;
+                if(tlatslope > 0){
+                    float teldot =  tlatslope * KL_EROS * edot;
+                    if(teldot * DT_MORPHO > (Z[onei] - Z[idx]) ) teldot = (Z[onei] - Z[idx])/DT_MORPHO;
+                    eldot += teldot;
+                    atomicAdd(&QsD[onei], teldot * SSdy * SSdx);
+                }
+            }
+            if(get_oneighbourB(idx, adder, SSj, onei)){
+                float tlatslope = (Z[onei] - Z[idx])/SSdy;
+                if(tlatslope > 0){
+                    float teldot =  tlatslope * KL_EROS * edot;
+                    if(teldot * DT_MORPHO > (Z[onei] - Z[idx]) ) teldot = (Z[onei] - Z[idx])/DT_MORPHO;
+                    eldot += teldot;
+                    atomicAdd(&QsD[onei], teldot * SSdy * SSdx);
+                }
+            }
+        }
 
     }
 

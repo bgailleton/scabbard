@@ -113,3 +113,175 @@ def _debug_1(fname):
 		dem.add_random_noise(-10,10)
 		atlas.update()
 	input("press Enter to continue")
+
+
+
+
+
+@click.command()
+@click.argument('fname', type = str)
+def visu2Dnpy(fname):
+
+	import sys
+	import numpy as np
+	import matplotlib.pyplot as plt
+	from matplotlib.backends.backend_qtagg import FigureCanvas
+	from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
+
+	# from PySide6 import QtWidgets, QtCore
+	from matplotlib.backends.qt_compat import QtWidgets, QtCore
+	import matplotlib
+	from matplotlib.lines import Line2D
+
+	import scabbard.phineas_helper as phelp
+
+	# Ensure using the Qt6Agg backend with PySide6
+	matplotlib.use('QtAgg')
+
+	class MatplotlibWidget(QtWidgets.QWidget):
+	
+		def __init__(self, data):
+			super(MatplotlibWidget, self).__init__()
+
+			self.data = data
+
+			self.cid = None
+			self.cid2 = None
+
+			self.initUI()
+			self.setWindowTitle("Scabbard numpy 2D array explorer")
+			 # Get the primary screen's geometry
+			screen_geometry = QtWidgets.QApplication.primaryScreen().geometry()
+			width, height = screen_geometry.width() * 0.8, screen_geometry.height() * 0.8
+
+			# Calculate the position to center the window, then move it slightly down
+			x = screen_geometry.width() * 0.1
+			y = (screen_geometry.height() - height) / 2 + screen_geometry.height() * 0.05
+
+			# Set the window geometry
+			self.setGeometry(int(x), int(y), int(width), int(height))
+
+		def initUI(self):
+			# Main layout
+			grid_layout = QtWidgets.QGridLayout(self)
+
+			# Create two matplotlib figures and set their canvases
+			self.figure1, self.ax1 = plt.subplots()
+			self.canvas1 = FigureCanvas(self.figure1)
+			self.figure2, self.ax2 = plt.subplots()
+			self.canvas2 = FigureCanvas(self.figure2)
+
+			# Add canvases and toolbars to the layout
+			grid_layout.addWidget(self.canvas1, 1, 0)  # Row 0, Column 0
+			grid_layout.addWidget(NavigationToolbar(self.canvas1, self), 0, 0)  # Row 1, Column 0
+			grid_layout.addWidget(self.canvas2, 1, 1)  # Row 0, Column 1
+			grid_layout.addWidget(NavigationToolbar(self.canvas2, self), 0, 1)  # Row 1, Column 1
+
+			# Initial plots
+			self.imshow1 = self.ax1.imshow(self.data, cmap='magma')
+			self.colorbar1 = self.figure1.colorbar(self.imshow1, ax=self.ax1)
+			self.plot1 = Line2D([0,self.data.shape[1]], [0, 0], color='r', linestyle='--')
+			self.ax1.add_line(self.plot1)
+			self.plot2 = self.ax2.plot(self.data[0,:], color = 'k', lw = 4)
+
+			# Controls layout for the first plot
+			controls_layout1 = QtWidgets.QHBoxLayout()
+			grid_layout.addLayout(controls_layout1, 2, 0)  # Row 2, Column 0
+
+			
+
+
+			# Colormap selection for the first plot
+			self.colormapComboBox1 = QtWidgets.QComboBox()
+			self.colormapComboBox1.addItems(['magma', 'viridis', 'cividis', 'Blues', 'Reds', 'RdBu_r'])
+			self.colormapComboBox1.currentIndexChanged.connect(lambda: self.update_plot('1'))
+			controls_layout1.addWidget(self.colormapComboBox1)
+
+			#RangeSelection
+			self.rangeSlider1 = phelp.RangeSlider(self.data.min(), self.data.max(), ID = '1')
+			# grid_layout.addWidget(self.rangeSlider1,3,0)
+			self.rangeSlider1.rangeChanged.connect(self._update_crange)
+			controls_layout1.addWidget(self.rangeSlider1)
+
+
+
+			# Controls layout for the second plot
+			controls_layout2 = QtWidgets.QHBoxLayout()
+			grid_layout.addLayout(controls_layout2, 2, 1)  # Row 2, Column 1
+
+			# Colormap selection for the second plot
+			# self.colormapComboBox2 = QtWidgets.QComboBox()
+			# self.colormapComboBox2.addItems(['magma', 'viridis', 'cividis', 'Blues', 'Reds', 'RdBu_r'])
+			# self.colormapComboBox2.currentIndexChanged.connect(lambda: self.update_plot('2'))
+			# controls_layout2.addWidget(self.colormapComboBox2)
+
+			self.button = QtWidgets.QPushButton("Cross section",self)
+			self.button.clicked.connect(self.switch_coordinate_picking)
+			controls_layout2.addWidget(self.button)
+
+			# Draw the canvases
+			self.canvas1.draw()
+			self.canvas2.draw()
+
+		def update_plot(self, plt_ID):
+			cmap1 = self.colormapComboBox1.currentText()
+			# cmap2 = self.colormapComboBox2.currentText()
+
+			if plt_ID == '1':
+				self.imshow1.set_cmap(cmap1)
+
+
+			# Redraw the canvases
+			self.canvas1.draw()
+
+		def _update_crange(self, vmin,vmax, plt_ID):
+			if plt_ID == '1':
+				self.imshow1.set_clim(vmin,vmax)
+
+
+			# Redraw the canvases
+			self.canvas1.draw()
+
+		def switch_coordinate_picking(self):
+			# Disconnect existing connections if any
+			if self.cid:
+				self.canvas1.mpl_disconnect(self.cid)
+				self.cid = None
+			else:
+				# Connect the mouse click event to the on_motion function
+				self.cid = self.canvas1.mpl_connect('motion_notify_event', self.on_motion)
+
+		def plot_CS_from_coord(self, tx, ty):
+			row = round(ty) #will not be true for maps, is just for test here
+			self.plot2[0].set_ydata(self.data[row,:])
+			self.ax2.relim()
+			self.ax2.autoscale_view(True, True, True)
+			self.plot1.set_ydata([row,row])
+			self.canvas1.draw()
+			self.canvas2.draw()
+			# self.switch_coordinate_picking()
+
+
+		def on_motion(self, event):
+			# Call the function with the coordinates
+			if event.xdata is not None and event.ydata is not None:
+				self.cid2 = self.canvas1.mpl_connect('button_press_event', self.on_click)
+				self.plot_CS_from_coord(event.xdata, event.ydata)
+
+		def on_click(self, event):
+			# Call the function with the coordinates
+			if event.xdata is not None and event.ydata is not None:
+				self.switch_coordinate_picking()
+				if self.cid2:
+					self.canvas1.mpl_disconnect(self.cid2)
+					self.cid2 = None
+
+
+
+	app = QtWidgets.QApplication(sys.argv)
+	data = np.load(fname)
+	if(len(data.shape) != 2):
+		raise ValueError("Needs to be 2D numpy array")
+	main = MatplotlibWidget(data)
+	main.show()
+	sys.exit(app.exec_())

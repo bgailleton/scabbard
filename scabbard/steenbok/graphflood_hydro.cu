@@ -136,6 +136,12 @@ __global__ void compute_Qwout(float *hw, float *Z, float *QwB, unsigned char *BC
 		// finishing slope calc
 		ts /= DXS[j];
 
+		if(BC::can_out(BC[nidx])){
+			ts = BOUND_SLOPE;
+			SS = ts;
+			SSdy = DYS[j];
+			break;
+		}
 		if(ts > SS){
 			SS = ts;
 			SSdy = DYS[j];
@@ -220,6 +226,9 @@ __global__ void compute_Qw_dyn(float *hw, float *Z, float *QwA, float *QwB, unsi
 		
 		// finishing slope calc
 		ts /= DXS[j];
+
+		if(BC::can_out(BC[nidx])) ts = BOUND_SLOPE;
+
 
 		float tw = ts * DYS[j];
 
