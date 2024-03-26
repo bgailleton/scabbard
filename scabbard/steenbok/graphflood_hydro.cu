@@ -22,9 +22,8 @@ __global__ void add_Qw_local(int *indices, float *values, float *QwA, float *QwB
 	int x = threadIdx.x + blockIdx.x * blockDim.x;
 
 	if(x >= sizid) return;
-
 	QwA[indices[x]] += values[x];
-	QwB[indices[x]] += values[x];
+	// QwB[indices[x]] += values[x];
 
 }
 

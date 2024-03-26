@@ -28,6 +28,8 @@ def concat_kernel_code(topology):
 	"graphflood_morpho_general.cu",
 	"graphflood_morpho_MPM.cu",
 	"graphflood_morpho_EROS.cu",
+	"gp_hydro.cu",
+	"gp_morpho.cu",
 	]
 
 	for file in files:
@@ -96,5 +98,13 @@ def build_kernel(topology):
 
 
 	# add_Qwin_local = mod.get_function("add_Qwin_local")
+
+
+
+
+
+
+
+
 
 

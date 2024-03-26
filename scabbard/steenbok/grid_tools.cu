@@ -46,6 +46,22 @@ __global__ void grid2val(float *arr, float val) {
 }
 
 
+// Calculate grid-wise steepest slope
+__global__ void grid2val_i32(int *arr, float val) {
+
+    // Getting the right index
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    int idx;
+    if(get_index_raw(x, y, idx) == false) return;
+
+    arr[idx] = val;
+
+    return;
+
+}
+
+
 
 // Calculate grid-wise steepest slope
 __global__ void uplift(float *arr, unsigned char *BC, float val) {

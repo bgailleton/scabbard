@@ -32,11 +32,19 @@ class ColorMapWidget(QtWidgets.QComboBox):
 		Colormap picker, a simple widget containing a list of colormap and sends a signals wiht the right colormap when it has changed
 	'''
 
+	# signal whenever if a new colormap is chosen is changed 
 	colormapChanged = QtCore.Signal((str))
 
 	def __init__(self):
+		'''
+		Simple widget in essence: only made of a list of options for colormaps and returns whichever is selected as a sring
+		'''
+
+
 		super(ColorMapWidget, self).__init__()
+		# list of colormaps, to be completed
 		self.addItems(['gist_earth', 'magma', 'viridis', 'cividis', 'Blues', 'Reds', 'RdBu'])
+		# setting up the connection between inbuilt signal and my own
 		self.currentIndexChanged.connect( lambda : self.colormapChanged.emit(self.currentText()) )
 
 

@@ -27,6 +27,7 @@ __constant__ float BOUND_SLOPE;
 // Constants to manage time steps
 __constant__ float DT_HYDRO;
 __constant__ float DT_MORPHO;
+__constant__ float STABIL_GPHYDRO;
 
 // Hydrodynamic constants
 __constant__ float MANNING;

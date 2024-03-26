@@ -12,6 +12,9 @@ from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as Navigation
 # from PySide6 import QtWidgets, QtCore
 from matplotlib.backends.qt_compat import QtWidgets, QtCore
 import matplotlib
+
+from scabbard.steenbok.gui_colormap_picker import str2cmap, ColorMapWidget
+
 # Ensure using the Qt6Agg backend with PySide6
 matplotlib.use('QtAgg')
 
@@ -19,14 +22,17 @@ matplotlib.use('QtAgg')
 
 
 
-class MatplotlibWidget(QtWidgets.QWidget):
+
+class MapWidget(QtWidgets.QWidget):
 
 	
 	def __init__(self, env):
-		super(MatplotlibWidget, self).__init__()
+		super(MapWidget, self).__init__()
 
+		# this widget is made to be connected to an environment, for updates
 		self.env = env
 
+		# grid layout is the easiest layout to organise everything by row and col
 		grid_layout = QtWidgets.QGridLayout(self)
 
 		# Create two matplotlib figures and set their canvases

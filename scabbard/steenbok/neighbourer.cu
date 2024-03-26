@@ -88,6 +88,38 @@ __device__ bool get_oneighbourB(int idx, int adder, int j, int& nidx){
 
 
 
+__device__ bool left(int idx, int adder, int& nidx){
+	#ifdef ISD8
+	return get_neighbour(idx, adder, 3, nidx);
+	#else 
+	return get_neighbour(idx, adder, 1, nidx);
+	#endif
+}
+
+__device__ bool right(int idx, int adder, int& nidx){
+	#ifdef ISD8
+	return get_neighbour(idx, adder, 4, nidx);
+	#else 
+	return get_neighbour(idx, adder, 2, nidx);
+	#endif
+}
+
+__device__ bool top(int idx, int adder, int& nidx){
+	#ifdef ISD8
+	return get_neighbour(idx, adder, 1, nidx);
+	#else 
+	return get_neighbour(idx, adder, 0, nidx);
+	#endif
+}
+
+
+__device__ bool bottom(int idx, int adder, int& nidx){
+	#ifdef ISD8
+	return get_neighbour(idx, adder, 6, nidx);
+	#else 
+	return get_neighbour(idx, adder, 3, nidx);
+	#endif
+}
 
 
 

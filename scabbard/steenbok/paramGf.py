@@ -9,14 +9,19 @@ class InputMode(Enum):
 class HydroMode(Enum):
 	static = 0
 	dynamic = 1
+	gp_static = 3
+	gp_static_v2 = 4
+	gp_static_v3 = 5
+	gp_linear_test = 6
 
 class MorphoMode(Enum):
 	MPM = 0
 	eros_MPM = 1
+	gp_morpho_v1 = 2
 
 class ParamGf(object):
 	"""
-		Docstring for ParamGf
+		ParamGf gathers all the parameters specific to the graphflood model
 	"""
 	def __init__(self, mode = InputMode.uniform_P):
 		
@@ -25,6 +30,8 @@ class ParamGf(object):
 		self.manning = 0.033
 		self.dt_hydro = 1e-3
 		self.Prate = 50 * 1e-3/3600 # 50 mm.h-1
+
+		self.stabilisator_gphydro = 0.7
 
 		self.iBlock = None
 		self.iGrid = None
@@ -35,7 +42,7 @@ class ParamGf(object):
 
 		
 		self.morpho = False
-		self.morphomode = MorphoMode.eros_MPM
+		self.morpho_mode = MorphoMode.eros_MPM
 		self.rho_water = 1000
 		self.rho_sediment = 2650
 		self.gravity = 9.81
