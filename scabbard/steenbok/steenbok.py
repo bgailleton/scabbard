@@ -99,6 +99,7 @@ class cuenv:
 			oneighbourersB.append(np.array([neighbourers[-1][1],neighbourers[-1][2],neighbourers[-1][4],neighbourers[-1][0],neighbourers[-1][7],neighbourers[-1][3],neighbourers[-1][5],neighbourers[-1][6]], dtype=np.int32))
 		elif(self.topology == "D4"):
 			neighbourers.append(np.array([  -nx , -1 , 1 , nx  ], dtype=np.int32))
+			# neighbourers.append(np.array([  nodata , nodata , 1 , nodata  ], dtype=np.int32))
 			oneighbourersA.append(np.array([neighbourers[-1][1], neighbourers[-1][0], neighbourers[-1][0],neighbourers[-1][2]], dtype=np.int32))
 			oneighbourersB.append(np.array([neighbourers[-1][2], neighbourers[-1][3], neighbourers[-1][3],neighbourers[-1][1]], dtype=np.int32))
 			neighbourers.append(np.array([ nodata  , nodata , 1  , nx ], dtype=np.int32))
@@ -162,13 +163,13 @@ class cuenv:
 		self._arrays['hw'] = kut.aH_zeros(self.mod, self.env.grid.nxy, 'f32', ref = "hw")
 
 		self._arrays['QwA'] = kut.aH_zeros(self.mod, self.env.grid.nxy, 'f32', ref = "QwA")
-
 		self._arrays['QwB'] = kut.aH_zeros(self.mod, self.env.grid.nxy, 'f32', ref = "QwB")
-		# if(self.param_graphflood.hydro_mode == HydroMode.gp_static_v3 or self.param_graphflood.hydro_mode == HydroMode.gp_static_v2):
 		self._arrays['QwC'] = kut.aH_zeros(self.mod, self.env.grid.nxy, 'f32', ref = "QwC")
-		self._arrays['QwD'] = kut.aH_zeros(self.mod, self.env.grid.nxy, 'f32', ref = "QwD")
+		# self._arrays['QwD'] = kut.aH_zeros(self.mod, self.env.grid.nxy, 'f32', ref = "QwD")
+		# self._arrays['QwE'] = kut.aH_zeros(self.mod, self.env.grid.nxy, 'f32', ref = "QwE")
 
-		self._arrays['Nrecs'] = kut.aH_zeros(self.mod, self.env.grid.nxy, 'i32', ref = "Nrecs")
+		# self._arrays['Nrecs'] = kut.aH_zeros(self.mod, self.env.grid.nxy, 'i32', ref = "Nrecs")
+		self.nancheckers = kut.aH_zeros(self.mod, 1, 'i32', ref = "nancheckers")
 
 
 		if(self.param_graphflood.mode == InputMode.input_point):
@@ -201,6 +202,12 @@ class cuenv:
 			kut.set_constant(self.mod, self.param_graphflood.bs_hw , "BS_MINHW", 'f32')
 			kut.set_constant(self.mod, self.param_graphflood.bs_k , "BS_K", 'f32')
 			kut.set_constant(self.mod, self.param_graphflood.bs_exp , "BS_EXP", 'f32')
+			kut.set_constant(self.mod, self.param_graphflood.bs_exp_hw , "BS_HW_EXP", 'f32')
+			kut.set_constant(self.mod, self.param_graphflood.kz , "KZ", 'f32')
+			kut.set_constant(self.mod, self.param_graphflood.kh , "KH", 'f32')
+			
+			
+			
 
 
 
@@ -212,6 +219,21 @@ class cuenv:
 			self._arrays['QsD'] = kut.aH_zeros(self.mod, self.env.grid.nxy, 'f32', ref = "QsD")
 
 			
+	def run_graphflood_fillup(self, n_iterations = 1000, verbose = False):
+
+		for _ in range(n_iterations):
+			self.functions["grid2val"](self._arrays['QwB']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
+			# Managing the local inputs
+			if(self.param_graphflood.mode == InputMode.input_point):
+				## from specific input points
+				self.functions["add_Qw_local"](self._arrays['input_nodes']._gpu , self._arrays['input_Qw']._gpu , self._arrays['QwA']._gpu , self._arrays['QwB']._gpu , np.int32(self.param_graphflood.input_nodes.shape[0]), block = self.param_graphflood.iBlock, grid = self.param_graphflood.iGrid)
+			else:
+				## from precipitation rates
+				self.functions["add_Qw_global"](self._arrays['QwA']._gpu, np.float32(self.param_graphflood.Prate), self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+			
+			self.functions["compute_Qws"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, self._arrays['QwC']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+			self.functions["swapQwin"](self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, block = self.gBlock, grid = self.gGrid)
+			self.functions["increment_hw"](self._arrays['hw']._gpu, self._arrays['Z']._gpu,self._arrays['QwA']._gpu, self._arrays['QwC']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
 
 
 	def run_graphflood(self, n_iterations = 100, verbose = False, nmorpho = 10):
@@ -219,9 +241,65 @@ class cuenv:
 			if(i % 1000 == 0):
 				print(i,end='     \r') if verbose else 0
 
-			self.__run_hydro()
-			if(i%nmorpho == 0 and self.param_graphflood.morpho):
-				self.__run_morpho()
+			if(self.param_graphflood.morpho_mode == MorphoMode.gp_morphydro_v1):
+				self.functions["grid2val"](self._arrays['QwB']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
+				# Managing the local inputs
+				if(self.param_graphflood.mode == InputMode.input_point):
+					## from specific input points
+					self.functions["add_Qw_local"](self._arrays['input_nodes']._gpu , self._arrays['input_Qw']._gpu , self._arrays['QwA']._gpu , self._arrays['QwB']._gpu , np.int32(self.param_graphflood.input_nodes.shape[0]), block = self.param_graphflood.iBlock, grid = self.param_graphflood.iGrid)
+				else:
+					## from precipitation rates
+					self.functions["add_Qw_global"](self._arrays['QwA']._gpu, np.float32(self.param_graphflood.Prate), self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+
+				if(i%nmorpho == 0 and self.param_graphflood.morpho):
+
+					self.functions["checkGrid4nan"](self._arrays['Z']._gpu, self.nancheckers._gpu ,block = self.gBlock, grid = self.gGrid)
+
+					if(self.nancheckers.get()[0] > 0):
+						raise ValueError("NAN FOUND IN Z");
+
+					self.functions["grid2val"](self._arrays['QsC']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
+					self.functions["grid2val"](self._arrays['QsD']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
+					self.functions["compute_QwsQss"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, self._arrays['QwC']._gpu, self._arrays['QsA']._gpu, self._arrays['QsB']._gpu, self._arrays['QsC']._gpu, self._arrays['QsD']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+					self.functions["swapQwin"](self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, block = self.gBlock, grid = self.gGrid)
+					self.functions["increment_hw"](self._arrays['hw']._gpu, self._arrays['Z']._gpu,self._arrays['QwA']._gpu, self._arrays['QwC']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+					self.functions["increment_hs"](self._arrays['hw']._gpu, self._arrays['Z']._gpu,self._arrays['QsA']._gpu, self._arrays['QsC']._gpu, self._arrays['QsD']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+					self.functions["swapQwin"](self._arrays['QsA']._gpu, self._arrays['QsB']._gpu, block = self.gBlock, grid = self.gGrid)
+					if(self.param_graphflood.bs_k > 0):
+						self.functions["copygrid"](self._arrays['QsD']._gpu, self._arrays['Z']._gpu, block = self.gBlock, grid = self.gGrid)
+						self.functions["diffuse_bed"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QsD']._gpu, self._arrays['QsA']._gpu, self._arrays['BC']._gpu,block = self.gBlock, grid = self.gGrid)
+						self.functions["swapQsin"](self._arrays['Z']._gpu, self._arrays['QsD']._gpu, block = self.gBlock, grid = self.gGrid)
+				
+				else:
+					self.functions["compute_Qws"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, self._arrays['QwC']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+					self.functions["swapQwin"](self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, block = self.gBlock, grid = self.gGrid)
+					self.functions["increment_hw"](self._arrays['hw']._gpu, self._arrays['Z']._gpu,self._arrays['QwA']._gpu, self._arrays['QwC']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+			
+			elif(self.param_graphflood.morpho_mode == MorphoMode.gp_morphydro_dyn_v1):
+				self.functions["grid2val"](self._arrays['QwB']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
+				self.functions["grid2val"](self._arrays['QwD']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
+				# Managing the local inputs
+				if(self.param_graphflood.mode == InputMode.input_point):
+					## from specific input points
+					self.functions["add_Qw_local"](self._arrays['input_nodes']._gpu , self._arrays['input_Qw']._gpu , self._arrays['QwA']._gpu , self._arrays['QwB']._gpu , np.int32(self.param_graphflood.input_nodes.shape[0]), block = self.param_graphflood.iBlock, grid = self.param_graphflood.iGrid)
+				else:
+					## from precipitation rates
+					self.functions["add_Qw_global"](self._arrays['QwA']._gpu, np.float32(self.param_graphflood.Prate), self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+
+				self.functions["grid2val"](self._arrays['QsC']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
+				self.functions["grid2val"](self._arrays['QwC']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
+				self.functions["compute_QwsQss_dyn"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, self._arrays['QwC']._gpu, self._arrays['QsA']._gpu, self._arrays['QsB']._gpu, self._arrays['QsC']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+				self.functions["increment_hw"](self._arrays['hw']._gpu, self._arrays['Z']._gpu,self._arrays['QwA']._gpu, self._arrays['QwC']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+				self.functions["increment_hs_noQD"](self._arrays['hw']._gpu, self._arrays['Z']._gpu,self._arrays['QsA']._gpu, self._arrays['QsC']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+				self.functions["copygrid"](self._arrays['QsD']._gpu, self._arrays['Z']._gpu, block = self.gBlock, grid = self.gGrid)
+				self.functions["diffuse_bed"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QsD']._gpu, self._arrays['QsA']._gpu, self._arrays['BC']._gpu,block = self.gBlock, grid = self.gGrid)
+				self.functions["swapQwin"](self._arrays['QsA']._gpu, self._arrays['QsB']._gpu, block = self.gBlock, grid = self.gGrid)
+				self.functions["swapQwin"](self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, block = self.gBlock, grid = self.gGrid)
+				self.functions["swapQsin"](self._arrays['Z']._gpu, self._arrays['QsD']._gpu, block = self.gBlock, grid = self.gGrid)
+			else:
+				self.__run_hydro()
+				if(i%nmorpho == 0 and self.param_graphflood.morpho):
+					self.__run_morpho()
 
 			
 
@@ -229,74 +307,111 @@ class cuenv:
 		'''
 		Internal function managing the hydrodynamics part of graphflood
 		'''
-		
-		# Whatever happens, init QWB to 0
-		self.functions["grid2val"](self._arrays['QwB']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
-		
-		# THe biggest diff between static and transient is that Qwin has no memory of the previous time step in transient
-		if(self.param_graphflood.hydro_mode == HydroMode.dynamic) :
+
+		if(self.param_graphflood.hydro_mode == HydroMode.gp_linear_test_v2):
+
 			self.functions["grid2val"](self._arrays['QwA']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
-
-
-		if(self.param_graphflood.hydro_mode == HydroMode.gp_static_v2):
-			self.functions["grid2val"](self._arrays['QwA']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
-			self.functions["grid2val"](self._arrays['QwC']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
-			self.functions["grid2val"](self._arrays['QwD']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
-
-		if(self.param_graphflood.hydro_mode == HydroMode.gp_linear_test):
-			# self.functions["grid2val"](self._arrays['QwA']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
-			self.functions["grid2val_i32"](self._arrays['Nrecs']._gpu, np.int32(0.),block = self.gBlock, grid = self.gGrid)
-			self.functions["grid2val"](self._arrays['QwC']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
-
-			# print('0ed?')
+			self.functions["add_Qw_local_linear_test_v2"](self._arrays['input_nodes']._gpu , self._arrays['input_Qw']._gpu , self._arrays['hw']._gpu, self._arrays['QwA']._gpu, np.int32(self.param_graphflood.input_nodes.shape[0]), block = self.param_graphflood.iBlock, grid = self.param_graphflood.iGrid)
+			self.functions["linear_test_v2"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+			self.functions["swapQwin"](self._arrays['hw']._gpu, self._arrays['QwA']._gpu, block = self.gBlock, grid = self.gGrid)
 		
-		# Managing the local inputs
-		if(self.param_graphflood.mode == InputMode.input_point):
-			## from specific input points
-			self.functions["add_Qw_local"](self._arrays['input_nodes']._gpu , self._arrays['input_Qw']._gpu , self._arrays['QwA']._gpu , self._arrays['QwB']._gpu , np.int32(self.param_graphflood.input_nodes.shape[0]), block = self.param_graphflood.iBlock, grid = self.param_graphflood.iGrid)
-		else:
-			## from precipitation rates
-			self.functions["add_Qw_global"](self._arrays['QwA']._gpu, np.float32(self.param_graphflood.Prate), self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+		elif(self.param_graphflood.hydro_mode ==  HydroMode.gp_static_v4):
+			self.functions["grid2val"](self._arrays['QwB']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
+			self.functions["compute_static_Qwin_v4"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, self._arrays['Nrecs']._gpu, self._arrays['QwC']._gpu, self._arrays['QwD']._gpu, self._arrays['QwE']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+			self.functions["swapQwin"](self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, block = self.gBlock, grid = self.gGrid)
+			# Managing the local inputs
+			if(self.param_graphflood.mode == InputMode.input_point):
+				## from specific input points
+				self.functions["add_Qw_local"](self._arrays['input_nodes']._gpu , self._arrays['input_Qw']._gpu , self._arrays['QwA']._gpu , self._arrays['QwB']._gpu , np.int32(self.param_graphflood.input_nodes.shape[0]), block = self.param_graphflood.iBlock, grid = self.param_graphflood.iGrid)
+			else:
+				## from precipitation rates
+				self.functions["add_Qw_global"](self._arrays['QwA']._gpu, np.float32(self.param_graphflood.Prate), self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+			# self.functions["add_Qw_local_linear_test_v2"](self._arrays['input_nodes']._gpu , self._arrays['input_Qw']._gpu , self._arrays['hw']._gpu, self._arrays['QwA']._gpu, np.int32(self.param_graphflood.input_nodes.shape[0]), block = self.param_graphflood.iBlock, grid = self.param_graphflood.iGrid)
+			self.functions["compute_hw_v4"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu, self._arrays['Nrecs']._gpu, self._arrays['QwC']._gpu, self._arrays['QwD']._gpu, self._arrays['QwE']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+								
 
-		# RUn graphflood gpu test 1 static
-		if(self.param_graphflood.hydro_mode == HydroMode.static):
-			self.functions["compute_Qwin"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
-			self.functions["swapQwin"](self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, block = self.gBlock, grid = self.gGrid)
-			self.functions["compute_Qwout"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwB']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
-		# RUn graphflood gpu test 1 dynamic
-		elif(self.param_graphflood.hydro_mode == HydroMode.dynamic):
-			self.functions["compute_Qw_dyn"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
-		elif(self.param_graphflood.hydro_mode == HydroMode.gp_static):
-			self.functions["compute_static_Qwin"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu, self._arrays['QwB']._gpu,self._arrays['QwC']._gpu,self._arrays['QwD']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
-			self.functions["swapQwin"](self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, block = self.gBlock, grid = self.gGrid)
-			self.functions["compute_static_h"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu ,self._arrays['QwC']._gpu,self._arrays['QwD']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
-		elif(self.param_graphflood.hydro_mode == HydroMode.gp_static_v2):
-			self.functions["compute_static_Qwin_v2"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, self._arrays['QwC']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
-			self.functions["compute_static_h"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, self._arrays['QwC']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+		else:	
 		
-		elif(self.param_graphflood.hydro_mode == HydroMode.gp_linear_test):
-			self.functions["compute_static_Qwin_linear_test"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, self._arrays['Nrecs']._gpu, self._arrays['QwC']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
-			self.functions["swapQwin"](self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, block = self.gBlock, grid = self.gGrid)
-			self.functions["add_Qw_local"](self._arrays['input_nodes']._gpu , self._arrays['input_Qw']._gpu , self._arrays['QwA']._gpu , self._arrays['QwB']._gpu , np.int32(self.param_graphflood.input_nodes.shape[0]), block = self.param_graphflood.iBlock, grid = self.param_graphflood.iGrid)
-			self.functions["compute_static_h_linear_test"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu, self._arrays['Nrecs']._gpu, self._arrays['QwC']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
-			
-		elif(self.param_graphflood.hydro_mode == HydroMode.gp_static_v3):
-			self.functions["compute_static_Qwin_v3"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, self._arrays['QwC']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
-			self.functions["swapQwin"](self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, block = self.gBlock, grid = self.gGrid)
-			self.functions["increment_hw_v3"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu, self._arrays['QwC']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
-			
+			# Whatever happens, init QWB to 0
+			self.functions["grid2val"](self._arrays['QwB']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
 
-		if(self.param_graphflood.hydro_mode == HydroMode.static or self.param_graphflood.hydro_mode == HydroMode.dynamic):
-			self.functions["increment_hw"](self._arrays['hw']._gpu, self._arrays['Z']._gpu,self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+			# THe biggest diff between static and transient is that Qwin has no memory of the previous time step in transient
+			if(self.param_graphflood.hydro_mode == HydroMode.dynamic) :
+				self.functions["grid2val"](self._arrays['QwA']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
+
+
+			if(self.param_graphflood.hydro_mode == HydroMode.gp_static_v2):
+				self.functions["grid2val"](self._arrays['QwA']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
+				self.functions["grid2val"](self._arrays['QwC']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
+				self.functions["grid2val"](self._arrays['QwD']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
+
+			if(self.param_graphflood.hydro_mode == HydroMode.gp_linear_test):
+				# self.functions["grid2val"](self._arrays['QwA']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
+				self.functions["grid2val_i32"](self._arrays['Nrecs']._gpu, np.int32(0.),block = self.gBlock, grid = self.gGrid)
+				self.functions["grid2val"](self._arrays['QwC']._gpu, np.float32(0.),block = self.gBlock, grid = self.gGrid)
+
+				# print('0ed?')
+			
+			# Managing the local inputs
+			if(self.param_graphflood.mode == InputMode.input_point):
+				## from specific input points
+				self.functions["add_Qw_local"](self._arrays['input_nodes']._gpu , self._arrays['input_Qw']._gpu , self._arrays['QwA']._gpu , self._arrays['QwB']._gpu , np.int32(self.param_graphflood.input_nodes.shape[0]), block = self.param_graphflood.iBlock, grid = self.param_graphflood.iGrid)
+			else:
+				## from precipitation rates
+				self.functions["add_Qw_global"](self._arrays['QwA']._gpu, np.float32(self.param_graphflood.Prate), self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+
+			# RUn graphflood gpu test 1 static
+			if(self.param_graphflood.hydro_mode == HydroMode.static):
+				self.functions["compute_Qwin"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+				self.functions["swapQwin"](self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, block = self.gBlock, grid = self.gGrid)
+				self.functions["compute_Qwout"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwB']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+			# RUn graphflood gpu test 1 dynamic
+			elif(self.param_graphflood.hydro_mode == HydroMode.dynamic):
+				self.functions["compute_Qw_dyn"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+
+			elif(self.param_graphflood.hydro_mode == HydroMode.gp_static_v5):
+				self.functions["compute_Qws"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, self._arrays['QwC']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+				self.functions["swapQwin"](self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, block = self.gBlock, grid = self.gGrid)
+				self.functions["increment_hw"](self._arrays['hw']._gpu, self._arrays['Z']._gpu,self._arrays['QwA']._gpu, self._arrays['QwC']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+				
+			elif(self.param_graphflood.hydro_mode == HydroMode.gp_static):
+				self.functions["compute_static_Qwin"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu, self._arrays['QwB']._gpu,self._arrays['QwC']._gpu,self._arrays['QwD']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+				self.functions["swapQwin"](self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, block = self.gBlock, grid = self.gGrid)
+				self.functions["compute_static_h"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu ,self._arrays['QwC']._gpu,self._arrays['QwD']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+			elif(self.param_graphflood.hydro_mode == HydroMode.gp_static_v2):
+				self.functions["compute_static_Qwin_v2"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, self._arrays['QwC']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+				self.functions["compute_static_h"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, self._arrays['QwC']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+			
+			elif(self.param_graphflood.hydro_mode == HydroMode.gp_linear_test):
+				self.functions["compute_static_Qwin_linear_test"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, self._arrays['Nrecs']._gpu, self._arrays['QwC']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+				self.functions["swapQwin"](self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, block = self.gBlock, grid = self.gGrid)
+				self.functions["add_Qw_local"](self._arrays['input_nodes']._gpu , self._arrays['input_Qw']._gpu , self._arrays['QwA']._gpu , self._arrays['QwB']._gpu , np.int32(self.param_graphflood.input_nodes.shape[0]), block = self.param_graphflood.iBlock, grid = self.param_graphflood.iGrid)
+				self.functions["compute_static_h_linear_test"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu, self._arrays['Nrecs']._gpu, self._arrays['QwC']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+				
+			elif(self.param_graphflood.hydro_mode == HydroMode.gp_static_v3):
+				self.functions["compute_static_Qwin_v3"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, self._arrays['QwC']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+				self.functions["swapQwin"](self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, block = self.gBlock, grid = self.gGrid)
+				self.functions["increment_hw_v3"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QwA']._gpu, self._arrays['QwC']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
+				
+
+			if(self.param_graphflood.hydro_mode == HydroMode.static or self.param_graphflood.hydro_mode == HydroMode.dynamic):
+				self.functions["increment_hw"](self._arrays['hw']._gpu, self._arrays['Z']._gpu,self._arrays['QwA']._gpu, self._arrays['QwB']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
 
 	
 	def __run_morpho(self):
 
 		if(self.param_graphflood.morpho_mode == MorphoMode.gp_morpho_v1):
+
+			if(self.param_graphflood.mode == InputMode.input_point):
+				self.functions["add_Qs_local"](self._arrays['input_nodes']._gpu , self._arrays['input_Qs']._gpu , self._arrays['QsA']._gpu , self._arrays['QsB']._gpu , np.int32(self.param_graphflood.input_nodes.shape[0]), block = self.param_graphflood.iBlock, grid = self.param_graphflood.iGrid)
 			
 			self.functions["compute_Qsin_v1"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QsA']._gpu, self._arrays['QsB']._gpu, self._arrays['QsC']._gpu, self._arrays['BC']._gpu, block = self.gBlock, grid = self.gGrid)
 			self.functions["increment_morpho"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QsA']._gpu, self._arrays['QsC']._gpu, self._arrays['BC']._gpu,block = self.gBlock, grid = self.gGrid)
 			self.functions["swapQsin"](self._arrays['QsA']._gpu, self._arrays['QsB']._gpu, block = self.gBlock, grid = self.gGrid)
+			self.functions["copygrid"](self._arrays['QsD']._gpu, self._arrays['Z']._gpu, block = self.gBlock, grid = self.gGrid)
+			self.functions["diffuse_bed"](self._arrays['hw']._gpu, self._arrays['Z']._gpu, self._arrays['QsD']._gpu, self._arrays['QsA']._gpu, self._arrays['BC']._gpu,block = self.gBlock, grid = self.gGrid)
+			self.functions["swapQsin"](self._arrays['Z']._gpu, self._arrays['QsD']._gpu, block = self.gBlock, grid = self.gGrid)
+
 		
 		# OLD TESTS
 		elif(self.param_graphflood.morpho_mode == MorphoMode.MPM):

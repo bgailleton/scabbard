@@ -25,11 +25,11 @@ def concat_kernel_code(topology):
 	"grid_tools.cu",
 	"array_utils.cu",
 	"graphflood_hydro.cu",
-	"graphflood_morpho_general.cu",
-	"graphflood_morpho_MPM.cu",
-	"graphflood_morpho_EROS.cu",
-	"gp_hydro.cu",
-	"gp_morpho.cu",
+	# "graphflood_morpho_general.cu",
+	# "graphflood_morpho_MPM.cu",
+	# "graphflood_morpho_EROS.cu",
+	# "gp_hydro.cu",
+	# "gp_morpho.cu",
 	]
 
 	for file in files:

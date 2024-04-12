@@ -13,7 +13,9 @@ from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as Navigation
 from matplotlib.backends.qt_compat import QtWidgets, QtCore
 import matplotlib
 
-from scabbard.steenbok.gui_colormap_picker import str2cmap, ColorMapWidget
+import scabbard as scb
+
+# from scabbard.steenbok.gui_colormap_picker import str2cmap, ColorMapWidget
 
 # Ensure using the Qt6Agg backend with PySide6
 matplotlib.use('QtAgg')
@@ -24,6 +26,9 @@ matplotlib.use('QtAgg')
 
 
 class MapWidget(QtWidgets.QWidget):
+	'''
+	MapWidget, plots a topographic map from an environment
+	'''
 
 	
 	def __init__(self, env):
@@ -33,55 +38,42 @@ class MapWidget(QtWidgets.QWidget):
 		self.env = env
 
 		# grid layout is the easiest layout to organise everything by row and col
-		grid_layout = QtWidgets.QGridLayout(self)
+		self.grid_layout = QtWidgets.QGridLayout(self)
 
 		# Create two matplotlib figures and set their canvases
-		self.figure, self.ax = plt.subplots()
+		self.figure, self.ax1 = plt.subplots()
 		self.canvas = FigureCanvas(self.figure)
 
 
 		# Add canvases and toolbars to the layout
-		grid_layout.addWidget(self.canvas, 1, 0)  # Row 0, Column 0
-		grid_layout.addWidget(NavigationToolbar(self.canvas, self), 0, 0)  # Row 1, Column 0
+		self.grid_layout.addWidget(NavigationToolbar(self.canvas, self), 0, 0)  # Row 1, Column 0
+		self.grid_layout.addWidget(self.canvas, 1, 0)  # Row 0, Column 0
 
 		# Initial plots
-		self.imshow1 = self.ax.imshow(self.env.grid.Z2D, cmap='gist_earth')
+		self.imTopo = self.ax1.imshow(self.env.grid.Z2D, cmap='gist_earth')
+		self.imHS = self.ax1.imshow(self.env.grid.hillshade, cmap='gray', alpha = 0.6)
+
+		self.ax1.set_xlabel("X (m)")
+		self.ax1.set_ylabel("Y (m)")
 
 		# Controls layout for the first plot
-		controls_layout1 = QtWidgets.QHBoxLayout()
-		grid_layout.addLayout(controls_layout1, 2, 0)  # Row 2, Column 0
-
-		
+		self.controls_layout = QtWidgets.QHBoxLayout()
+		self.grid_layout.addLayout(self.controls_layout, 2, 0)  # Row 2, Column 0
 
 
-		# Colormap selection for the first plot
-		self.colormapComboBox1 = QtWidgets.QComboBox()
-		self.colormapComboBox1.addItems(['gist_earth', 'magma', 'viridis', 'cividis', 'Blues', 'Reds', 'RdBu_r'])
-		self.colormapComboBox1.currentIndexChanged.connect(lambda: self.update_plot('1'))
-		controls_layout1.addWidget(self.colormapComboBox1)
-
-		#RangeSelection
-		self.rangeSlider1 = phelp.RangeSlider(self.data.min(), self.data.max(), ID = '1')
-		# grid_layout.addWidget(self.rangeSlider1,3,0)
-		self.rangeSlider1.rangeChanged.connect(self._update_crange)
-		controls_layout1.addWidget(self.rangeSlider1)
-
-
-
-		# Controls layout for the second plot
-		controls_layout2 = QtWidgets.QHBoxLayout()
-		grid_layout.addLayout(controls_layout2, 2, 1)  # Row 2, Column 1
-
-		# Colormap selection for the second plot
-		# self.colormapComboBox2 = QtWidgets.QComboBox()
-		# self.colormapComboBox2.addItems(['magma', 'viridis', 'cividis', 'Blues', 'Reds', 'RdBu_r'])
-		# self.colormapComboBox2.currentIndexChanged.connect(lambda: self.update_plot('2'))
-		# controls_layout2.addWidget(self.colormapComboBox2)
-
-		self.button = QtWidgets.QPushButton("Cross section",self)
-		self.button.clicked.connect(self.switch_coordinate_picking)
-		controls_layout2.addWidget(self.button)
 
 		# Draw the canvases
 		self.canvas.draw()
-		self.canvas2.draw()
+		# self.canvas2.draw()
+
+
+
+
+def map_widget_from_fname(fname):
+	'''
+	Loads a map widget from a file
+	'''
+	
+	env = scb.env_from_DEM(fname)
+
+	return MapWidget(env)

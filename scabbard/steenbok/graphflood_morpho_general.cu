@@ -40,11 +40,36 @@ __global__ void increment_hs(float *hw, float *Z,float *QsA, float *QsB, float *
 	if(get_index_check(x, y, idx, BC) == false) return;
 
 	if(BC::can_out(BC[idx]) == true){return;}; 
+	if(BC::can_receive(BC[idx]) == false){return;}; 
 	
     // if(QsA[idx]>0) printf("A%f \n", QsA[idx]);
     // if(QsB[idx]>0) printf("B%f \n", QsB[idx]);
 
 	double dhs = (double(QsA[idx]) - double(QsB[idx]) - double(QsD[idx]))/ CELLAREA * DT_MORPHO;
+	// if(dhs > 0) printf("dhs = %f", dhs);
+    // if(QsA[idx]>0) printf(" %f / %f  => %f\n", QsA[idx] -  QsB[idx], CELLAREA, dhs);
+	// dhs = min(dhs,1e-2);
+	
+	Z[idx] += float(dhs);
+
+
+}
+
+// Increment water function of the divergence of the fluxes
+__global__ void increment_hs_noQD(float *hw, float *Z,float *QsA, float *QsB, unsigned char *BC) {
+
+	// Getting the right IF
+	int x = threadIdx.x + blockIdx.x * blockDim.x;
+	int y = threadIdx.y + blockIdx.y * blockDim.y;
+	int idx;
+	if(get_index_check(x, y, idx, BC) == false) return;
+
+	if(BC::can_out(BC[idx]) == true){return;}; 
+	
+    // if(QsA[idx]>0) printf("A%f \n", QsA[idx]);
+    // if(QsB[idx]>0) printf("B%f \n", QsB[idx]);
+
+	double dhs = (double(QsA[idx]) - double(QsB[idx]))/ CELLAREA * DT_MORPHO;
 	// if(dhs > 0) printf("dhs = %f", dhs);
     // if(QsA[idx]>0) printf(" %f / %f  => %f\n", QsA[idx] -  QsB[idx], CELLAREA, dhs);
 	// dhs = min(dhs,1e-2);

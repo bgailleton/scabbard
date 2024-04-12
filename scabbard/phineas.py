@@ -116,6 +116,12 @@ def _debug_1(fname):
 
 
 
+@click.command()
+def haguid():
+	from scabbard.haguid import launch_haGUId
+
+	launch_haGUId()
+
 
 
 @click.command()

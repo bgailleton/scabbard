@@ -13,11 +13,15 @@ class HydroMode(Enum):
 	gp_static_v2 = 4
 	gp_static_v3 = 5
 	gp_linear_test = 6
-
+	gp_linear_test_v2 = 7
+	gp_static_v4 = 8
+	gp_static_v5 = 9
 class MorphoMode(Enum):
 	MPM = 0
 	eros_MPM = 1
 	gp_morpho_v1 = 2
+	gp_morphydro_v1 = 3
+	gp_morphydro_dyn_v1 = 4
 
 class ParamGf(object):
 	"""
@@ -54,12 +58,15 @@ class ParamGf(object):
 
 
 		self.k_erosion = 1.
+		self.kz = 1.
+		self.kh = 1.
 		self.l_transp = 10.
 		self.k_lat = 0.5
 
 		self.bs_k = 1e-6
 		self.bs_hw = 0.05
-		self.bs_exp = 6
+		self.bs_exp = 1.
+		self.bs_exp_hw = 1.
 
 		self.hydro_mode = HydroMode.static
 

@@ -41,8 +41,13 @@ __constant__ float K_EROS;
 __constant__ float L_EROS;
 __constant__ float KL_EROS;
 
+__constant__ float KZ;
+__constant__ float KH;
+
+
 __constant__ float BS_K;
 __constant__ float BS_EXP;
+__constant__ float BS_HW_EXP;
 __constant__ float BS_MINHW;
 
 

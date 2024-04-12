@@ -65,10 +65,12 @@ __device__ bool get_index(int x, int y, int& idx, int& adder, unsigned char *BC)
 }
 
 
-__device__ bool get_neighbour(int idx, int adder, int j, int& nidx){
+__device__ bool get_neighbour(int idx, int adder, int j, int& nidx, unsigned char *BC){
 	int tadd = NEIGHBOURERS[adder][j];
 	if( tadd == NODATA) return false;
 	nidx = idx + tadd;
+	if(BC[nidx] == 0) return false;
+
 	return true;
 }
 
@@ -88,36 +90,36 @@ __device__ bool get_oneighbourB(int idx, int adder, int j, int& nidx){
 
 
 
-__device__ bool left(int idx, int adder, int& nidx){
+__device__ bool left(int idx, int adder, int& nidx, unsigned char *BC){
 	#ifdef ISD8
-	return get_neighbour(idx, adder, 3, nidx);
+	return get_neighbour(idx, adder, 3, nidx, BC);
 	#else 
-	return get_neighbour(idx, adder, 1, nidx);
+	return get_neighbour(idx, adder, 1, nidx, BC);
 	#endif
 }
 
-__device__ bool right(int idx, int adder, int& nidx){
+__device__ bool right(int idx, int adder, int& nidx, unsigned char *BC){
 	#ifdef ISD8
-	return get_neighbour(idx, adder, 4, nidx);
+	return get_neighbour(idx, adder, 4, nidx, BC);
 	#else 
-	return get_neighbour(idx, adder, 2, nidx);
+	return get_neighbour(idx, adder, 2, nidx, BC);
 	#endif
 }
 
-__device__ bool top(int idx, int adder, int& nidx){
+__device__ bool top(int idx, int adder, int& nidx, unsigned char *BC){
 	#ifdef ISD8
-	return get_neighbour(idx, adder, 1, nidx);
+	return get_neighbour(idx, adder, 1, nidx, BC);
 	#else 
-	return get_neighbour(idx, adder, 0, nidx);
+	return get_neighbour(idx, adder, 0, nidx, BC);
 	#endif
 }
 
 
-__device__ bool bottom(int idx, int adder, int& nidx){
+__device__ bool bottom(int idx, int adder, int& nidx, unsigned char *BC){
 	#ifdef ISD8
-	return get_neighbour(idx, adder, 6, nidx);
+	return get_neighbour(idx, adder, 6, nidx, BC);
 	#else 
-	return get_neighbour(idx, adder, 3, nidx);
+	return get_neighbour(idx, adder, 3, nidx, BC);
 	#endif
 }
 

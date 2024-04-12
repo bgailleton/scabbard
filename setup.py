@@ -50,6 +50,7 @@ setup(
 				'scb-debugger=scabbard.phineas:_debug_1' ,
 				'scb-reset-config=scabbard.config:defaultConfig' ,
 				'scb-visu2D=scabbard.phineas:visu2Dnpy' ,
+				'scb-haguid=scabbard.phineas:haguid' ,
 		],
 	},
 	install_requires=requirements,
