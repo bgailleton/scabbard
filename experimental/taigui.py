@@ -1,9 +1,6 @@
 import scabbard as scb
 import dagger as dag
 import numpy as np
-import pyqtgraph as pg
-from pyqtgraph.Qt import QtCore, QtGui, QtWidgets
-import pyqtgraph.opengl as gl
 import matplotlib.pyplot as plt
 import math as m
 import matplotlib
@@ -101,10 +98,11 @@ def process_camera_event(window, campos, center, step, stepdist, distance):
 
 
 
+res = 1
 
+fnamedem = f"/home/bgailleton/Desktop/code/FastFlood2.0/FastFlood2_Boris/graphflood/paper_scripts/data/green_river_{res}.tif"
 
-
-env = scb.env_from_DEM("dem.tif")
+env = scb.env_from_DEM(fnamedem)
 env.init_connector()
 env.init_GF2()
 env.graphflood.set_uniform_P(50 * 1e-3/3600)

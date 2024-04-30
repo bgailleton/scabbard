@@ -175,6 +175,11 @@ class RGrid(object):
 	def add_random_noise(self, rmin = 0, rmax = 1):
 		self._Z += np.random.uniform(low=rmin, high=rmax, size=(self.nxy,))
 
+	def get_normalised(self, dim2 = True):
+		'''
+		'''
+		return (self.Z2D - self.min())/(self.max() - self.min())
+
 	def quick_river_network(self, DAT = 1e6, custom_QA = None):
 		
 		if(self.graph is None):

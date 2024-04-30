@@ -13,6 +13,7 @@ BLUE = "\x1b[34m"
 MAGENTA = "\x1b[35m"
 CYAN = "\x1b[36m"
 
+
 @click.command()
 @click.argument('fname', type = str)
 def simplemapwizard(fname):

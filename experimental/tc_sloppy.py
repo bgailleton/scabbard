@@ -43,14 +43,15 @@ env = scb.env_from_slope(noise_magnitude=wnoise, dx = dx, dy = dy, slope=S0, nx 
 env.grid.Z2D[:] += pnoise * noise
 
 
-
-dt = 1e-4
+CFsL = False
+CFsL_hydro = 5e-5
+dt = 2e-4
 Qwtot = 20
 manning = 0.033
 
 min_val = 0.5  # New minimum value
 max_val = 2.5    # New maximum value
-omega = 0.08
+omega = 0.05
 
 # Calculate new amplitude and baseline
 A = (max_val - min_val) / 2
@@ -58,7 +59,7 @@ B = (max_val + min_val) / 2
 
 
 morpho = True
-NHYDRO = 200
+NHYDRO = 100
 l_transp = 10
 gravity = 9.8
 rho_water = 1000.
@@ -73,7 +74,8 @@ Le = 0.5*D*rho_ratio
 # print(np.pi * Le/S0)
 
 
-dt_morpho = 2e-4
+dt_morpho = 5e-5
+CFsL_morpho = 5e-6
 
 K = rho_ratio * gravity * D**2/(visc)
 # K = 1e-4
@@ -99,6 +101,7 @@ Z.from_numpy(env.grid.Z2D)
 hw = ti.field(dtype=ti.f32, shape=(ny,nx))
 Psi_surf = ti.field(dtype=ti.f32, shape=(ny,nx))
 fac = ti.field(dtype = ti.f32, shape = ())
+maxhwsw = ti.field(dtype = ti.f32, shape = ())
 
 
 
@@ -151,6 +154,7 @@ def init_field():
 
 @ti.kernel
 def stepinit():
+	maxhwsw[None] = 0
 	for i,j in Z:
 		QwB[i,j] = 0
 		QsB[i,j] = 0
@@ -266,6 +270,8 @@ def compute_Qw():
 					if(tS > SSx):
 						SSx = tS
 
+					if(CFsL):
+						ti.atomic_max(maxhwsw[None], hw[i,j] * Sws[k])
 				Sws[k] = tS
 				sumSw += tS
 			if(sumSw == 0.):
@@ -275,6 +281,8 @@ def compute_Qw():
 
 		gradSw = ti.math.sqrt(SSx*SSx + SSy*SSy)
 		QwC[i,j] = dx/manning * ti.math.pow(hw[i,j], 5./3) *sumSw/ti.math.sqrt(gradSw)
+
+
 		# print(QwC[i,j])
 		for k in range(4):
 			ir,jr = neighbour(i,j,k)
@@ -303,6 +311,7 @@ def compute_QwQs():
 		SSPsix = 0.
 		SSPsiy = 0.
 		# print("A")
+		hflow = 0;
 
 		Psi_surf[i,j] = Psi(i,j)
 
@@ -341,6 +350,12 @@ def compute_QwQs():
 				sumSw += Sws[k]
 				sumSPsi += SPsis[k]
 
+				if(CFsL):
+					ti.atomic_max(maxhwsw[None], hw[i,j] * Sws[k])
+
+				if(tS>0):
+					hflow = ti.max(hflow, hw[i,j] - ti.max(0., Z[ir,jr] - Z[i,j]) )
+
 			if(sumSw == 0.):
 				hw[i,j] += 1e-4
 			if(lockcheck > 10000):
@@ -354,6 +369,11 @@ def compute_QwQs():
 		# graderr = ti.math.sqrt(SSgradZy*SSgradZy + SSgradZ*SSgradZ)
 		
 		graviterm = kz * ti.math.sqrt(SSgradZy*SSgradZy + SSgradZx*SSgradZx)
+		
+		# trying here to reduce instabilities by using hflow
+		# waterm = betalpha * hflow * gradSw/(rho_ratio * D) 
+		# if(waterm == 0):
+		# 	waterm = betalpha * hw[i,j] * gradSw/(rho_ratio * D) 
 		waterm = betalpha * hw[i,j] * gradSw/(rho_ratio * D) 
 
 		graderr = graviterm + waterm
@@ -397,7 +417,9 @@ def compute_hw():
 		QwA[i,j] = QwB[i,j]
 		if(i == ny-1):
 			continue
-		hw[i,j] = ti.math.max(0.,hw[i,j] + (QwA[i,j] - QwC[i,j]) * dt/(dx*dy) ) 
+		tdt = dt if(CFsL == False or maxhwsw[None] <= 0) else  CFsL_hydro / maxhwsw[None]
+		hw[i,j] = ti.math.max(0.,hw[i,j] + (QwA[i,j] - QwC[i,j]) * tdt/(dx*dy) ) 
+
 
 
 @ti.kernel
@@ -408,16 +430,23 @@ def compute_hwhs():
 		if(i == ny-1):
 			continue
 
-		hw[i,j] = ti.math.max(0.,hw[i,j] + (QwA[i,j] - QwC[i,j]) * dt/(dx*dy) )
+		tdt = dt if(CFsL == False or maxhwsw[None] <= 0) else CFsL_hydro * maxhwsw[None]
+		hw[i,j] = ti.math.max(0.,hw[i,j] + (QwA[i,j] - QwC[i,j]) * tdt/(dx*dy) )
 		
 		if(i >= ny-10):
 			QsA[i,j] = QsB[i,j]
 			continue
 
-		Z[i,j] = Z[i,j] + (QsA[i,j] - QsC[i,j]) * dt_morpho/(dx*dy)
+		tdt_morpho = dt_morpho if(CFsL == False or maxhwsw[None] <= 0) else  CFsL_morpho / maxhwsw[None]
+		# print(tdt_morpho)
+		incr = (QsA[i,j] - QsC[i,j]) * tdt_morpho/(dx*dy)
+		Z[i,j] = Z[i,j] + incr
+		hw[i,j] = ti.math.max(hw[i,j]+incr,0.)
+
 		if(ti.math.isnan(Z[i,j])):
 			print('NAN')
 		QsA[i,j] = QsB[i,j]
+	# print(CFsL_morpho / maxhwsw[None])
 
 
 
@@ -470,8 +499,8 @@ while True:
 
 	# if(it%10 == 0 and it > 20):
 		# stochfac()
-	if(it > 20):
-		set_fac(np.float32(A * np.sin(omega * (it)) + B))
+	# if(it > 20):
+	set_fac(np.float32(A * np.sin(omega * (it)) + B))
 
 	
 	for iii in range(10000):

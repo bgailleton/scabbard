@@ -7,10 +7,10 @@ def f2img(tfield):
 	out = tfield.to_numpy()
 	return np.rot90((out - np.nanmin(out))/(np.nanmax(out) - np.nanmin(out)), -1)
 
-res = 0.5
+res = 1
 
 fnamedem = f"/home/bgailleton/Desktop/code/FastFlood2.0/FastFlood2_Boris/graphflood/paper_scripts/data/green_river_{res}.tif"
-fnamedem = f"/home/bgailleton/Desktop/code/Ron/DEM_Ardeche_US_clipped_without_Pont.tif"
+# fnamedem = f"/home/bgailleton/Desktop/code/Ron/DEM_Ardeche_US_clipped_without_Pont.tif"
 
 dt = 1e-4
 P = 2e-5
@@ -19,7 +19,7 @@ env = scb.env_from_DEM(fnamedem)
 nx,ny = env.grid.nx, env.grid.ny
 dx,dy = env.grid.dx, env.grid.dy
 
-hmaxplot = 3
+hmaxplot = 1.5
 
 ti.init(arch=ti.gpu)  # Initialize Taichi to use the CPU
 
@@ -35,7 +35,7 @@ QwC = ti.field(dtype=ti.f32, shape=(ny,nx))
 
 ##
 
-input_points = True
+input_points = False
 totalQw = 500
 indices = np.arange(nx * ny).reshape(env.grid.rshp)
 input_nodes = np.array([[11,59],[51,193],[48,180],[45,167],[41,156],[39,145],[35,134],[31,123],
@@ -128,6 +128,7 @@ def neighbour(i,j,k:int):
 
 @ti.kernel
 def compute_Qw():
+	
 	for i,j in Z:
 
 		if(i == ny-1 or i ==0 or j==0 or j == nx-1 or Z[i,j] < 0.):
@@ -182,6 +183,7 @@ def compute_hw():
 		QwA[i,j] = QwB[i,j]
 		if(i == ny-1 or i ==0 or j==0 or j == nx-1 or Z[i,j] < 0.):
 			continue
+		
 		hw[i,j] = ti.math.max(0.,hw[i,j] + (QwA[i,j] - QwC[i,j]) * dt/(dx*dy) ) 
 
 
@@ -189,6 +191,9 @@ def compute_hw():
 # GUI setup
 
 init_field()
+stepinit()
+compute_Qw()
+compute_hw()
 
 
 print("YOLO")

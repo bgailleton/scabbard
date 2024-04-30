@@ -53,6 +53,8 @@ class MapWidget(QtWidgets.QWidget):
 		self.imTopo = self.ax1.imshow(self.env.grid.Z2D, cmap='gist_earth')
 		self.imHS = self.ax1.imshow(self.env.grid.hillshade, cmap='gray', alpha = 0.6)
 
+		self.drapePlot = None
+
 		self.ax1.set_xlabel("X (m)")
 		self.ax1.set_ylabel("Y (m)")
 
@@ -77,3 +79,16 @@ def map_widget_from_fname(fname):
 	env = scb.env_from_DEM(fname)
 
 	return MapWidget(env)
+
+def map_widget_from_fname_for_graphflood(fname):
+	'''
+	Loads a map widget from a file
+	'''
+	
+	env = scb.env_from_DEM(fname)
+	mapw = MapWidget(env)
+	mapw.imHS.set_alpha(1.)
+	mapw.drapePlot = mapw.ax1.imshow(np.zeros_like(env.grid.Z2D), cmap='Blues', alpha = 0.6, vmin = 0, vmax = 0.8)
+	plt.colorbar(mapw.drapePlot, label = 'Flow depth (m)')
+
+	return mapw
