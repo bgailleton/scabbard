@@ -174,9 +174,10 @@ class RDParams:
 		if(self._RD is not None):
 			if(isinstance(value,np.ndarray)):
 				value = value.astype(np.float32)
+				self._RD.P.from_numpy(value)
 			else:
 				value = np.float32(value)
-			self._RD.precipitations.from_numpy(value)
+				self._RD.P = value
 
 
 

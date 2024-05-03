@@ -45,7 +45,7 @@ env.grid.Z2D[:] += pnoise * noise
 
 CFsL = False
 CFsL_hydro = 5e-5
-dt = 2e-4
+dt = 1e-4
 Qwtot = 20
 manning = 0.033
 
@@ -59,7 +59,7 @@ B = (max_val + min_val) / 2
 
 
 morpho = True
-NHYDRO = 100
+NHYDRO = 20
 l_transp = 10
 gravity = 9.8
 rho_water = 1000.
@@ -74,7 +74,7 @@ Le = 0.5*D*rho_ratio
 # print(np.pi * Le/S0)
 
 
-dt_morpho = 5e-5
+dt_morpho = 1e-5
 CFsL_morpho = 5e-6
 
 K = rho_ratio * gravity * D**2/(visc)
@@ -93,7 +93,7 @@ kz = 1.
 # paramgf.kz = paramgf.tau_c/(0.04 * 1650 * 9.8)
 # paramgf.kh = paramgf.tau_c/(0.08 * 1000 * 0.01 * 9.8)
 
-ti.init(arch=ti.gpu)  # Initialize Taichi to use the CPU
+ti.init(arch=ti.vulkan)  # Initialize Taichi to use the CPU
 
 
 Z = ti.field(dtype=ti.f32, shape=(ny,nx))

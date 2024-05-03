@@ -61,9 +61,9 @@ but in the meantime you can run the model in batch using subprocess.
 			rdhy.initiate_step(self.QwB)
 			
 			if(self.param._2D_precipitations):
-				rdhy.variable_rain(self.QwA, self.QwB, self.P)
+				rdhy.variable_rain(self.QwA, self.QwB, self.P,self.BCs)
 			else:
-				rdhy.constant_rain(self.QwA, self.QwB, self.P)				
+				rdhy.constant_rain(self.QwA, self.QwB, self.P,self.BCs)				
 			
 			rdhy.compute_Qw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs)
 			rdhy.compute_hw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs)
