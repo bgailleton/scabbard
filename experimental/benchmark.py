@@ -33,7 +33,7 @@ hmaxplot = 1.
 
 
 
-ti.init(arch=ti.gpu)  # Initialize Taichi to use the CPU
+ti.init(arch=ti.vulkan)  # Initialize Taichi to use the CPU
 
 
 Z = ti.field(dtype=ti.f32, shape=(ny,nx))
@@ -205,12 +205,12 @@ init_field()
 
 print("YOLO")
 
-fig,ax = plt.subplots(figsize = (12,12))
-ax.set_xlabel('X (m)')
-ax.set_ylabel('Y (m)')
-im = ax.imshow(hw.to_numpy(), cmap = "Blues", vmin = 0., vmax = hmaxplot, extent = env.grid.extent())
-plt.colorbar(im,label = 'Flow Depth (m)')
-fig.show()
+# fig,ax = plt.subplots(figsize = (12,12))
+# ax.set_xlabel('X (m)')
+# ax.set_ylabel('Y (m)')
+# im = ax.imshow(hw.to_numpy(), cmap = "Blues", vmin = 0., vmax = hmaxplot, extent = env.grid.extent())
+# plt.colorbar(im,label = 'Flow Depth (m)')
+# fig.show()
 it = 0
 st = time.time()
 for i in range(8):
@@ -222,12 +222,12 @@ for i in range(8):
 		compute_hw()
 
 
-	thw = hw.to_numpy()
-	im.set_data(thw)
-	# im.set_clim(np.nanmin(thw), np.nanmax(thw))
+thw = hw.to_numpy()
+	# im.set_data(thw)
+	# # im.set_clim(np.nanmin(thw), np.nanmax(thw))
 
-	fig.canvas.draw_idle()
-	fig.canvas.start_event_loop(0.001)
+	# fig.canvas.draw_idle()
+	# fig.canvas.start_event_loop(0.001)
 timing['gpu'][res] = time.time() - st
 with open(f'/home/bgailleton/Desktop/code/FastFlood2.0/FastFlood2_Boris/graphflood/paper_scripts/notebooks/benchmark_graph.pickle', 'wb') as handle:
     pickle.dump(timing, handle, protocol=pickle.HIGHEST_PROTOCOL)
