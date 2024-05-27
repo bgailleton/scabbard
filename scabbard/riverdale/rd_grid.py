@@ -478,13 +478,13 @@ def _neighbours_customs(i:int, j:int, k:int, BCs:ti.template()):
 	valid = True
 
 	# Breaking down the checks
-	valid = _check_top_row_customs(i,j,k)
-	valid = _check_leftest_col_customs(i,j,k)
-	valid = _check_rightest_col_customs(i,j,k)
-	valid = _check_bottom_row_customs(i,j,k)
+	valid = _check_top_row_customs(i,j,k,BCs)
+	valid = _check_leftest_col_customs(i,j,k,BCs)
+	valid = _check_rightest_col_customs(i,j,k,BCs)
+	valid = _check_bottom_row_customs(i,j,k,BCs)
 
 	# getting the actual neighbours
-	return _cast_neighbour_customs(i,j,k,valid)
+	return _cast_neighbour_customs(i,j,k,valid,BCs)
 
 @ti.func
 def _can_receive_customs(i:int, j:int, BCs:ti.template()):
@@ -498,7 +498,7 @@ def _can_receive_customs(i:int, j:int, BCs:ti.template()):
 			- True, all the nodes can receive in the normal boundary conditions
 	'''
 	valid = True
-	if(BCs[i,j] == 7 or BCs[i,j] == 8 or BCs[i,j] == 0):
+	if(BCs[i,j] == 6 or BCs[i,j] == 7 or BCs[i,j] == 8 or BCs[i,j] == 0):
 		valid = False
 	return valid
 

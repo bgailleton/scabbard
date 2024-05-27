@@ -10,7 +10,10 @@ Authors:
 import numpy as np
 from enum import Enum
 import scabbard.riverdale.rd_grid as rdgd
+import scabbard.riverdale.rd_morphodynamics as rdmo
 import scabbard as scb
+import dagger as dag
+
 
 class RDParams:
 	'''
@@ -36,7 +39,7 @@ class RDParams:
 		self._boundaries = rdgd.BoundaryConditions.normal
 		self.initial_Z = np.random.rand(self._ny, self._nx).astype(dtype = np.float32)
 		self.initial_hw = None
-		self.BCs = None
+		self._BCs = None
 
 
 
@@ -53,8 +56,35 @@ class RDParams:
 		self._2D_precipitations = False
 
 
+		# Parameters for Morphology
+		self._morpho = False
+		# Time for the morphodynamics modelling		
+		self._dt_morpho = 1e-3
+		# What kind of erosion
+		self._morphomode = rdmo.MorphoMode.fbal
+		# gravitational constant
+		self._GRAVITY = 9.81
+		# Water density
+		self._rho_water = 1000
+		# Sediment density
+		self._rho_sediment = 2600
+		# Gravitational erosion coeff
+		self._k_z = 1.
+		self._k_h = 1.
+		# Fluvial erosion coeff
+		self._k_erosion = 1e-5
+		# Fluvial exponent
+		self._alpha_erosion = 1.5
+		# Grainsize
+		self._D = 4e-3 
+		#critical shear strass
+		self._tau_c = 4
 
-	def set_initial_conditions(self, nx, ny, dx, dy, Z, hw = None, BCs = None, boundaries = rdgd.BoundaryConditions.normal):
+		
+
+
+
+	def set_initial_conditions(self, nx, ny, dx, dy, Z, hw = None, BCs = None):
 		'''
 		Set up the initial conditions of the model, from the grid to the Z, BCs or eventually an initial flow depth
 		Needs to be done before the model setup
@@ -87,10 +117,126 @@ class RDParams:
 		self._nx = nx
 		self._ny = ny
 		self._nxy = self._nx * self._ny
-		self._boundaries = boundaries
+		self._boundaries = rdgd.BoundaryConditions.normal
 		self.BCs = BCs
 		self.initial_Z = Z
-		self.initial_hw = hw
+		self.initial_hw = hw if(hw is not None) else np.zeros_like(self.initial_Z)
+
+
+	@property
+	def boundaries(self):
+		return self._boundaries
+
+	@boundaries.setter
+	def boundaries(self, val):
+		if(val == rdgd.BoundaryConditions.normal):
+			self._boundaries = val
+		elif(val == rdgd.BoundaryConditions.customs):
+			raise ValueError("To set the boundary conditions to custom values in the parameter sheet, you need to directly provide a 2D numpy array of np.uint8 codes to the member param.BCs (where param is the parameter sheet object)")
+		else:
+			raise NotImplementedError('Boundary condition not implemented yet')
+
+	@property
+	def BCs(self):
+		return self._BCs
+
+	@BCs.setter
+	def BCs(self, val):
+		if(val is None):
+			self._boundaries = rdgd.BoundaryConditions.normal
+			self._BCs = val
+		elif not isinstance(val, np.ndarray) or not len(val.shape) == 2 or not val.shape[0] == self._ny or not val.shape[1] == self._nx or not val.dtype == np.uint8:
+			raise ValueError(f"If you want to directly set customs boundary conditions, please provide a 2D array of shape {self._ny},{self._nx} of type np.uint8")
+		self._BCs = val
+		self._boundaries = rdgd.BoundaryConditions.customs
+
+	@property
+	def dt_morpho(self):
+		return self._dt_morpho
+
+	@dt_morpho.setter
+	def dt_morpho(self,val):
+		self._dt_morpho = val
+
+	@property
+	def morphomode(self):
+		return self._morphomode
+
+	@morphomode.setter
+	def morphomode(self,val):
+		self._morphomode = val
+
+	@property
+	def GRAVITY(self):
+		return self._GRAVITY
+
+	@GRAVITY.setter
+	def GRAVITY(self,val):
+		self._GRAVITY = val
+
+	@property
+	def rho_water(self):
+		return self._rho_water
+
+	@rho_water.setter
+	def rho_water(self,val):
+		self._rho_water = val
+
+	@property
+	def rho_sediment(self):
+		return self._rho_sediment
+
+	@rho_sediment.setter
+	def rho_sediment(self,val):
+		self._rho_sediment = val
+
+	@property
+	def k_z(self):
+		return self._k_z
+
+	@k_z.setter
+	def k_z(self,val):
+		self._k_z = val
+
+	@property
+	def k_h(self):
+		return self._k_h
+
+	@k_h.setter
+	def k_h(self,val):
+		self._k_h = val
+
+	@property
+	def k_erosion(self):
+		return self._k_erosion
+
+	@k_erosion.setter
+	def k_erosion(self,val):
+		self._k_erosion = val
+
+	@property
+	def alpha_erosion(self):
+		return self._alpha_erosion
+
+	@alpha_erosion.setter
+	def alpha_erosion(self,val):
+		self._alpha_erosion = val
+
+	@property
+	def D(self):
+		return self._D
+
+	@D.setter
+	def D(self,val):
+		self._D = val
+
+	@property
+	def tau_c(self):
+		return self._tau_c
+
+	@tau_c.setter
+	def tau_c(self,val):
+		self._tau_c = val
 
 
 
@@ -186,8 +332,18 @@ def param_from_grid(grid):
 	TODo
 	'''
 	param = RDParams()
-	param.set_initial_conditions(grid.nx, grid.ny, grid.dx, grid.dx, grid.Z2D, boundaries = rdgd.BoundaryConditions.normal)
+	param.set_initial_conditions(grid.nx, grid.ny, grid.dx, grid.dx, grid.Z2D)
+
+	# TO MOVE IN STANDALONE FUNCTION
+	# if(initial_fill):
+	# 	if(param._boundaries == rdgd.BoundaryConditions.normal):
+	# 		ftopo = param.initial_Z + param.initial_hw
+	# 		dag._PriorityFlood_D4_normal_f32(ftopo)
+	# 		param.initial_hw += ftopo - (param.initial_Z + param.initial_hw)
+	# 	else:
+	# 		print("filling with PFD4 not implemented for boundary type")
+
 	return param
 
-def param_from_dem(dem):
-	return param_from_grid(scb.grid.raster2RGrid(dem))
+def param_from_dem(dem, initial_fill = True):
+	return param_from_grid(scb.grid.raster2RGrid(dem), initial_fill = initial_fill)

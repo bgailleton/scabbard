@@ -11,10 +11,6 @@ def calculate_MPM_from_D(D, l_transp, rho_water = 1000, gravity = 9.8, rho_sedim
 	return k_erosion, tau_c
 
 
-def f2img(tfield):
-	out = tfield.to_numpy()
-	return np.rot90((out - np.nanmin(out))/(np.nanmax(out) - np.nanmin(out)), -1)
-
 from opensimplex import noise2array
 
 

@@ -163,6 +163,21 @@ class RGrid(object):
 		else:
 			self.graph.compute_graph(self._Z, SFD, False)
 
+	def get_fill_topo(self, ret2D = False):
+		'''
+		Standalone topo filler using priority flood (Barnes, 2014)
+		'''
+
+		otopo = self._Z.copy()
+		if(self.graph is None):
+			self.compute_graphcon(SFD = True, BCs = None, LM = dag.LMR.priority_flood, preprocess_topo = True)
+			ret = self._Z.copy()
+		else:
+			ret = dag.standalone_priority_flood(self._Z, self.connector)
+
+		self._Z = otopo
+		return ret if ret2D == False else ret.reshape(self.ny,self.nx)
+
 	def zeros(self):
 		return np.zeros(self.rshp)
 
