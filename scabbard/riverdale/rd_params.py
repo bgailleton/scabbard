@@ -254,6 +254,10 @@ class RDParams:
 			Authors:
 				- B.G (29/05/2024)
 		'''
+		# if the value is None there is not much to do
+		if val is None:
+			return
+
 		 # Sanitising input
 		if not isinstance(val, np.ndarray) or not len(val.shape) == 2 or not val.shape[0] == self._ny or not val.shape[1] == self._nx or not val.dtype == np.uint8:
 			raise ValueError(f"If you want to directly set customs boundary conditions, please provide a 2D array of shape {self._ny},{self._nx} of type np.uint8")
