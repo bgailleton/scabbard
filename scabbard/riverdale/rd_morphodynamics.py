@@ -49,8 +49,10 @@ class MorphoParams:
 		self.alpha_erosion = 1.5
 		# Grainsize
 		self.D = 4e-3 
-		#critical shear strass
+		# Critical shear strass
 		self.tau_c = 4
+		# transport length
+		self.transport_length = 4
 
 
 PARAMMORPHO = MorphoParams()
@@ -117,7 +119,7 @@ def _compute_Qs(Z:ti.template(), hw:ti.template(), QsA:ti.template(), QsB:ti.tem
 	for i,j in Z:
 
 		# If the node cannot give and can only receive, I pass this node
-		if(gridfuncs.can_give(i,j,BCs) == False or gridfuncs.is_active(i,j,BCs) == False):
+		if(gridfuncs.can_give(i,j,BCs) == False or gridfuncs.can_out(i,j,BCs)):
 			continue
 
 		# I'll store the hydraulic slopes in this vector
@@ -153,10 +155,10 @@ def _compute_Qs(Z:ti.template(), hw:ti.template(), QsA:ti.template(), QsB:ti.tem
 			tS = hsw.Sw(Z,hw,i,j,ir,jr)
 
 			# Local hydraulic slope
-			tSz = hsw.Sz(Z,i,j,ir,jr)
+			tSz = ti.max(hsw.Sz(Z,i,j,ir,jr), 0.)
 
 			# Local hydraulic slope
-			tSPsi = hsw.SPsi(Z, hw, PARAMMORPHO.k_h, PARAMMORPHO.k_z, i, j, ir, jr)
+			tSPsi = ti.max(hsw.SPsi(Z, hw, PARAMMORPHO.k_h, PARAMMORPHO.k_z, i, j, ir, jr), 0.)
 
 			# If < 0, neighbour is a donor and I am not interested
 			if(tS <= 0):
@@ -195,18 +197,22 @@ def _compute_Qs(Z:ti.template(), hw:ti.template(), QsA:ti.template(), QsB:ti.tem
 		# Calculating local norms for the gradients
 		gradSw = ti.math.sqrt(SSwx*SSwx + SSwy*SSwy)
 		gradSPsi = ti.math.sqrt(SSPsix*SSPsix + SSPsiy*SSPsiy)
-		gradSz = ti.math.sqrt(SSZx*SSZx + SSPzwy*SSPzwy)
+		gradSz = ti.math.sqrt(SSZx*SSZx + SSZy*SSZy)
 
 		# Not sure I still need that
 		if(gradSw <= 0 or gradSPsi == 0):
 			continue
 
-		local_erosion_rate = PARAMMORPHO.k_erosion * ti.pow( PARAMMORPHO.k_z * gradSz * DENSITY_R + PARAMMORPHO.k_h * DENSITY_R * hw[i,j] * gradSw , PARAMMORPHO.alpha_erosion) 
+		local_erosion_rate = ti.max(PARAMMORPHO.k_erosion * ti.pow( PARAMMORPHO.k_z * gradSz * DENSITY_R + PARAMMORPHO.k_h * DENSITY_R * hw[i,j] * gradSw  - PARAMMORPHO.tau_c, PARAMMORPHO.alpha_erosion),0.)
 
 		CA = GRID.dx*GRID.dx
 
 		# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
 		QsC[i,j] = (QsA[i,j] + local_erosion_rate * CA)/(1 + CA * PARAMMORPHO.transport_length * gradSPsi/sumSpsi)
+		# if(QsC[i,j] < 0):
+		# 	print("local_erosion_rate:",local_erosion_rate)
+		# 	print("gradSPsi:",gradSPsi)
+		# 	print("sumSpsi:",sumSpsi)
 
 		# Transferring flow to neighbours
 		for k in range(4):
@@ -247,7 +253,7 @@ def _compute_hs(Z:ti.template(), hw:ti.template(), QsA:ti.template(), QsB:ti.tem
 	for i,j in Z:
 		
 		# Updating local discharge to new time step
-		QwA[i,j] = QwB[i,j]
+		QsA[i,j] = QsB[i,j]
 		
 		# Only where nodes are active (i.e. flow cannot leave and can traverse)
 		if(gridfuncs.is_active(i,j,BCs) == False):
@@ -288,8 +294,8 @@ def set_morpho_CC():
 
 	
 	# Feed it
-	if(PARAMHYDRO.morphomode == FlowMode.fbal):
+	if(PARAMMORPHO.morphomode == MorphoMode.fbal):
 		compute_hs = _compute_hs
 		compute_Qs = _compute_Qs
 	else:
-		raise NotImplementedError('FLOWMODEW Not implemented yet')
+		raise NotImplementedError('PARAMMORPHO Not implemented yet')

@@ -1,18 +1,22 @@
 '''
 Parameter class and function for Riverdale
-This is the user-side parameter sheet, not to be confused with the singletons parameter classes managing the compile time constant
+This is the user-side parameter sheet, 
+not to be confused with the singleton parameter classes managing the compile time constants located at the top of some files
+
+To some exceptions, this parameter class manages all the inputs to the model (e.g. initial topo, uplift, precipitations, manning, ...)
 
 Authors:
 	- B.G.
-
 '''
 
 import numpy as np
 from enum import Enum
 import scabbard.riverdale.rd_grid as rdgd
 import scabbard.riverdale.rd_morphodynamics as rdmo
+import scabbard.utils as scaut 
 import scabbard as scb
 import dagger as dag
+import warnings
 
 
 class RDParams:
@@ -20,68 +24,151 @@ class RDParams:
 	Parameter class for RiverDale, contains the sheet of parameters required Riverdale's model
 	This is the user-side parameter sheet, managing the precipitation, roughness, erodability, critical shear stress ...
 
+	It manages inputs for the model, some of them are to be fixed before initiating the model and others can be edited during the model lifetime.
+
 	Authors:
 		- B.G (last modification on the 30/04/1992)
 	'''
 
 
-	def __init__(self):
+	############################################################
+	# CONSTRUCTOR ##############################################
+	############################################################
 
-		# Initialising to the default parameters
+
+	def __init__(self):
+		'''
+			The constructor does not actually take parameters: it initiates all the parameters to their default values
+			Note, internal variables starts with _. Do not use them directly if you do not know what you are doing.
+			Most of the API is exposed via cleaner properties (setters and getters) without the _ (see all the @property) or direct functions
+
+			Returns:
+				- A default RDParams parameter sheet
+			Authors:
+				- B.G. (last modifications: 29/05/2024)
+		'''
+
+		# _RD is a reference to the model object (RiverDale)
+		# Once initialised, RD also gets a ref to this param sheet
+		# Constant parameters becomes lock and the variable inputs will be automatically transmitted on modification
 		self._RD = None
 
-		# Initial grid parameters, probably no need to expose them directly:
+		##############################
+		# GRID Parameters
+		##############################
+
+		# Grid Geometry, probably no need to expose them directly:
+		## spatial step in the x direction
 		self._dx = 1.
+		## spatial step in the y direction (Warning, some of the codes only considers dx=dy)
 		self._dy = 1.
+		## Number of columns
 		self._nx = 50
+		## Number of rows
 		self._ny = 50
+		## Number of nodes in total
 		self._nxy = self._nx * self._ny
+		
+		# Type of boundary conditions
+		## This enum is defined in rd_grid.py and determines how the codes reads/deal bcs
 		self._boundaries = rdgd.BoundaryConditions.normal
-		self.initial_Z = np.random.rand(self._ny, self._nx).astype(dtype = np.float32)
-		self.initial_hw = None
+		## Arrays of boundary conditions - used if the boundary conditions are set to customs
+		## See rd_grid.py for the meaning (or the future doc at the date of the 29/05/2024)
 		self._BCs = None
 
+		##############################
+		# Initial conditions
+		##############################
 
-
-		# Parameters for the hydrology
+		# Initial topography, fed to the model at initiation and also kept here for comparisons or things like that
+		self.initial_Z = np.random.rand(self._ny, self._nx).astype(dtype = np.float32)
 		
-		## Roughness coefficient
+		# Initial flow depth - kept to 0 if None
+		self.initial_hw = None
+
+		
+		##############################
+		# HYDRO Parameters
+		##############################
+		
+		# Manning's Roughness/friction coefficient
 		self._manning = 0.033
-		## time step
+		
+		# time step for the hydrodynamics model
 		self._dt_hydro = 1e-3
-		## Precipitation rates
-		### The value (2 or 2D)
+
+		# Precipitation rates
+		## The value (2 or 2D)
+		## Once the model is initialised, it cannot be switched from 1D to 2D
 		self._precipitations = 50*1e-3/3600
-		###	is the field in 2D (Default is none)
+		## Does the model even need to run the precipitation input?
+		self._has_precipitations = True
+		## Is the precipitation field field in 2D
 		self._2D_precipitations = False
+		## are precipitations manually cut off
+		self._force_no_prec = False
+
+		# Discrete input points
+		# Default is no direct inputs
+		# The models checks if this is required with the need_input_Qw property
+		## Indices of the row inputs
+		self._input_rows_Qw = None
+		## Indices of the columns inputs
+		self._input_cols_Qw = None
+		## Input values in m^3/s
+		self._input_Qw = None
 
 
-		# Parameters for Morphology
+
+		##############################
+		# MORPHO Parameters
+		##############################
+
+
+		# Is the Morphodynamics module enabled?
+		## If False, it does not run a single morpho functions and you can ignore the params
 		self._morpho = False
-		# Time for the morphodynamics modelling		
+
+		# Time step for the morphodynamics modelling		
 		self._dt_morpho = 1e-3
-		# What kind of erosion
+
+		# Enum class for the type of fluvial process activated (Ignore, so far just one)
 		self._morphomode = rdmo.MorphoMode.fbal
-		# gravitational constant
+
+		# Gravitational constant g
 		self._GRAVITY = 9.81
+
 		# Water density
 		self._rho_water = 1000
+
 		# Sediment density
 		self._rho_sediment = 2600
+
 		# Gravitational erosion coeff
 		self._k_z = 1.
+
+		# shear-stress entrainement local coeff erosion coeff
 		self._k_h = 1.
-		# Fluvial erosion coeff
+
+		# Fluvial erosion coeff (the dimentional E in MPM)
 		self._k_erosion = 1e-5
+
 		# Fluvial exponent
 		self._alpha_erosion = 1.5
+
 		# Grainsize
 		self._D = 4e-3 
-		#critical shear strass
+
+		# Critical shear stress
 		self._tau_c = 4
 
-		
+		# critical shear strass
+		self._transport_length = 4
 
+		
+	############################################################
+	# GRID Stuffs ##############################################
+	############################################################
 
 
 	def set_initial_conditions(self, nx, ny, dx, dy, Z, hw = None, BCs = None):
@@ -97,7 +184,6 @@ class RDParams:
 			- Z: a numpy array of 2D initial elevation 
 			- hw: an optional array of initial flow depth
 			- BCs: an optional array of Boundary conditions code in uint8
-			- boundaries: a BoundaryConditions code
 		returns:
 			- Nothing but sets up the inital conditions of the model
 		Authors:
@@ -125,10 +211,23 @@ class RDParams:
 
 	@property
 	def boundaries(self):
+		'''
+			Boundary enum code of the model, see BoundaryConditions enum class in rd_grid.py
+			Authors:
+				- B.G (last modification: 29/05/2024)
+		'''
 		return self._boundaries
 
 	@boundaries.setter
 	def boundaries(self, val):
+		'''
+			Setter for changing the type of boundary conditions in the model.
+			It cannot be changed once the model is instantiated.
+			Note that if the boundaries are set to `customs`, you can change the boundary codes by modifying BCs.
+
+			Authors:
+				- B.G. (last modification: 29/05/2024)	
+		'''
 		if(val == rdgd.BoundaryConditions.normal):
 			self._boundaries = val
 		elif(val == rdgd.BoundaryConditions.customs):
@@ -138,17 +237,211 @@ class RDParams:
 
 	@property
 	def BCs(self):
+		'''
+		 Actual boundary codes used in the case of customs boundary conditions 
+		 See the convention in rd_grid.py
+		 Authors:
+		 	B.G. (last modification: 29/05/2024)
+		'''
 		return self._BCs
 
 	@BCs.setter
 	def BCs(self, val):
-		if(val is None):
-			self._boundaries = rdgd.BoundaryConditions.normal
-			self._BCs = val
-		elif not isinstance(val, np.ndarray) or not len(val.shape) == 2 or not val.shape[0] == self._ny or not val.shape[1] == self._nx or not val.dtype == np.uint8:
+		'''
+			Setter for the boundary condition codes.
+			Needs to be an uint8 nupy array following the convention in rd_grid.py.
+			Note that setting this values to a 2D numpy array sets the boundary condition type to customs
+			Authors:
+				- B.G (29/05/2024)
+		'''
+		 # Sanitising input
+		if not isinstance(val, np.ndarray) or not len(val.shape) == 2 or not val.shape[0] == self._ny or not val.shape[1] == self._nx or not val.dtype == np.uint8:
 			raise ValueError(f"If you want to directly set customs boundary conditions, please provide a 2D array of shape {self._ny},{self._nx} of type np.uint8")
-		self._BCs = val
-		self._boundaries = rdgd.BoundaryConditions.customs
+
+		# Registering it if the model is not instanciated
+		if(self._RD is None):
+			self._BCs = val
+			self._boundaries = rdgd.BoundaryConditions.customs
+		# If the model is instanciated I need extra checks and work
+		else:
+			# Checking if the mdel has been initialised to the right mode
+			if(self.boundaries != rdgd.BoundaryConditions.customs):
+				raise ValueError('Model is already initialised in another boundary mode than customs. BCs cannot be modified.')
+			else:
+				# Directly transferring data to the GPU BCs code
+				self._RD.BCs.from_numpy(val)
+
+
+
+
+	@property
+	def manning(self):
+		'''
+			Returns the roughness coefficient for the friction equation used to calculate flow velocity
+			Authors:
+				- B.G. (last modification 30/04/2024)
+		'''
+		return self._manning
+
+	@manning.setter
+	def manning(self, value):
+		'''
+			Setter function for the roughness coefficient, essentially checking if the input is 1 or 2D
+			Authors:
+				- B.G. (last modification 30/04/2024)
+		'''
+
+		# here I'll lay out the code for 2D mannings
+		if(isinstance(value,np.ndarray)):
+			raise Exception("2D Roughness coefficient not supported yet")
+
+		# At the moment it needs to be compile-time constant
+		if(self._RD is not None):
+			raise Exception("Roughness coefficient cannot yet be modified after setting up the model. Working on a robust way to do so but so far it is a compile-time constant for performance reasons and therefore cannot be changed after creating the model instance")
+		else:
+			self._manning = value
+
+	@property
+	def dt_hydro(self):
+		'''
+			Returns the time step used in the simulation for hydrodynamics
+			Authors:
+				- B.G. (last modification 30/04/2024)
+		'''
+		return self._dt_hydro
+
+	@dt_hydro.setter
+	def dt_hydro(self, value):
+		'''
+			Setter function for the time step used in the simulation for hydrodynamics
+			nothing particular but is future proofed
+			Authors:
+				- B.G. (last modification 30/04/2024)
+		'''
+
+		self._dt_hydro = value
+
+	@property
+	def precipitations(self):
+		'''
+			Returns the field of precipitation rates (whether it si 1D or 2D)
+			Authors:
+				- B.G. (last modification 30/04/2024)
+		'''
+		return self._precipitations
+
+	@precipitations.setter
+	def precipitations(self, value):
+		'''
+			Setter function for the precipitation rates, essentially checking if the input is 1 or 2D
+			Authors:
+				- B.G. (last modification 23/05/2024)
+		'''
+
+
+		if(self._force_no_prec):
+			warnings.warn('Precipitations have been manually disabled using the method `disable_precipitations`, new values will not be taken into account unless the method `enable_precipitations` is run later on.')
+
+		# Checking if the input is 1 or 2D
+		if(isinstance(value,np.ndarray)):
+			input2D = True
+		else:
+			input2D = False
+
+		if(not input2D and value == 0):
+			self._has_precipitations = False
+		else:
+			self._has_precipitations = True
+
+		# Cannot change the type of input if the runtime is already initiated
+		if(self._2D_precipitations != input2D and self._RD is not None):
+			raise Exception("You cannot change precipitations from 1D to 2D (or the other way) once the model is instantiated (working on that).")
+
+		# if I reach here I can set the parameters
+		self._precipitations = value
+
+		if(self._RD is not None):
+			if(isinstance(value,np.ndarray)):
+				value = value.astype(np.float32)
+				self._RD.P.from_numpy(value)
+			else:
+				value = np.float32(value)
+				self._RD.P = value
+
+	def set_input_Qw(self, rows, cols, values, disable_precipitations = False):
+		'''
+		Function to set the discrete input points for the hydrodynamics model.
+		Note that it replaces any previous discrete inputs, but it does not replace the precipitations if there are any
+		Arguments:
+			- rows: indices of the rows where the inputs flow in
+			- cols: indices of the columns where the inputs flow in
+			- values: input Qw in m^3/s
+			- disable_precipitations: switch off any precipitation inputs if true
+		'''
+		# couple of checks first
+		if scaut.is_numpy(values) == False or scaut.is_numpy(rows, dtype = np.integer) == False or scaut.is_numpy(cols, dtype = np.integer) == False:
+			print(scaut.is_numpy(values) ,'||', scaut.is_numpy(rows, dtype = np.integer) ,'||', scaut.is_numpy(cols, dtype = np.integer))
+			raise ValueError('rows and cols must be 1D numpy arrays of integers and values a numpy array of float')
+
+		tgshape = values.shape
+
+		if(values.shape != tgshape or rows.shape != tgshape or cols.shape != tgshape):
+			raise ValueError('Inputs arrays must have the same shape')
+
+		self._input_rows_Qw = rows
+		self._input_cols_Qw = cols
+		self._input_Qw = values
+
+
+	@property
+	def need_precipitations(self):
+		'''
+		Property determining if I need to run the pieces of code adding the precipitation or not
+		returns True or False
+		Authors:
+				- B.G. (last modification 23/05/2024)
+		'''
+		return self._has_precipitations and self._force_no_prec == False
+
+	@need_precipitations.setter
+	def need_precipitations(self, val):
+		'''
+		Explicitely forbidding the manual assignement for this property
+		It is computed from the various inputs or more explicit function
+		Authors:
+			- B.G. (last modification 23/05/2024)
+		'''
+		print("Cannot manually set need_precipitations")
+
+	def disable_precipitations(self):
+		'''
+		Explicitely disable precipitations
+		Authors:
+				- B.G. (last modification 23/05/2024)
+		'''
+		self._force_no_prec = True
+
+	def enable_precipitations(self):
+		'''
+		Explicitely re-enable precipitations (only required if it has been explicitely disabled before)
+		Authors:
+				- B.G. (last modification 23/05/2024)
+		'''
+		self._force_no_prec = False
+
+	@property
+	def need_input_Qw(self):
+		'''
+		Determines whether the model needs to run the discrete input function or not.
+		Authors:
+			- B.G (last modification: 28/05/2024)
+		'''
+		if(self._input_rows_Qw is not None):
+			return True
+		else:
+			return False
+
+
 
 	@property
 	def dt_morpho(self):
@@ -157,6 +450,14 @@ class RDParams:
 	@dt_morpho.setter
 	def dt_morpho(self,val):
 		self._dt_morpho = val
+
+	@property
+	def morpho(self):
+		return self._morpho
+
+	@morpho.setter
+	def morpho(self,val):
+		self._morpho = val
 
 	@property
 	def morphomode(self):
@@ -238,92 +539,14 @@ class RDParams:
 	def tau_c(self,val):
 		self._tau_c = val
 
-
-
 	@property
-	def manning(self):
-		'''
-			Returns the roughness coefficient for the friction equation used to calculate flow velocity
-			Authors:
-				- B.G. (last modification 30/04/2024)
-		'''
-		return self._manning
+	def transport_length(self):
+		return self._transport_length
 
-	@manning.setter
-	def manning(self, value):
-		'''
-			Setter function for the roughness coefficient, essentially checking if the input is 1 or 2D
-			Authors:
-				- B.G. (last modification 30/04/2024)
-		'''
+	@transport_length.setter
+	def transport_length(self,val):
+		self._transport_length = val
 
-		# here I'll lay out the code for 2D mannings
-		if(isinstance(value,np.ndarray)):
-			raise Exception("2D Roughness coefficient not supported yet")
-
-		# At the moment it needs to be compile-time constant
-		if(self._RD is not None):
-			raise Exception("Roughness coefficient cannot yet be modified after setting up the model. Working on a robust way to do so but so far it is a compile-time constant for performance reasons and therefore cannot be changed after creating the model instance")
-		else:
-			self._manning = value
-
-	@property
-	def dt_hydro(self):
-		'''
-			Returns the time step used in the simulation for hydrodynamics
-			Authors:
-				- B.G. (last modification 30/04/2024)
-		'''
-		return self._dt_hydro
-
-	@dt_hydro.setter
-	def dt_hydro(self, value):
-		'''
-			Setter function for the time step used in the simulation for hydrodynamics
-			nothing particular but is future proofed
-			Authors:
-				- B.G. (last modification 30/04/2024)
-		'''
-
-		self._dt_hydro = value
-
-	@property
-	def precipitations(self):
-		'''
-			Returns the field of precipitation rates (whether it si 1D or 2D)
-			Authors:
-				- B.G. (last modification 30/04/2024)
-		'''
-		return self._precipitations
-
-	@precipitations.setter
-	def precipitations(self, value):
-		'''
-			Setter function for the precipitation rates, essentially checking if the input is 1 or 2D
-			Authors:
-				- B.G. (last modification 30/04/2024)
-		'''
-
-		# Checking if the input is 1 or 2D
-		if(isinstance(value,np.ndarray)):
-			input2D = True
-		else:
-			input2D = False
-
-		# Cannot change the type of input if the runtime is already initiated
-		if(self._2D_precipitations != input2D and self._RD is not None):
-			raise Exception("You cannot change precipitations from 1D to 2D (or the other way) once the model is instantiated (working on that).")
-
-		# if I reach here I can set the parameters
-		self._precipitations = value
-
-		if(self._RD is not None):
-			if(isinstance(value,np.ndarray)):
-				value = value.astype(np.float32)
-				self._RD.P.from_numpy(value)
-			else:
-				value = np.float32(value)
-				self._RD.P = value
 
 
 

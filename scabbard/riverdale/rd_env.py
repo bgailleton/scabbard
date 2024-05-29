@@ -1,5 +1,10 @@
 '''
-Riverdale environment
+Riverdale environment:
+
+This is the main high level class interfacing with the model. 
+This is the API users use to get the data out of the model and run time steps.
+The other high level class class managing the model inputs and parameters is the RDParams class (see rd_params.py) 
+The (internal) structure is a bit convoluted for the sake of optimising calculation time.
 
 '''
 
@@ -52,8 +57,8 @@ but in the meantime you can run the model in batch using subprocess.
 		self.Z = None
 		self.hw = None
 		self.P = None
-		self.input_rows = None
-		self.input_cols = None
+		self.input_rows_Qw = None
+		self.input_cols_Qw = None
 		self.input_Qw = None
 
 		## Field for morpho
@@ -85,7 +90,7 @@ but in the meantime you can run the model in batch using subprocess.
 			self._run_init_hydro()
 			
 			# Add external water inputs: rain, discrete entry points, ...
-			self._run_rain()
+			self._run_hydro_inputs()
 
 			# Actually runs the runoff simulation
 			self._run_hydro()
@@ -95,11 +100,30 @@ but in the meantime you can run the model in batch using subprocess.
 	def _run_init_hydro(self):
 		rdhy.initiate_step(self.QwB)
 
-	def _run_rain(self):
-		if(self.param._2D_precipitations):
-				rdhy.variable_rain(self.QwA, self.QwB, self.P,self.BCs)
-		else:
-			rdhy.constant_rain(self.QwA, self.QwB, self.P,self.BCs)	
+	def _run_hydro_inputs(self):
+		'''
+		Internal function automating the runniong of anything that adds water to the model (precipitations, input points, ...)
+		It determines everything automatically from the param sheet (RDparam class)
+		
+		Returns: 
+			- Nothing, runs a subpart of the model
+		
+		Authors:
+			- B.G (last modification: 28/05/2024)
+		'''
+
+		# First checking if we need the  precipitations inputs
+		if(self.param.need_precipitations):
+
+			# then running the 2D precipitations
+			if(self.param._2D_precipitations):
+					rdhy.variable_rain(self.QwA, self.QwB, self.P,self.BCs)
+			# or the 1D
+			else:
+				rdhy.constant_rain(self.QwA, self.QwB, self.P,self.BCs)
+		# Secondly, applying the discrete inputs if needed too				
+		if(self.param.need_input_Qw):
+			rdhy.input_discharge_points(self.input_rows_Qw, self.input_cols_Qw, self.input_Qw, self.QwA, self.QwB, self.BCs)
 
 	def _run_hydro(self):
 		rdhy.compute_Qw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs)
@@ -136,8 +160,8 @@ but in the meantime you can run the model in batch using subprocess.
 	def _run_inputs_Qs(self):
 		rdmo.input_discharge_sediment_points(self.input_rows_Qs, self.input_cols_Qs, self.input_Qs, self.QsA, self.QsB, self.BCs)
 	def _run_morpho(self):
-		rd.compute_Qs(self.Z, self.hw, self.QsA, self.QsB, self.QsC, self.BCs )
-		rd.compute_hs(self.Z, self.hw, self.QsA, self.QsB, self.QsC, self.BCs )
+		rdmo.compute_Qs(self.Z, self.hw, self.QsA, self.QsB, self.QsC, self.BCs )
+		rdmo.compute_hs(self.Z, self.hw, self.QsA, self.QsB, self.QsC, self.BCs )
 
 	@classmethod
 	def _create_instance(cls):
@@ -214,12 +238,16 @@ def create_from_params(param):
 	else:
 		instance.P = param.precipitations
 
-	# TODO
-	instance.input_rows = None
-	instance.input_cols = None
-	instance.input_Qw = None
+	if(param.need_input_Qw):
+		n_inputs_QW = param._input_rows_Qw.shape[0]
+		instance.input_rows_Qw = ti.field(ti.i32, shape = (n_inputs_QW))
+		instance.input_rows_Qw.from_numpy(param._input_rows_Qw)
+		instance.input_cols_Qw = ti.field(ti.i32, shape = (n_inputs_QW))
+		instance.input_cols_Qw.from_numpy(param._input_cols_Qw)
+		instance.input_Qw = ti.field(ti.f32, shape = (n_inputs_QW))
+		instance.input_Qw.from_numpy(param._input_Qw)
 
-	if(param._morpho):
+	if(param.morpho):
 
 		instance.PARAMMORPHO.dt_morpho = param.dt_morpho
 		instance.PARAMMORPHO.morphomode = param.morphomode
@@ -232,6 +260,7 @@ def create_from_params(param):
 		instance.PARAMMORPHO.alpha_erosion = param.alpha_erosion
 		instance.PARAMMORPHO.D = param.D
 		instance.PARAMMORPHO.tau_c = param.tau_c
+		instance.PARAMMORPHO.transport_length = param.transport_length
 
 		rdmo.set_morpho_CC()
 

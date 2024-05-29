@@ -555,7 +555,7 @@ def _is_active_customs(i:int, j:int, BCs:ti.template()):
 		- B.G. (last modification 02/05/2024)
 	'''
 	valid = True
-	if(BCs[i,j] == 0 or _can_out_customs(i,j,BCs)):
+	if(BCs[i,j] == 0 or _can_out_customs(i,j,BCs) or _can_receive_customs(i,j,BCs) == False):
 		valid = False
 	return valid
 

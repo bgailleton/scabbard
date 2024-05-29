@@ -139,7 +139,7 @@ def _compute_Qw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 	for i,j in Z:
 
 		# If the node cannot give and can only receive, I pass this node
-		if(gridfuncs.can_give(i,j,BCs) == False or gridfuncs.is_active(i,j,BCs) == False):
+		if(gridfuncs.can_give(i,j,BCs) == False or gridfuncs.can_out(i,j,BCs)):
 			continue
 
 		# I'll store the hydraulic slope in this vector
@@ -253,7 +253,7 @@ def _compute_hw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 		QwA[i,j] = QwB[i,j]
 		
 		# Only where nodes are active (i.e. flow cannot leave and can traverse)
-		if(gridfuncs.is_active(i,j,BCs) == False):
+		if(gridfuncs.can_out(i,j,BCs)):
 			continue
 		# Updating flow depth (cannot be < 0)
 		hw[i,j] = ti.math.max(0.,hw[i,j] + (QwA[i,j] - QwC[i,j]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy) ) 
