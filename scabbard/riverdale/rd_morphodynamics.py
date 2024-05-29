@@ -115,117 +115,128 @@ def _compute_Qs(Z:ti.template(), hw:ti.template(), QsA:ti.template(), QsB:ti.tem
 
 	DENSITY_R = (PARAMMORPHO.rho_sediment - PARAMMORPHO.rho_water) * PARAMMORPHO.GRAVITY
 
-	# Traversing each nodes
-	for i,j in Z:
+	# Case of normal node
+	if(gridfuncs.can_out(i,j,BCs) == False):
+		# Traversing each nodes
+		for i,j in Z:
 
-		# If the node cannot give and can only receive, I pass this node
-		if(gridfuncs.can_give(i,j,BCs) == False or gridfuncs.can_out(i,j,BCs)):
-			continue
+			
 
-		# I'll store the hydraulic slopes in this vector
-		SPsis = ti.math.vec4(0.,0.,0.,0.)
+			# I'll store the hydraulic slopes in this vector
+			SPsis = ti.math.vec4(0.,0.,0.,0.)
 
-		# I'll need the sum of the hydraulic slopes in the positive directions
-		sumSpsi = 0.
+			# I'll need the sum of the hydraulic slopes in the positive directions
+			sumSpsi = 0.
 
-		# Keeping in mind the steepest slope in the x and y direction to calculate the norm of the vector
-		## Hydraulic slope
-		SSwx = 0.
-		SSwy = 0.
+			# Keeping in mind the steepest slope in the x and y direction to calculate the norm of the vector
+			## Hydraulic slope
+			SSwx = 0.
+			SSwy = 0.
 
-		## Topographic slope
-		SSZx = 0.
-		SSZy = 0.
+			## Topographic slope
+			SSZx = 0.
+			SSZy = 0.
 
-		## Psi slope
-		SSPsix = 0.
-		SSPsiy = 0.
+			## Psi slope
+			SSPsix = 0.
+			SSPsiy = 0.
 
-		
-		# Traversing Neighbours
-		for k in range(4):
-			# getting neighbour k (see rd_grid header lines for erxplanation on the standard)
-			ir,jr = gridfuncs.neighbours(i,j,k, BCs)
+			
+			# Traversing Neighbours
+			for k in range(4):
+				# getting neighbour k (see rd_grid header lines for erxplanation on the standard)
+				ir,jr = gridfuncs.neighbours(i,j,k, BCs)
 
-			# if not a neighbours, by convention is < 0 and I pass
-			if(ir == -1):
+				# if not a neighbours, by convention is < 0 and I pass
+				if(ir == -1):
+					continue
+
+				# Local hydraulic slope
+				tS = hsw.Sw(Z,hw,i,j,ir,jr)
+
+				# Local hydraulic slope
+				tSz = ti.max(hsw.Sz(Z,i,j,ir,jr), 0.)
+
+				# Local hydraulic slope
+				tSPsi = ti.max(hsw.SPsi(Z, hw, PARAMMORPHO.k_h, PARAMMORPHO.k_z, i, j, ir, jr), 0.)
+
+				# If < 0, neighbour is a donor and I am not interested
+				if(tS <= 0):
+					continue
+
+				# Registering the steepest clope in both directions (see rd_grid header lines for erxplanation on the standard)
+				if(k == 0 or k == 3):
+					if(tS > SSwy):
+						SSwy = tS
+					if(tSz > SSZy):
+						SSZy = tSz
+					if(tSPsi > SSPsiy):
+						SSPsiy = tSPsi
+				else:
+					if(tS > SSwx):
+						SSwx = tS
+					if(tSz > SSZx):
+						SSZx = tSz
+					if(tSPsi > SSPsix):
+						SSPsix = tSPsi
+
+				# Registering local partitioning slope
+				SPsis[k] = tSPsi
+				# Summing it to global
+				sumSpsi += tSPsi
+
+			# Done with processing this particular neighbour
+
+			# Local minima management (cheap but works)
+			## If I have no downward slope, I increase the elevation by a bit
+			if(sumSpsi == 0.):
+				# HERE MANAGE THINGS FOR LOCAL MINIMAS
 				continue
 
-			# Local hydraulic slope
-			tS = hsw.Sw(Z,hw,i,j,ir,jr)
 
-			# Local hydraulic slope
-			tSz = ti.max(hsw.Sz(Z,i,j,ir,jr), 0.)
+			# Calculating local norms for the gradients
+			gradSw = ti.math.sqrt(SSwx*SSwx + SSwy*SSwy)
+			gradSPsi = ti.math.sqrt(SSPsix*SSPsix + SSPsiy*SSPsiy)
+			gradSz = ti.math.sqrt(SSZx*SSZx + SSZy*SSZy)
 
-			# Local hydraulic slope
-			tSPsi = ti.max(hsw.SPsi(Z, hw, PARAMMORPHO.k_h, PARAMMORPHO.k_z, i, j, ir, jr), 0.)
-
-			# If < 0, neighbour is a donor and I am not interested
-			if(tS <= 0):
+			# Not sure I still need that
+			if(gradSw <= 0 or gradSPsi == 0):
 				continue
 
-			# Registering the steepest clope in both directions (see rd_grid header lines for erxplanation on the standard)
-			if(k == 0 or k == 3):
-				if(tS > SSwy):
-					SSwy = tS
-				if(tSz > SSZy):
-					SSZy = tSz
-				if(tSPsi > SSPsiy):
-					SSPsiy = tSPsi
+			local_erosion_rate = ti.max(PARAMMORPHO.k_erosion * ti.pow( PARAMMORPHO.k_z * gradSz * DENSITY_R + PARAMMORPHO.k_h * DENSITY_R * hw[i,j] * gradSw  - PARAMMORPHO.tau_c, PARAMMORPHO.alpha_erosion),0.)
+
+			CA = GRID.dx*GRID.dx
+
+			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
+			QsC[i,j] = (QsA[i,j] + local_erosion_rate * CA)/(1 + CA * PARAMMORPHO.transport_length * gradSPsi/(GRID.dx * sumSpsi))
+
+			# If the node cannot give and can only receive, I pass this node
+			if(gridfuncs.can_give(i,j,BCs) == False):
+				QsC[i,j] = QsA[i,j]
 			else:
-				if(tS > SSwx):
-					SSwx = tS
-				if(tSz > SSZx):
-					SSZx = tSz
-				if(tSPsi > SSPsix):
-					SSPsix = tSPsi
+				# Transferring flow to neighbours
+				for k in range(4):
 
-			# Registering local partitioning slope
-			SPsis[k] = tSPsi
-			# Summing it to global
-			sumSpsi += tSPsi
+					# local neighbours
+					ir,jr = gridfuncs.neighbours(i,j,k, BCs)
+					
+					# checking if neighbours
+					if(ir == -1):
+						continue
+					
+					# Transferring prop to the hydraulic slope
+					ti.atomic_add(QsB[ir,jr], SPsis[k]/sumSpsi * QsC[i,j])
+	else:
 
-		# Done with processing this particular neighbour
+		gradSz = ti.max(hsw.Zw(Z,hw,i,j) -  PARAMHYDRO.hydro_slope_bc_val, 1e-6)/GRID.dx if PARAMHYDRO.hydro_slope_bc_mode == 0 else PARAMHYDRO.hydro_slope_bc_val
 
-		# Local minima management (cheap but works)
-		## If I have no downward slope, I increase the elevation by a bit
-		if(sumSpsi == 0.):
-			# HERE MANAGE THINGS FOR LOCAL MINIMAS
-			continue
-
-
-		# Calculating local norms for the gradients
-		gradSw = ti.math.sqrt(SSwx*SSwx + SSwy*SSwy)
-		gradSPsi = ti.math.sqrt(SSPsix*SSPsix + SSPsiy*SSPsiy)
-		gradSz = ti.math.sqrt(SSZx*SSZx + SSZy*SSZy)
-
-		# Not sure I still need that
-		if(gradSw <= 0 or gradSPsi == 0):
-			continue
-
-		local_erosion_rate = ti.max(PARAMMORPHO.k_erosion * ti.pow( PARAMMORPHO.k_z * gradSz * DENSITY_R + PARAMMORPHO.k_h * DENSITY_R * hw[i,j] * gradSw  - PARAMMORPHO.tau_c, PARAMMORPHO.alpha_erosion),0.)
+		local_erosion_rate = ti.max(PARAMMORPHO.k_erosion * ti.pow( PARAMMORPHO.k_z * gradSz * DENSITY_R + PARAMMORPHO.k_h * DENSITY_R * hw[i,j] * gradSz  - PARAMMORPHO.tau_c, PARAMMORPHO.alpha_erosion),0.)
 
 		CA = GRID.dx*GRID.dx
 
 		# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
-		QsC[i,j] = (QsA[i,j] + local_erosion_rate * CA)/(1 + CA * PARAMMORPHO.transport_length * gradSPsi/sumSpsi)
-		# if(QsC[i,j] < 0):
-		# 	print("local_erosion_rate:",local_erosion_rate)
-		# 	print("gradSPsi:",gradSPsi)
-		# 	print("sumSpsi:",sumSpsi)
+		QsC[i,j] = (QsA[i,j] + local_erosion_rate * CA)/(1 + CA * PARAMMORPHO.transport_length / GRID.dx)
 
-		# Transferring flow to neighbours
-		for k in range(4):
-
-			# local neighbours
-			ir,jr = gridfuncs.neighbours(i,j,k, BCs)
-			
-			# checking if neighbours
-			if(ir == -1):
-				continue
-			
-			# Transferring prop to the hydraulic slope
-			ti.atomic_add(QsB[ir,jr], SPsis[k]/sumSpsi * QsC[i,j])
 
 
 
@@ -256,8 +267,8 @@ def _compute_hs(Z:ti.template(), hw:ti.template(), QsA:ti.template(), QsB:ti.tem
 		QsA[i,j] = QsB[i,j]
 		
 		# Only where nodes are active (i.e. flow cannot leave and can traverse)
-		if(gridfuncs.is_active(i,j,BCs) == False):
-			continue
+		# if(gridfuncs.is_active(i,j,BCs) == False):
+		# 	continue
 
 		dz = (QsA[i,j] - QsC[i,j]) * PARAMMORPHO.dt_morpho/(GRID.dx*GRID.dy)
 
