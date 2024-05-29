@@ -28,9 +28,14 @@ class HydroParams:
 		Not for users
 	'''
 	def __init__(self):		
+		# Constant dt for hydrodynamics
 		self.dt_hydro = 1e-3
+		# Constant manning coefficient
 		self.manning = 0.033
 		self.flowmode = FlowMode.static_incremental
+		self.hydro_slope_bc_mode = 0
+		self.hydro_slope_bc_val = 0
+
 
 
 PARAMHYDRO = HydroParams()
@@ -139,7 +144,7 @@ def _compute_Qw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 	for i,j in Z:
 
 		# If the node cannot give and can only receive, I pass this node
-		if(gridfuncs.can_give(i,j,BCs) == False or gridfuncs.can_out(i,j,BCs)):
+		if(gridfuncs.is_active(i,j,BCs) == False):
 			continue
 
 		# I'll store the hydraulic slope in this vector
@@ -155,74 +160,85 @@ def _compute_Qw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 		# Safety check: gets incremented at each while iteration and manually breaks the loop if > 10k (avoid getting stuck in an infinite hole)
 		lockcheck = 0
 
-		# While I do not have external slope
-		while(sumSw == 0.):
+
+		# None boundary case
+		if(gridfuncs.can_out(i,j,BCs) == False):
+			# While I do not have external slope
+			while(sumSw == 0.):
+				
+				# First incrementing the safety check
+				lockcheck += 1
+
+				# Traversing Neighbours
+				for k in range(4):
+
+					# getting neighbour k (see rd_grid header lines for erxplanation on the standard)
+					ir,jr = gridfuncs.neighbours(i,j,k, BCs)
+
+					# if not a neighbours, by convention is < 0 and I pass
+					if(ir == -1):
+						continue
+
+					# Local hydraulic slope
+					tS = hsw.Sw(Z,hw,i,j,ir,jr)
+
+					# If < 0, neighbour is a donor and I am not interested
+					if(tS <= 0):
+						continue
+
+					# Registering the steepest clope in both directions (see rd_grid header lines for erxplanation on the standard)
+					if(k == 0 or k == 3):
+						if(tS > SSy):
+							SSy = tS
+					else:
+						if(tS > SSx):
+							SSx = tS
+
+					# Registering local slope
+					Sws[k] = tS
+					# Summing it to global
+					sumSw += tS
+
+					# Done with processing this particular neighbour
+
+				# Local minima management (cheap but works)
+				## If I have no downward slope, I increase the elevation by a bit
+				if(sumSw == 0.):
+					hw[i,j] += 1e-4
+
+				## And if I added like a metre and it did not slolve it, I stop for that node
+				if(lockcheck > 10000):
+					break
+
+			# Calculating local norm for the gradient
+			# The condition manages the boundary conditions
+			gradSw = ti.math.sqrt(SSx*SSx + SSy*SSy)
 			
-			# First incrementing the safety check
-			lockcheck += 1
+			# Not sure I still need that
+			if(gradSw == 0):
+				continue
 
-			# Traversing Neighbours
+			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
+			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(hw[i,j], 5./3) * sumSw/ti.math.sqrt(gradSw)
+
+			# Transferring flow to neighbours
 			for k in range(4):
-				# getting neighbour k (see rd_grid header lines for erxplanation on the standard)
-				ir,jr = gridfuncs.neighbours(i,j,k, BCs)
 
-				# if not a neighbours, by convention is < 0 and I pass
+				# local neighbours
+				ir,jr = gridfuncs.neighbours(i,j,k, BCs)
+				
+				# checking if neighbours
 				if(ir == -1):
 					continue
+				
+				# Transferring prop to the hydraulic slope
+				ti.atomic_add(QwB[ir,jr], Sws[k]/sumSw * QwA[i,j])
 
-				# Local hydraulic slope
-				tS = hsw.Sw(Z,hw,i,j,ir,jr)
-
-				# If < 0, neighbour is a donor and I am not interested
-				if(tS <= 0):
-					continue
-
-				# Registering the steepest clope in both directions (see rd_grid header lines for erxplanation on the standard)
-				if(k == 0 or k == 3):
-					if(tS > SSy):
-						SSy = tS
-				else:
-					if(tS > SSx):
-						SSx = tS
-
-				# Registering local slope
-				Sws[k] = tS
-				# Summing it to global
-				sumSw += tS
-
-				# Done with processing this particular neighbour
-
-			# Local minima management (cheap but works)
-			## If I have no downward slope, I increase the elevation by a bit
-			if(sumSw == 0.):
-				hw[i,j] += 1e-4
-
-			## And if I added like a metre and it did not slolve it, I stop for that node
-			if(lockcheck > 10000):
-				break
-
-		# Calculating local norm for the gradient
-		gradSw = ti.math.sqrt(SSx*SSx + SSy*SSy)
-
-		# Not sure I still need that
-		if(gradSw == 0):
-			continue
-
-		# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
-		QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(hw[i,j], 5./3) * sumSw/ti.math.sqrt(gradSw)
-
-		# Transferring flow to neighbours
-		for k in range(4):
-
-			# local neighbours
-			ir,jr = gridfuncs.neighbours(i,j,k, BCs)
-			
-			# checking if neighbours
-			if(ir == -1):
-				continue
-			
-			# Transferring prop to the hydraulic slope
-			ti.atomic_add(QwB[ir,jr], Sws[k]/sumSw * QwA[i,j])
+		# Boundary case
+		else:
+			tSw = ti.max(hsw.Zw(Z,hw,i,j) -  PARAMHYDRO.hydro_slope_bc_val, 1e-6)/GRID.dx if PARAMHYDRO.hydro_slope_bc_mode == 0 else PARAMHYDRO.hydro_slope_bc_val
+			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
+			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(hw[i,j], 5./3) * ti.math.sqrt(tSw)
 
 
 
@@ -252,9 +268,12 @@ def _compute_hw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 		# Updating local discharge to new time step
 		QwA[i,j] = QwB[i,j]
 		
-		# Only where nodes are active (i.e. flow cannot leave and can traverse)
-		if(gridfuncs.can_out(i,j,BCs)):
-			continue
+		# ONGOING TEST DO NOT DELETE
+		# # Only where nodes are active (i.e. flow cannot leave and can traverse)
+		# if(gridfuncs.can_out(i,j,BCs)):
+		# 	continue
+
+
 		# Updating flow depth (cannot be < 0)
 		hw[i,j] = ti.math.max(0.,hw[i,j] + (QwA[i,j] - QwC[i,j]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy) ) 
 

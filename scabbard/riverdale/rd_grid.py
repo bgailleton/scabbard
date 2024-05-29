@@ -38,6 +38,14 @@ class BoundaryConditions(Enum):
 	periodicNS = 2
 	customs = 3
 
+class BoundaryConditionsSlope(Enum):
+	'''
+	Enumeration of the different boundary condition types possible
+	'''	
+	fixed_elevation = 0
+	fixed_slope = 1
+
+
 
 @scaut.singleton
 class GridParams:
@@ -234,8 +242,8 @@ def _is_active_normal(i:int, j:int, BCs:ti.template()):
 			- False if inactive (i.e in this case outs)
 	'''
 	valid = True
-	if(i==0 or j == 0 or i == GRID.ny - 1 or j == GRID.nx - 1):
-		valid = False
+	# if(i==0 or j == 0 or i == GRID.ny - 1 or j == GRID.nx - 1):
+	# 	valid = False
 	return valid
 
 @ti.func
@@ -452,7 +460,7 @@ def _cast_neighbour_customs(i:int, j:int, k:int, valid:bool, BCs:ti.template()):
 		if(k == 3):
 			ir,jr = i+1, j
 
-	if(BCs[i,j] == 0):
+	if(BCs[i,j] == 0 or (ir != -1 and BCs[ir,jr] == 0)):
 		ir,jr = -1,-1
 
 	return ir, jr
@@ -555,7 +563,7 @@ def _is_active_customs(i:int, j:int, BCs:ti.template()):
 		- B.G. (last modification 02/05/2024)
 	'''
 	valid = True
-	if(BCs[i,j] == 0 or _can_out_customs(i,j,BCs) or _can_receive_customs(i,j,BCs) == False):
+	if(BCs[i,j] == 0): #) or _can_out_customs(i,j,BCs) or _can_receive_customs(i,j,BCs) == False):
 		valid = False
 	return valid
 

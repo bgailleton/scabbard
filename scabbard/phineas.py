@@ -20,8 +20,7 @@ def simplemapwizard(fname):
 	plt.ioff()
 	dem = scb.raster2RGrid(fname)
 	atlas = scb.Dplot.basemap(dem)
-	atlas.fig.show()
-	plt.pause(0.01)
+	plt.show()
 	input("press Enter to continue")
 
 

@@ -200,6 +200,10 @@ def create_from_params(param):
 	instance.GRID.nxy = param._nxy
 	instance.GRID.boundaries = param._boundaries
 
+	instance.PARAMHYDRO.hydro_slope_bc_mode = int(param._boundary_slope_mode.value)
+	instance.PARAMHYDRO.hydro_slope_bc_val = param._boundary_slope_value
+
+
 	if(param.BCs is None):
 		instance.BCs = ti.field(ti.int32, shape = (1,1))
 	else:

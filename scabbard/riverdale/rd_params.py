@@ -68,13 +68,22 @@ class RDParams:
 		self._ny = 50
 		## Number of nodes in total
 		self._nxy = self._nx * self._ny
+
+		##############################
+		# Boundary conditions
+		##############################
 		
-		# Type of boundary conditions
+		# Type of boundary conditions for the flow connectivity and no data management
 		## This enum is defined in rd_grid.py and determines how the codes reads/deal bcs
 		self._boundaries = rdgd.BoundaryConditions.normal
 		## Arrays of boundary conditions - used if the boundary conditions are set to customs
 		## See rd_grid.py for the meaning (or the future doc at the date of the 29/05/2024)
 		self._BCs = None
+
+		# Slope boundary conditions: what slope to apply on outting cells
+		self._boundary_slope_mode = rdgd.BoundaryConditionsSlope.fixed_slope
+		self._boundary_slope_value = 1e-2
+
 
 		##############################
 		# Initial conditions
@@ -274,6 +283,29 @@ class RDParams:
 			else:
 				# Directly transferring data to the GPU BCs code
 				self._RD.BCs.from_numpy(val)
+
+
+	def set_boundary_slope(self, val, mode = 'slope'):
+
+		if(self._RD is not None):
+			raise ValueError("Cannot change the boundary value for slope calculation if the model is already instantiated")
+
+		if(mode == 'slope'):
+			self._boundary_slope_mode = rdgd.BoundaryConditionsSlope.fixed_slope
+			if(val < 0):
+				warnings.warn('Recasting negative slope to 0 for the boundary condition slope calculation')
+				vel = 0.
+
+		elif(mode == 'elevation'):
+			self._boundary_slope_mode = rdgd.BoundaryConditionsSlope.fixed_elevation
+			if(val < 0):
+				warnings.warn('Recasting negative slope to 0 for the boundary condition slope calculation')
+		
+		else:
+			raise ValueError(f'mode needs to be "slope" or "elevation", it cannot be {mode}')
+
+		self._boundary_slope_value = val
+		
 
 
 
