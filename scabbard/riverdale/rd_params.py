@@ -286,24 +286,39 @@ class RDParams:
 
 
 	def set_boundary_slope(self, val, mode = 'slope'):
+		'''
+		Set the mode of computation for the slope at the boundary of the model, when can_out is True.
+		As of today, there are two options: Fixing a slope at the boundary or fixing a receiver elevation.
+		Arguments:
+			- val: the value at the boundary (either the slope or the elevation)
+			- mode: 'slope' or 'elevation'
+		returns:
+			- Nothing
+		Authors:
+			- B.G. (last modification: 30/05/2024)
+		'''
 
+		# Function can only be executed if RD not initialised
 		if(self._RD is not None):
 			raise ValueError("Cannot change the boundary value for slope calculation if the model is already instantiated")
 
+		# Case of fixed slope at boundary can_out
 		if(mode == 'slope'):
+			# Setting the internal enum
 			self._boundary_slope_mode = rdgd.BoundaryConditionsSlope.fixed_slope
+			# Slope cannot be negative
 			if(val < 0):
 				warnings.warn('Recasting negative slope to 0 for the boundary condition slope calculation')
-				vel = 0.
-
+				val = 0.
+		# case of fixed elevation of virtual receiver
 		elif(mode == 'elevation'):
+			# Setting the internal enum
 			self._boundary_slope_mode = rdgd.BoundaryConditionsSlope.fixed_elevation
-			if(val < 0):
-				warnings.warn('Recasting negative slope to 0 for the boundary condition slope calculation')
-		
+		# Other potential methods not implemented yet
 		else:
 			raise ValueError(f'mode needs to be "slope" or "elevation", it cannot be {mode}')
 
+		# Actually setting the value
 		self._boundary_slope_value = val
 		
 
@@ -370,6 +385,12 @@ class RDParams:
 	def precipitations(self, value):
 		'''
 			Setter function for the precipitation rates, essentially checking if the input is 1 or 2D
+			Note: this value can be modified even if the model is already instantiated/running
+
+			Arguments:
+				- value: a scalar or 2D array of domain size of precipitation rates in m/s
+			Returns:
+				- Nothing, update the parm sheet and the model in place
 			Authors:
 				- B.G. (last modification 23/05/2024)
 		'''
@@ -384,6 +405,7 @@ class RDParams:
 		else:
 			input2D = False
 
+		# Checking if the precipitation module is even needed (e.g. 0 precipitations)
 		if(not input2D and value == 0):
 			self._has_precipitations = False
 		else:
@@ -396,6 +418,7 @@ class RDParams:
 		# if I reach here I can set the parameters
 		self._precipitations = value
 
+		# Apply the modification to the model in the case it is already instantiated
 		if(self._RD is not None):
 			if(isinstance(value,np.ndarray)):
 				value = value.astype(np.float32)
@@ -413,20 +436,32 @@ class RDParams:
 			- cols: indices of the columns where the inputs flow in
 			- values: input Qw in m^3/s
 			- disable_precipitations: switch off any precipitation inputs if true
+		Returns:
+			- NOthing, update the param sheet in place
 		'''
-		# couple of checks first
+		# couple of checks first on the data format
 		if scaut.is_numpy(values) == False or scaut.is_numpy(rows, dtype = np.integer) == False or scaut.is_numpy(cols, dtype = np.integer) == False:
 			print(scaut.is_numpy(values) ,'||', scaut.is_numpy(rows, dtype = np.integer) ,'||', scaut.is_numpy(cols, dtype = np.integer))
 			raise ValueError('rows and cols must be 1D numpy arrays of integers and values a numpy array of float')
 
+		# Checking the dimensions too
 		tgshape = values.shape
-
+		## If they are ot of the same dimension, it would crash the model
 		if(values.shape != tgshape or rows.shape != tgshape or cols.shape != tgshape):
 			raise ValueError('Inputs arrays must have the same shape')
 
+		# Setting the data in the param sheet
 		self._input_rows_Qw = rows
 		self._input_cols_Qw = cols
 		self._input_Qw = values
+
+		# Updating the data in the model in case is already running
+		if(self._RD is not None):	
+			self._RD.input_rows_Qw.from_numpy(rows)
+			self._RD.input_cols_Qw.from_numpy(cols)
+			self._RD.input_Qw.from_numpy(values)
+
+		# Done
 
 
 	@property
@@ -605,4 +640,4 @@ def param_from_grid(grid):
 	return param
 
 def param_from_dem(dem, initial_fill = True):
-	return param_from_grid(scb.grid.raster2RGrid(dem), initial_fill = initial_fill)
+	return param_from_grid(scb.grid.raster2RGrid(dem))

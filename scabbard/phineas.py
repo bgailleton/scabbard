@@ -3,6 +3,8 @@ import click
 import scabbard as scb
 import matplotlib.pyplot as plt
 import dagger as dag
+import numpy as np
+
 
 # ANSI escape sequences for colors
 RESET = "\x1b[0m"
@@ -96,6 +98,69 @@ def graphflood_basic(fname,courant,dt,precipitations,manning,SFD,nupdate, experi
 		hw = mod.gf.flood.get_hw().reshape(mod.gf.grid.rshp)
 		print("Running step", i)
 		ph.update()
+
+
+
+@click.command()
+@click.argument('fname', type = str)
+@click.option('-p', '--precipitations', 'precipitations', type = float, default=30)
+@click.option('-d', '--dt', 'dt', type = float, default=1e-3)
+@click.option('-v', '--visu', 'visu', type = bool, default=False, is_flag = True)
+@click.argument('output', type = str, default='flow_depth.tif')
+def GPUgraphflood(fname, precipitations, dt, visu, output):
+
+	from scabbard.riverdale.rd_params import param_from_dem
+	from scabbard.riverdale.rd_env import create_from_params
+	import scabbard.riverdale.rd_morphodynamics as rdmo
+	import scabbard.riverdale.rd_LM as rdlm
+	import taichi as ti
+	import time 
+
+	ti.init(ti.vulkan)
+
+	param = param_from_dem(fname)
+	param.dt_hydro = dt
+	param.P = precipitations * 1e-3/3600
+	param.set_boundary_slope(0,mode = 'elevation')
+	rd = create_from_params(param)
+
+	rdlm.priority_flood(rd,Zw = False)
+
+	if(visu):
+		fig,ax = plt.subplots()
+		imhw = ax.imshow(np.zeros( (param._ny, param._nx) ), cmap = "magma", vmin = 0.8, vmax = 1.2)
+		plt.colorbar(imhw, label = "Convergence (1 is perfect)")
+		fig.show()
+		fig.canvas.draw_idle()
+		fig.canvas.start_event_loop(0.01)
+
+	NN = 1000
+	for i in range(round(1e6)):
+		st = time.time()
+		# rdlm.priority_flood(rd)
+		rd.run_hydro(NN)
+		if(visu):
+			data = rd.QwC.to_numpy()/rd.QwA.to_numpy()
+			data[~np.isfinite(data)] = 1
+			imhw.set_data(data)
+			# imhw.set_clim(np.percentile(data,20),np.percentile(data,99.5))
+
+			fig.canvas.draw_idle()
+			fig.canvas.start_event_loop(0.01)
+
+		conv = rd.convergence_ratio
+		took = time.time() - st
+
+		print('It:',i*NN+1,':',conv, " took ", took, "seconds")
+		if(conv > 0.90):
+			break
+
+	np.savez_compressed(f'results_{precipitations}.npz', {'hw':rd.hw.to_numpy()})
+
+	fig,ax = plt.subplots()
+	cb=ax.imshow(rd.hw.to_numpy(), cmap = 'Blues')
+	plt.colorbar(cb, label = 'Flow depth (m)')
+	plt.show()
 
 
 

@@ -11,6 +11,7 @@ The (internal) structure is a bit convoluted for the sake of optimising calculat
 import taichi as ti
 import numpy as np
 from enum import Enum
+import dagger as dag
 import scabbard.riverdale.rd_params as rdpa
 import scabbard.riverdale.rd_grid as rdgd
 import scabbard.riverdale.rd_hydrodynamics as rdhy
@@ -60,6 +61,7 @@ but in the meantime you can run the model in batch using subprocess.
 		self.input_rows_Qw = None
 		self.input_cols_Qw = None
 		self.input_Qw = None
+		self.convrat = None
 
 		## Field for morpho
 		self.QsA = None
@@ -162,6 +164,29 @@ but in the meantime you can run the model in batch using subprocess.
 	def _run_morpho(self):
 		rdmo.compute_Qs(self.Z, self.hw, self.QsA, self.QsB, self.QsC, self.BCs )
 		rdmo.compute_hs(self.Z, self.hw, self.QsA, self.QsB, self.QsC, self.BCs )
+
+
+	@property
+	def convergence_ratio(self):
+		if(self.param is None):
+			raise ValueError('cannot return convergence ratio if the model is not initialised')
+		if(self.convrat is None):
+			self.convrat = ti.field(dtype = ti.f32, shape = ())
+		rdhy.check_convergence(self.QwA, self.QwC, 0.01, self.convrat, self.BCs)
+		return float(self.convrat.to_numpy())
+
+	def get_GridCPP(self):
+		'''
+		Returns a GridCPP object corresponding to the grid geometry and boundary conditions.
+		GridCPP objectss are used to interact with the DAGGER c++ engine which I use for CPU intensive tasks.
+		It will probably also be used for communication with TTBlib and fastscapelib
+
+		Returns:
+			- a GridCPP object ready to be passed to the C++ engine
+		Authors:
+			- B.G. (last modification: 30/05/2024)
+		'''
+		return dag.GridCPP_f32(self.param._nx,self.param._ny,self.param._dx,self.param._dy,0 if self.param.boundaries == rdgd.BoundaryConditions.normal else 3)
 
 	@classmethod
 	def _create_instance(cls):

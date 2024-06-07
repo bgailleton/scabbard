@@ -53,10 +53,52 @@ class MorphoParams:
 		self.tau_c = 4
 		# transport length
 		self.transport_length = 4
+		# water viscosity
+		self.viscosity = 15.e-6
 
 
 PARAMMORPHO = MorphoParams()
 PARAMHYDRO = hydrofunc.PARAMHYDRO
+
+
+
+@ti.func
+def ZPsi(Z:ti.template(), hw: ti.template(), k_h:ti.template(), k_z:ti.template(), i:ti.i32, j:ti.i32) -> ti.f32:
+	'''
+	Internal helping function returning the Partitioning surface for sediments (Psi)
+	Arguments:
+		- Z: a 2D field of topographic elevation
+		- hw: a 2D field of flow depth
+		- k_h: the internal coefficient to the shear stress component in the MPM-like entrainment formulation
+		- k_z: the internal coefficient to the gravitational component in the MPM-like entrainment formulation
+		- i,j: the row col indices
+	Returns:
+		- the hydraulic surface
+	Authors:
+		- B.G. (last modification 30/04/2024)
+	'''
+	rho_ratio = (PARAMMORPHO.rho_sediment - PARAMMORPHO.rho_water)/PARAMMORPHO.rho_water
+	A = k_z * Z[i,j] + 2 * k_h * hw[i,j]/(PARAMMORPHO.D * rho_ratio)* hsw.Zw(Z,hw,i,j)
+	B = k_z + 2 * k_h * hw[i,j]/(PARAMMORPHO.D * rho_ratio)
+	return A/B
+
+
+@ti.func
+def SPsi(Z: ti.template(), hw: ti.template(), k_h:ti.template(), k_z:ti.template(), i:ti.template(), j:ti.template(), ir:ti.template(), jr:ti.template())->ti.f32:
+	'''
+	Internal helping function returning the hydrayulic slope
+	Arguments:
+		- Z: a 2D field of topographic elevation
+		- hw: a 2D field of flow depth
+		- i,j: the row col indices
+		- ir,jr: the row col indices of the receivers node
+	Returns:
+		- the hydraulic surface
+	Authors:
+		- B.G. (last modification 20/05/2024)
+	'''
+	return (ZPsi(Z, hw, k_h, k_z, i,j) - ZPsi(Z, hw, k_h, k_z, ir,jr))/GRID.dx
+
 
 @ti.kernel
 def initiate_step(QsB: ti.template()):
@@ -114,13 +156,14 @@ def _compute_Qs(Z:ti.template(), hw:ti.template(), QsA:ti.template(), QsB:ti.tem
 	'''
 
 	DENSITY_R = (PARAMMORPHO.rho_sediment - PARAMMORPHO.rho_water) * PARAMMORPHO.GRAVITY
+	K_EROSION = (PARAMMORPHO.rho_sediment - PARAMMORPHO.rho_water)/PARAMMORPHO.rho_water * PARAMMORPHO.GRAVITY/PARAMMORPHO.viscosity * ti.math.pow(PARAMMORPHO.D,2)
 
-	# Case of normal node
-	if(gridfuncs.can_out(i,j,BCs) == False):
-		# Traversing each nodes
-		for i,j in Z:
 
-			
+	# Traversing each nodes
+	for i,j in Z:
+
+		# Case of normal, internal node
+		if(gridfuncs.can_out(i,j,BCs) == False):
 
 			# I'll store the hydraulic slopes in this vector
 			SPsis = ti.math.vec4(0.,0.,0.,0.)
@@ -151,18 +194,18 @@ def _compute_Qs(Z:ti.template(), hw:ti.template(), QsA:ti.template(), QsB:ti.tem
 				if(ir == -1):
 					continue
 
-				# Local hydraulic slope
-				tS = hsw.Sw(Z,hw,i,j,ir,jr)
+				# Local topographic slope
+				tS = ti.max(hsw.Sw(Z,hw,i,j,ir,jr),0.)
 
 				# Local hydraulic slope
 				tSz = ti.max(hsw.Sz(Z,i,j,ir,jr), 0.)
 
-				# Local hydraulic slope
-				tSPsi = ti.max(hsw.SPsi(Z, hw, PARAMMORPHO.k_h, PARAMMORPHO.k_z, i, j, ir, jr), 0.)
+				# Local Partitionning slope
+				tSPsi = ti.max(SPsi(Z, hw, PARAMMORPHO.k_h, PARAMMORPHO.k_z, i, j, ir, jr), 0.)
 
-				# If < 0, neighbour is a donor and I am not interested
-				if(tS <= 0):
-					continue
+				# # If < 0, neighbour is a donor and I am not interested
+				# if(tS <= 0):
+				# 	continue
 
 				# Registering the steepest clope in both directions (see rd_grid header lines for erxplanation on the standard)
 				if(k == 0 or k == 3):
@@ -190,7 +233,7 @@ def _compute_Qs(Z:ti.template(), hw:ti.template(), QsA:ti.template(), QsB:ti.tem
 			# Local minima management (cheap but works)
 			## If I have no downward slope, I increase the elevation by a bit
 			if(sumSpsi == 0.):
-				# HERE MANAGE THINGS FOR LOCAL MINIMAS
+				QsC[i,j] = -1
 				continue
 
 
@@ -203,16 +246,25 @@ def _compute_Qs(Z:ti.template(), hw:ti.template(), QsA:ti.template(), QsB:ti.tem
 			if(gradSw <= 0 or gradSPsi == 0):
 				continue
 
-			local_erosion_rate = ti.max(PARAMMORPHO.k_erosion * ti.pow( PARAMMORPHO.k_z * gradSz * DENSITY_R + PARAMMORPHO.k_h * DENSITY_R * hw[i,j] * gradSw  - PARAMMORPHO.tau_c, PARAMMORPHO.alpha_erosion),0.)
+			local_erosion_rate = ti.max(PARAMMORPHO.k_erosion * K_EROSION * 
+				ti.pow( PARAMMORPHO.k_z * gradSz + 
+					2 * PARAMMORPHO.k_h * PARAMMORPHO.rho_water/(PARAMMORPHO.rho_sediment - PARAMMORPHO.rho_water) 
+					/ PARAMMORPHO.D * hw[i,j] * gradSw - PARAMMORPHO.tau_c,
+				PARAMMORPHO.alpha_erosion),
+			0.)
+			# print(gradSPsi)
+			# if(local_erosion_rate > 0):
+			# 	print(local_erosion_rate)
 
 			CA = GRID.dx*GRID.dx
+			beta = gradSPsi/(PARAMMORPHO.transport_length * sumSpsi)
 
 			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
-			QsC[i,j] = (QsA[i,j] + local_erosion_rate * CA)/(1 + CA * PARAMMORPHO.transport_length * gradSPsi/(GRID.dx * sumSpsi))
+			QsC[i,j] = (QsA[i,j] + local_erosion_rate * CA)/(1 + CA * beta)
 
 			# If the node cannot give and can only receive, I pass this node
-			if(gridfuncs.can_give(i,j,BCs) == False):
-				QsC[i,j] = QsA[i,j]
+			if(gridfuncs.can_give(i,j,BCs) == False or gridfuncs.can_receive(i,j,BCs) == False):
+				QsC[i,j] = -1
 			else:
 				# Transferring flow to neighbours
 				for k in range(4):
@@ -226,16 +278,28 @@ def _compute_Qs(Z:ti.template(), hw:ti.template(), QsA:ti.template(), QsB:ti.tem
 					
 					# Transferring prop to the hydraulic slope
 					ti.atomic_add(QsB[ir,jr], SPsis[k]/sumSpsi * QsC[i,j])
-	else:
+		else:
 
-		gradSz = ti.max(hsw.Zw(Z,hw,i,j) -  PARAMHYDRO.hydro_slope_bc_val, 1e-6)/GRID.dx if PARAMHYDRO.hydro_slope_bc_mode == 0 else PARAMHYDRO.hydro_slope_bc_val
+			gradSz = ti.max(hsw.Zw(Z,hw,i,j) -  PARAMHYDRO.hydro_slope_bc_val, 1e-6)/GRID.dx if PARAMHYDRO.hydro_slope_bc_mode == 0 else PARAMHYDRO.hydro_slope_bc_val
 
-		local_erosion_rate = ti.max(PARAMMORPHO.k_erosion * ti.pow( PARAMMORPHO.k_z * gradSz * DENSITY_R + PARAMMORPHO.k_h * DENSITY_R * hw[i,j] * gradSz  - PARAMMORPHO.tau_c, PARAMMORPHO.alpha_erosion),0.)
+			local_erosion_rate = ti.max(PARAMMORPHO.k_erosion * K_EROSION * ti.pow( gradSz - PARAMMORPHO.tau_c, PARAMMORPHO.alpha_erosion),0.)
 
-		CA = GRID.dx*GRID.dx
+			CA = GRID.dx*GRID.dx
 
-		# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
-		QsC[i,j] = (QsA[i,j] + local_erosion_rate * CA)/(1 + CA * PARAMMORPHO.transport_length / GRID.dx)
+			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
+			# QsC[i,j] = (QsA[i,j] + local_erosion_rate * CA)/(1 + CA * PARAMMORPHO.transport_length / GRID.dx)
+			QsC[i,j] = QsA[i,j]
+
+	for i,j in Z:
+		# Updating local discharge to new time step
+		# QsA[i,j] = QsB[i,j]
+
+		if(QsC[i,j] < 0):
+			QsC[i,j] = QsA[i,j]
+			
+
+
+
 
 
 
@@ -263,9 +327,6 @@ def _compute_hs(Z:ti.template(), hw:ti.template(), QsA:ti.template(), QsB:ti.tem
 	# Traversing nodes
 	for i,j in Z:
 		
-		# Updating local discharge to new time step
-		QsA[i,j] = QsB[i,j]
-		
 		# Only where nodes are active (i.e. flow cannot leave and can traverse)
 		# if(gridfuncs.is_active(i,j,BCs) == False):
 		# 	continue
@@ -274,7 +335,8 @@ def _compute_hs(Z:ti.template(), hw:ti.template(), QsA:ti.template(), QsB:ti.tem
 
 		# Updating flow depth (cannot be < 0)
 		Z[i,j] += dz
-		hw[i,j] = ti.max(hw[i,j] - dz, 0.)
+		# hw[i,j] = ti.max(hw[i,j] - dz, 0.)
+		QsA[i,j] = QsB[i,j]
 
 ########################################################################
 ########################################################################

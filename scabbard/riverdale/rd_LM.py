@@ -11,80 +11,75 @@ from enum import Enum
 import scabbard.utils as scaut 
 from scabbard.riverdale.rd_grid import GRID
 import scabbard.riverdale.rd_grid as gridfuncs
+import scabbard.riverdale.rd_helper_surfw as srf
+import dagger as dag
 
 
+# (is cpu)
+def priority_flood(rd, Zw = True):
+	'''
+	Applies priority flood's Algorithm in D4 topology to the riverdale's elevation.
+	Note that it takes into account the boundary conditions.
 
-@ti.func
-def Z_draped(i:ti.int32, j:ti.int32, Z:ti.template(), hw:ti.template()):
-	return Z[i,j] + hw[i,j]
+	Arguments:
+		- rd: An initialised RiverDale's instance
+		- Zw: If True, fills the water surface, if False, the topography
+	Returns:
+		- Nothing, edits hte model in place and retransfer the data to GPU
+	Authors:
+		- B.G. (last modification: 30/05/2024)
+	'''
+
+	tZw = rd.Z.to_numpy() + rd.hw.to_numpy() if Zw else rd.Z.to_numpy()
+	gcpp = rd.get_GridCPP()
+	dag._PriorityFlood_D4_f32(tZw,gcpp,rd.BCs.to_numpy())
+	if(Zw):
+		rd.hw.from_numpy(tZw - rd.Z.to_numpy())
+	else:
+		rd.Z.from_numpy(tZw)
+
 
 
 @ti.kernel
-def pre_drape(Z:ti.template(), hw:ti.template(), recConstrain: ti.template(), donorConstrain:ti.template(), BCs:ti.template(), count:ti.template()):
+def constrain_drape(Z:ti.template(), hw:ti.template(), constrains:ti.template(), BCs:ti.template()):
 	'''
-		stuff
+	TODO
 	'''
-	#
-	count[None] = 0
 
-	for i,j in Z:
-		recConstrain[i,j] = 1e9
-		donorConstrain[i,j] = -1e9
+	# So, let's try to constrain the min/max height to add without creating local minimas
 
 	for i,j in Z:
 
-		if(gridfuncs.is_active(i,j,BCs) == False):
+		
+
+		tZw = srf.Zw_drape(Z,hw,i,j)
+
+		constrains[i,j,0] = tZw
+		constrains[i,j,1] = tZw
+
+		if gridfuncs.is_active(i,j,BCs) == False:
 			continue
 
-		checker = True
-
+		# Traversing Neighbours
 		for k in range(4):
 
 			# Getting neighbour k (see rd_grid header lines for erxplanation on the standard)
 			ir,jr = gridfuncs.neighbours(i,j,k, BCs)
 
-			# If not a neighbours, by convention is < 0 and I pass
 			if(ir == -1):
 				continue
 
-			# computing the minimum height of the donors in order not to invert 
-			# Note that I am trying to get the minimum elevation of the donor
-			if (Z_draped(ir,jr,Z,hw) > Z_draped(i,j,Z,hw) and (Z_draped(ir,jr,Z,hw) < donorConstrain[i,j] or donorConstrain[i,j] == -1e9)):
-				donorConstrain[i,j] = Z_draped(ir,jr,Z,hw)
-				checker = False
+			constrains[i,j,0] = ti.math.min(constrains[i,j,0], srf.Zw_drape(Z,hw,ir,jr))
+			constrains[i,j,1] = ti.math.max(constrains[i,j,1], srf.Zw_drape(Z,hw,ir,jr))
 
-			# Computing the maximum drop in elevation, in this case this is the lowest receiver
-			elif (Z_draped(ir,jr,Z,hw) < Z_draped(i,j,Z,hw) and (Z_draped(ir,jr,Z,hw) < recConstrain[i,j] or recConstrain[i,j] == 1e9)):
-				recConstrain[i,j] = Z_draped(ir,jr,Z,hw)
-				checker = False
-		
-		if(checker):
-			count[None] += 1
-
-
-	# Done
+		constrains[i,j,0] -= Z[i,j]
+		constrains[i,j,1] -= Z[i,j]
 
 
 
 
 
-@ti.kernel
-def drape_iteration(Z:ti.template(), hw:ti.template(), recConstrain: ti.template(), donorConstrain:ti.template(), BCs:ti.template(), count:ti.template()):
-	'''
-	stuff 2
-	'''
-	count[None] = 0
-	for i,j in Z:
 
-		if(gridfuncs.is_active(i,j,BCs) == False):
-			continue
-
-		temp1 = Z_draped(i,j,Z,hw)
-		temp1 = ti.min(ti.max(temp1, recConstrain[i,j]), donorConstrain[i,j])
-		# ti.math.clamp(temp1, recConstrain[i,j], donorConstrain[i,j])
-		temp2 = Z_draped(i,j,Z,hw)
-		if(temp1 != temp2):
-			count[None] += 1
 
 
 
@@ -141,19 +136,18 @@ def count_pits(Z:ti.template(), BCs:ti.template())  -> ti.i32:
 			count += 1
 	return count
 
-
 @ti.func
 def Zw(Z,hw,i,j):
 	return Z[i,j] + hw[i,j]
 
 @ti.kernel
-def count_pits_Zw(Z:ti.template(), hw:ti.template(), BCs:ti.template()) -> ti.i32:
+def count_pits_Zw(Z:ti.template(), hw:ti.template(), BCs:ti.template())  -> ti.i32:
 
 	count = 0
 
 	for i,j in Z:
 
-		if(gridfuncs.is_active(i,j,BCs) == False):
+		if(gridfuncs.is_active(i,j,BCs) == False or gridfuncs.can_out(i,j,BCs)):
 			continue
 
 		isLM = True
@@ -165,18 +159,15 @@ def count_pits_Zw(Z:ti.template(), hw:ti.template(), BCs:ti.template()) -> ti.i3
 			# if not a neighbours, by convention is < 0 and I pass
 			if(ir == -1):
 				continue
-			if(Zw(Z,hw,i,j) > Zw(Z,hw,ir,jr)):
+				
+			if( srf.Zw_drape(Z,hw,i,j) > srf.Zw_drape(Z,hw,ir,jr) ) :
 				isLM = False
 				break
 
 		if(isLM):
 			count += 1
+
 	return count
-
-
-
-
-
 
 
 
@@ -622,9 +613,79 @@ def fillsinks(Z,Z_fill,BCs):
 
 
 
+# Early tests
+
+@ti.func
+def Z_draped(i:ti.int32, j:ti.int32, Z:ti.template(), hw:ti.template()):
+	return Z[i,j] + hw[i,j]
+
+
+@ti.kernel
+def pre_drape(Z:ti.template(), hw:ti.template(), recConstrain: ti.template(), donorConstrain:ti.template(), BCs:ti.template(), count:ti.template()):
+	'''
+		stuff
+	'''
+	#
+	count[None] = 0
+
+	for i,j in Z:
+		recConstrain[i,j] = 1e9
+		donorConstrain[i,j] = -1e9
+
+	for i,j in Z:
+
+		if(gridfuncs.is_active(i,j,BCs) == False):
+			continue
+
+		checker = True
+
+		for k in range(4):
+
+			# Getting neighbour k (see rd_grid header lines for erxplanation on the standard)
+			ir,jr = gridfuncs.neighbours(i,j,k, BCs)
+
+			# If not a neighbours, by convention is < 0 and I pass
+			if(ir == -1):
+				continue
+
+			# computing the minimum height of the donors in order not to invert 
+			# Note that I am trying to get the minimum elevation of the donor
+			if (Z_draped(ir,jr,Z,hw) > Z_draped(i,j,Z,hw) and (Z_draped(ir,jr,Z,hw) < donorConstrain[i,j] or donorConstrain[i,j] == -1e9)):
+				donorConstrain[i,j] = Z_draped(ir,jr,Z,hw)
+				checker = False
+
+			# Computing the maximum drop in elevation, in this case this is the lowest receiver
+			elif (Z_draped(ir,jr,Z,hw) < Z_draped(i,j,Z,hw) and (Z_draped(ir,jr,Z,hw) < recConstrain[i,j] or recConstrain[i,j] == 1e9)):
+				recConstrain[i,j] = Z_draped(ir,jr,Z,hw)
+				checker = False
+		
+		if(checker):
+			count[None] += 1
+
+
+	# Done
 
 
 
+
+
+@ti.kernel
+def drape_iteration(Z:ti.template(), hw:ti.template(), recConstrain: ti.template(), donorConstrain:ti.template(), BCs:ti.template(), count:ti.template()):
+	'''
+	stuff 2
+	'''
+	count[None] = 0
+	for i,j in Z:
+
+		if(gridfuncs.is_active(i,j,BCs) == False):
+			continue
+
+		temp1 = Z_draped(i,j,Z,hw)
+		temp1 = ti.min(ti.max(temp1, recConstrain[i,j]), donorConstrain[i,j])
+		# ti.math.clamp(temp1, recConstrain[i,j], donorConstrain[i,j])
+		temp2 = Z_draped(i,j,Z,hw)
+		if(temp1 != temp2):
+			count[None] += 1
 
 
 

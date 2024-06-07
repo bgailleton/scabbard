@@ -16,14 +16,14 @@ from opensimplex import noise2array
 
 nx,ny = 200, 512
 dx,dy = 1, 1
-noise = 0e-1
-wnoise = 1e-1
-S0 = 1e-2
+noise = 0.
+wnoise = 0.
+S0 = 0.5e-2
 # seed = 42
 # np.random.seed(seed)
 
-x,y = np.linspace(0,12, nx), np.linspace(0, 12,  ny)
-pnoise = noise2array(x,y)
+# x,y = np.linspace(0,12, nx), np.linspace(0, 12,  ny)
+# pnoise = noise2array(x,y)
 # print(pnoise)
 # plt.imshow(pnoise)
 # plt.show()
@@ -31,18 +31,16 @@ pnoise = noise2array(x,y)
 # xx,yy = np.meshgrid(x,y)
 
 
-surf = scb.generate_u_shaped_sloped_surface(nx, ny, dx, dy, slope=S0, Umag = 1) + np.random.rand(ny,nx)*noise/5 + pnoise * noise
-env = scb.env_from_array(surf ,nx = nx, ny = ny, dx = dx, dy = dy, E="noflow", N="forcein", W="noflow", S='out')
+# surf = scb.generate_u_shaped_sloped_surface(nx, ny, dx, dy, slope=S0, Umag = 1) + np.random.rand(ny,nx)*noise/5 + pnoise * noise
+# env = scb.env_from_array(surf ,nx = nx, ny = ny, dx = dx, dy = dy, E="noflow", N="forcein", W="noflow", S='out')
 
 
 env = scb.env_from_slope(noise_magnitude=wnoise, dx = dx, dy = dy, slope=S0, nx = nx,ny = ny,EW = 'noflow')
-env.grid.Z2D[:] += pnoise * noise
-
 
 CFsL = False
 CFsL_hydro = 5e-5
 dt = 1e-4
-Qwtot = 20
+Qwtot = 50
 manning = 0.033
 
 min_val = 0.5  # New minimum value
@@ -462,7 +460,7 @@ gs = plt.GridSpec(ncols=3, nrows=4, figure=fig)
 ax = fig.add_subplot(gs[:,0])
 ax.set_xlabel('X (m)')
 ax.set_ylabel('Y (m)')
-im = ax.imshow(hw.to_numpy(), cmap = "Blues", vmin = 0., vmax = 1.8, extent = env.grid.extent())
+im = ax.imshow(hw.to_numpy(), cmap = "Blues", vmin = 0., vmax = 500, extent = env.grid.extent())
 plt.colorbar(im,label = 'Flow Depth (m)')
 # im = ax.imshow(hw.to_numpy(), cmap = "RdBu_r", vmin = 0., vmax = 2.)
 ax2 = fig.add_subplot(gs[0:3,1:])
@@ -509,7 +507,7 @@ while True:
 			compute_QwQs()
 			compute_hwhs()
 
-	thw = hw.to_numpy()
+	thw = QsC.to_numpy()
 	# thw = monitorer.to_numpy()
 	# thw = Zori - Z.to_numpy()
 	print(np.nanmedian(hw.to_numpy()))

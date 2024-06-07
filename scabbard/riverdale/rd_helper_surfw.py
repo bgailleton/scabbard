@@ -29,28 +29,24 @@ def Zw(Z: ti.template(), hw: ti.template(), i:ti.i32, j:ti.i32) -> ti.f32:
 		- B.G. (last modification 30/04/2024)
 	'''
 
-	return Z[i,j] + hw[i,j]
+	return Z[i,j] + ti.max(0.,hw[i,j])
 
 
 @ti.func
-def ZPsi(Z:ti.template(), hw: ti.template(), k_h:ti.template(), k_z:ti.template(), i:ti.i32, j:ti.i32) -> ti.f32:
+def Zw_drape(Z: ti.template(), hw: ti.template(), i:ti.i32, j:ti.i32) -> ti.f32:
 	'''
-	Internal helping function returning the Partitioning surface for sediments (Psi)
+	Internal helping function returning the hydrayulic surface (elevation of the water surface)
 	Arguments:
 		- Z: a 2D field of topographic elevation
 		- hw: a 2D field of flow depth
-		- k_h: the internal coefficient to the shear stress component in the MPM-like entrainment formulation
-		- k_z: the internal coefficient to the gravitational component in the MPM-like entrainment formulation
 		- i,j: the row col indices
 	Returns:
 		- the hydraulic surface
 	Authors:
 		- B.G. (last modification 30/04/2024)
 	'''
-	A = k_z * Z[i,j] + k_h * hw[i,j] * Zw(Z,hw,i,j)
-	B = k_h * hw[i,j] + k_z
-	return A/B
 
+	return Z[i,j] + hw[i,j]
 
 
 
@@ -89,18 +85,3 @@ def Sz(Z: ti.template(), i:ti.template(), j:ti.template(), ir:ti.template(), jr:
 	'''
 	return (Z[i,j] - Z[ir,jr])/GRID.dx
 
-@ti.func
-def SPsi(Z: ti.template(), hw: ti.template(), k_h:ti.template(), k_z:ti.template(), i:ti.template(), j:ti.template(), ir:ti.template(), jr:ti.template())->ti.f32:
-	'''
-	Internal helping function returning the hydrayulic slope
-	Arguments:
-		- Z: a 2D field of topographic elevation
-		- hw: a 2D field of flow depth
-		- i,j: the row col indices
-		- ir,jr: the row col indices of the receivers node
-	Returns:
-		- the hydraulic surface
-	Authors:
-		- B.G. (last modification 20/05/2024)
-	'''
-	return (ZPsi(Z, hw, k_h, k_z, i,j) - ZPsi(Z, hw, k_h, k_z, ir,jr))/GRID.dx

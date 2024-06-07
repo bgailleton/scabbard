@@ -45,11 +45,16 @@ env.grid.Z2D[:] += pnoise * noise
 
 
 dt = 1e-4
-Qwtot = 20
+Qwtot = 50
 manning = 0.033
 
 min_val = 0.5  # New minimum value
 max_val = 2.5    # New maximum value
+omega = 0.08
+
+
+min_val = 1  # New minimum value
+max_val = 1   # New maximum value
 omega = 0.08
 
 # Calculate new amplitude and baseline
@@ -65,7 +70,7 @@ rho_water = 1000.
 rho_sediment = 2560.
 visc = 15.e-6 
 D = 4e-3
-csin = 0.01
+csin = 0.
 rho_ratio = (rho_sediment - rho_water)/rho_water
 
 # K, tau_c = calculate_MPM_from_D(D, l_transp, rho_water = rho_water, gravity =gravity, rho_sediment=rho_sediment, theta_c = 0.047)
@@ -82,7 +87,7 @@ betalpha = 2
 tau_c = 0.7
 # mu_c = 0.7
 
-# print(K)
+print(K)
 # quit()
 
 kz = 1.
@@ -154,7 +159,7 @@ def stepinit():
 	for i,j in Z:
 		QwB[i,j] = 0
 		QsB[i,j] = 0
-		QsC[i,j] = 0
+		# QsC[i,j] = 0
 	for i in input_Qw:
 		QwA[0, input_nodes[i]] = input_Qw[i] * fac[None]
 		QwB[0, input_nodes[i]] = input_Qw[i] * fac[None]
@@ -437,7 +442,7 @@ gs = plt.GridSpec(ncols=3, nrows=4, figure=fig)
 ax = fig.add_subplot(gs[:,0])
 ax.set_xlabel('X (m)')
 ax.set_ylabel('Y (m)')
-im = ax.imshow(hw.to_numpy(), cmap = "Blues", vmin = 0., vmax = 1.8, extent = env.grid.extent())
+im = ax.imshow(hw.to_numpy(), cmap = "Blues", vmin = 0., vmax = 50, extent = env.grid.extent())
 plt.colorbar(im,label = 'Flow Depth (m)')
 # im = ax.imshow(hw.to_numpy(), cmap = "RdBu_r", vmin = 0., vmax = 2.)
 ax2 = fig.add_subplot(gs[0:3,1:])
@@ -484,7 +489,7 @@ while True:
 			compute_QwQs()
 			compute_hwhs()
 
-	thw = hw.to_numpy()
+	thw = QwA.to_numpy()
 	# thw = monitorer.to_numpy()
 	# thw = Zori - Z.to_numpy()
 	print(np.nanmedian(hw.to_numpy()))

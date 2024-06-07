@@ -51,6 +51,7 @@ setup(
 				'scb-reset-config=scabbard.config:defaultConfig' ,
 				'scb-visu2D=scabbard.phineas:visu2Dnpy' ,
 				'scb-haguid=scabbard.phineas:haguid' ,
+				'scb-quick-hydro=scabbard.phineas:GPUgraphflood' ,
 		],
 	},
 	install_requires=requirements,
