@@ -562,18 +562,12 @@ def _compute_hw_drape(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:
 				continue
 
 			# tSwr = hsw.Zw_drape(Z,hw,ir,jr) + (QwA[ir,jr] - QwC[ir,jr]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy)
-			tSwro = hsw.Zw_drape(Z,hw,ir,jr)
-			if(tSwro < Zdkmin):
-				Zdkmin = tSwro
+			tZwr = hsw.Zw_drape(Z,hw,ir,jr)
+
+			if(tZwr < Zdkmin):
+				Zdkmin = tZwr
 				kmin = k
 
-		# constrains[i,j,0] = ti.math.min(constrains[i,j,0], ti.math.max(tSwro,tSwr) )
-		# constrains[i,j,1] = ti.math.max(constrains[i,j,1], ti.math.min(tSwro,tSwr) )
-		# constrains[i,j,0] = ti.math.min(constrains[i,j,0], tSwro )
-		# constrains[i,j,1] = ti.math.max(constrains[i,j,1], tSwro )
-
-		# constrains[i,j,0] -= Z[i,j] - 1e-8
-		# constrains[i,j,1] -= Z[i,j] + 1e-8
 		if kmin==5:
 			continue
 
@@ -608,10 +602,10 @@ def _compute_hw_drape(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:
 		# 			)
 		hw[i,j] = hw[i,j] + (QwA[i,j] - QwC[i,j]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy)
 
-		if(constrains[i,j,0] == 1e6):
-			constrains[i,j,0] = Z[i,j]
-		if(constrains[i,j,1] == 1e6):
-			constrains[i,j,1] = Z[i,j]
+		# if(constrains[i,j,0] == 1e6):
+		# 	constrains[i,j,0] = Z[i,j]
+		# if(constrains[i,j,1] == 1e6):
+		# 	constrains[i,j,1] = Z[i,j]
 		
 		constrains[i,j,0] -= Z[i,j]
 		constrains[i,j,1] -= Z[i,j]
