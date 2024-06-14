@@ -19,3 +19,5 @@ from .phineas import *
 from .graphflood_helper import *
 from .environment import *
 from .blendplot import *
+from .local_file_picker import *
+

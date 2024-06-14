@@ -17,6 +17,7 @@ import scabbard.utils as scaut
 import scabbard as scb
 import dagger as dag
 import warnings
+import taichi as ti
 
 
 class RDParams:
@@ -68,6 +69,9 @@ class RDParams:
 		self._ny = 50
 		## Number of nodes in total
 		self._nxy = self._nx * self._ny
+
+
+		self.dtype_float = ti.f32
 
 		##############################
 		# Boundary conditions
@@ -483,6 +487,15 @@ class RDParams:
 			- B.G. (last modification 23/05/2024)
 		'''
 		print("Cannot manually set need_precipitations")
+	
+	@property
+	def precipitations_are_2D(self):
+		# Checking if the input is 1 or 2D
+		if(isinstance(self.precipitations, np.ndarray)):
+			input2D = True
+		else:
+			input2D = False
+		return input2D and self.need_precipitations
 
 	def disable_precipitations(self):
 		'''
@@ -511,6 +524,10 @@ class RDParams:
 			return True
 		else:
 			return False
+
+	@property
+	def reshp(self):
+		return self.ny,self.nx
 
 
 

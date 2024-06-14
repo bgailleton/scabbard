@@ -32,7 +32,7 @@ def priority_flood(rd, Zw = True):
 
 	tZw = rd.Z.to_numpy() + rd.hw.to_numpy() if Zw else rd.Z.to_numpy()
 	gcpp = rd.get_GridCPP()
-	dag._PriorityFlood_D4_f32(tZw,gcpp,rd.BCs.to_numpy())
+	dag._PriorityFlood_D4_f32(tZw,gcpp,rd.BCs.to_numpy()) if rd.param.dtype_float == ti.f32 else dag._PriorityFlood_D4_f64(tZw,gcpp,rd.BCs.to_numpy())
 	if(Zw):
 		rd.hw.from_numpy(tZw - rd.Z.to_numpy())
 	else:
@@ -159,7 +159,10 @@ def count_pits_Zw(Z:ti.template(), hw:ti.template(), BCs:ti.template())  -> ti.i
 			# if not a neighbours, by convention is < 0 and I pass
 			if(ir == -1):
 				continue
-				
+
+			# if(srf.Zw_drape(Z,hw,i,j) == srf.Zw_drape(Z,hw,ir,jr)):
+			# 	print('happens')
+
 			if( srf.Zw_drape(Z,hw,i,j) > srf.Zw_drape(Z,hw,ir,jr) ) :
 				isLM = False
 				break

@@ -165,6 +165,9 @@ def GPUgraphflood(fname, precipitations, dt, visu, output):
 
 
 
+
+
+
 @click.command()
 @click.argument('fname', type = str)
 def _debug_1(fname):
@@ -187,7 +190,17 @@ def haguid():
 
 	launch_haGUId()
 
+@click.command()
+def run_nice_haguid():
+	import runpy
+	import os
+	import sys
 
+	# Determine the path to the script directory
+	script_dir = os.path.dirname(os.path.abspath(__file__))
+	# script_path = os.path.join(script_dir, 'my_script.py')
+	# sub.run(f'python {os.path.join(script_dir, "nice_haguid.py")}', check = True, shell = True)
+	runpy.run_path(os.path.join(script_dir, "nice_haguid.py"), run_name="__main__")
 
 @click.command()
 @click.argument('fname', type = str)

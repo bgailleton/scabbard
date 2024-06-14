@@ -515,6 +515,82 @@ def _compute_hw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 		# Updating flow depth (cannot be < 0)
 		hw[i,j] = hw[i,j] + (QwA[i,j] - QwC[i,j]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy)
 
+@ti.kernel
+def _compute_hw_CFL(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.template(), QwC:ti.template(), BCs:ti.template(), alpha : ti.f32, threshold:ti.f32 ):
+	'''
+	Compute flow depth by div.Q and update discharge to t+1.
+	Also computes QwC (out at t) 
+	Arguments:
+		- Z: a 2D field of topographic elevation
+		- hw: a 2D field of flow depth
+		- QwA: a 2D field of discharge A (in)
+		- QwB: a 2D field of discharge B (in t+1)
+		- QwC: a 2D field of discharge C (out)
+		- BCs: a 2D field of boundary conditions
+	Returns:
+		- Nothing, update flow depth in place
+	Authors:
+		- B.G. (last modification 03/05/2024)
+	'''	
+
+	# Traversing nodes
+	for i,j in Z:
+		
+		# Updating local discharge to new time step
+		QwA[i,j] = QwB[i,j]
+		
+		# ONGOING TEST DO NOT DELETE
+		# # Only where nodes are active (i.e. flow cannot leave and can traverse)
+		# if(gridfuncs.can_out(i,j,BCs)):
+		# 	continue
+
+		if(QwA[i,j] <= 0 or abs(1 - (QwC[i,j]/QwA[i,j])) < threshold ):
+			continue
+
+
+		# Updating flow depth (cannot be < 0)
+		tdt = PARAMHYDRO.dt_hydro
+		if(QwC[i,j] > 0):	
+			tdt = ti.math.max(PARAMHYDRO.dt_hydro, alpha *GRID.dx/(QwA[i,j]/(ti.math.max(1e-4, hw[i,j]))) )		
+		hw[i,j] = hw[i,j] + (QwA[i,j] - QwC[i,j]) * tdt/(GRID.dx*GRID.dy) 
+
+@ti.kernel
+def _compute_hw_th(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.template(), QwC:ti.template(), BCs:ti.template(), tdt:ti.f32, threshold:ti.f32 ):
+	'''
+	Compute flow depth by div.Q and update discharge to t+1.
+	Also computes QwC (out at t) 
+	Arguments:
+		- Z: a 2D field of topographic elevation
+		- hw: a 2D field of flow depth
+		- QwA: a 2D field of discharge A (in)
+		- QwB: a 2D field of discharge B (in t+1)
+		- QwC: a 2D field of discharge C (out)
+		- BCs: a 2D field of boundary conditions
+	Returns:
+		- Nothing, update flow depth in place
+	Authors:
+		- B.G. (last modification 03/05/2024)
+	'''	
+
+	# Traversing nodes
+	for i,j in Z:
+		
+		# Updating local discharge to new time step
+		QwA[i,j] = QwB[i,j]
+		
+		# ONGOING TEST DO NOT DELETE
+		# # Only where nodes are active (i.e. flow cannot leave and can traverse)
+		# if(gridfuncs.can_out(i,j,BCs)):
+		# 	continue
+
+		if(QwA[i,j] <= 0 or abs(1 - (QwC[i,j]/QwA[i,j])) < threshold ):
+			continue
+
+
+		# Updating flow depth (cannot be < 0)
+		# tdt = ti.math.max(PARAMHYDRO.dt_hydro, alpha *GRID.dx/(QwA[i,j]/(ti.math.max(1e-4, hw[i,j]))) )		
+		hw[i,j] = hw[i,j] + (QwA[i,j] - QwC[i,j]) * tdt/(GRID.dx*GRID.dy) 
+
 
 @ti.kernel
 def _compute_hw_drape(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.template(), QwC:ti.template(), D4dir:ti.template(), constrains:ti.template(), BCs:ti.template() ):
@@ -542,10 +618,11 @@ def _compute_hw_drape(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:
 		constrains[i,j,1] = 1e6
 		D4dir[i,j] = 5
 
+	rat = 0.45
 
 	for i,j in Z:
 
-		tZw = hsw.Zw_drape(Z,hw,i,j) + (QwA[i,j] - QwC[i,j]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy)
+		tZw = hsw.Zw_drape(Z,hw,i,j) # + (QwA[i,j] - QwC[i,j]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy)
 		if gridfuncs.is_active(i,j,BCs) == False:
 			continue
 
@@ -564,6 +641,9 @@ def _compute_hw_drape(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:
 			# tSwr = hsw.Zw_drape(Z,hw,ir,jr) + (QwA[ir,jr] - QwC[ir,jr]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy)
 			tZwr = hsw.Zw_drape(Z,hw,ir,jr)
 
+			# if(tZwr == tZw):
+			# 	print('HAPPENS:',i,j,'vs',ir,jr, tZwr,tZw)
+
 			if(tZwr < Zdkmin):
 				Zdkmin = tZwr
 				kmin = k
@@ -576,14 +656,24 @@ def _compute_hw_drape(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:
 
 		D4dir[i,j] = kmin
 
-		constrains[i,j,0] = 0.49 * (hsw.Zw_drape(Z,hw,ir,jr) + tZw)
+		# rat = 0.45 + ti.random() * 0.04
+		# rat = 1.
+
+		constrains[i,j,0] = (rat * ti.f64(hsw.Zw_drape(Z,hw,ir,jr)) + (1 - rat) * ti.f64(tZw))
+		# constrains[i,j,0] = hsw.Zw_drape(Z,hw,ir,jr)
 
 
-		constrains[ir,jr,1] = ti.atomic_min(constrains[ir,jr,1] ,0.49 * (hsw.Zw_drape(Z,hw,ir,jr) + tZw))
+		ti.atomic_min(constrains[ir,jr,1] , ((1-rat) * ti.f64(hsw.Zw_drape(Z,hw,ir,jr)) + rat * ti.f64(tZw)))
+
+		# ti.atomic_min(constrains[ir,jr,1] , tZw)
 
 		# constrains[i,j,0] -= Z[i,j]
 		# constrains[i,j,1] -= Z[i,j]
 
+	# for i,j in Z:
+	# 	if(constrains[i,j,0] == constrains[i,j,1]):
+	# 		ir,jr = gridfuncs.neighbours(i,j,D4dir[i,j], BCs)
+	# 		print('dsafksjkfgksdjflk::', hsw.Zw_drape(Z,hw,i,j), hsw.Zw_drape(Z,hw,ir,jr), rat * hsw.Zw_drape(Z,hw,ir,jr) + (1 - rat) *  hsw.Zw_drape(Z,hw,i,j))
 
 
 	# Traversing nodes
@@ -600,12 +690,16 @@ def _compute_hw_drape(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:
 		# 				# constrains[i,j,1]  # max
 		# 				1e6  # max
 		# 			)
-		hw[i,j] = hw[i,j] + (QwA[i,j] - QwC[i,j]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy)
+		# hw[i,j] = ti.math.max(0.,hw[i,j] + (QwA[i,j] - QwC[i,j]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy) )
+		hw[i,j] = hw[i,j] + (QwA[i,j] - QwC[i,j]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy) 
 
 		# if(constrains[i,j,0] == 1e6):
 		# 	constrains[i,j,0] = Z[i,j]
 		# if(constrains[i,j,1] == 1e6):
 		# 	constrains[i,j,1] = Z[i,j]
+
+		# if(constrains[i,j,0] == constrains[i,j,1]):
+		# 	print("HAPPENS")
 		
 		constrains[i,j,0] -= Z[i,j]
 		constrains[i,j,1] -= Z[i,j]
@@ -617,7 +711,313 @@ def _compute_hw_drape(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:
 				hw[i,j] = constrains[i,j,0]
 			elif(hw[i,j] > constrains[i,j,1]):
 				hw[i,j] = constrains[i,j,1]
+	
 
+	# # DEBUG DEBUG DEBUG
+	# # Traversing nodes
+	# Nhap = 0
+	# NNhap = 0
+	# for i,j in Z:
+	# 	if(D4dir[i,j] == 5 or gridfuncs.can_out(i,j,BCs)):
+	# 		continue
+
+	# 	ir,jr = gridfuncs.neighbours(i,j,D4dir[i,j], BCs)
+
+	# 	if(hsw.Zw_drape(Z,hw,i,j) == hsw.Zw_drape(Z,hw,ir,jr) and (ir != i or jr != j)):
+	# 		print('gabul', hsw.Zw_drape(Z,hw,i,j) ,'vs',hsw.Zw_drape(Z,hw,ir,jr), 'constrains node were', constrains[i,j,0] + Z[i,j], constrains[i,j,1] + Z[i,j], 'and rec', constrains[ir,jr,0] + Z[ir,jr], constrains[ir,jr,1] + Z[ir,jr]  )
+
+	# # 	if( constrains[i,j,0] + Z[i,j] ==  constrains[ir,jr,0] + Z[ir,jr] or constrains[i,j,0] + Z[i,j] ==  constrains[ir,jr,1] + Z[ir,jr]  or constrains[i,j,1] + Z[i,j] ==  constrains[ir,jr,0] + Z[ir,jr] or constrains[i,j,1] + Z[i,j] ==  constrains[ir,jr,1] + Z[ir,jr]):
+	# # 		Nhap +=1
+	# # 	else:
+	# # 		NNhap +=1
+	# # print('error:', Nhap/(NNhap + Nhap))
+
+
+@ti.kernel
+def _compute_hw_drape_th(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.template(), QwC:ti.template(), D4dir:ti.template(), constrains:ti.template(), BCs:ti.template(), threshold:ti.f32 ):
+	'''
+	EXPERIMENTAL
+	Compute flow depth by div.Q and update discharge to t+1.
+	Also computes QwC (out at t) 
+	Arguments:
+		- Z: a 2D field of topographic elevation
+		- hw: a 2D field of flow depth
+		- QwA: a 2D field of discharge A (in)
+		- QwB: a 2D field of discharge B (in t+1)
+		- QwC: a 2D field of discharge C (out)
+		- constrains: a 3D field of minimum [i,j,0] and maximum [i,j,1] Zw possible for every nodes
+		- BCs: a 2D field of boundary conditions
+	Returns:
+		- Nothing, update flow depth in place
+	Authors:
+		- B.G. (last modification 03/05/2024)
+	'''	
+
+	for i,j in Z:
+
+		constrains[i,j,0] = -1e6
+		constrains[i,j,1] = 1e6
+		D4dir[i,j] = 5
+
+	rat = 0.45
+
+	for i,j in Z:
+
+		tZw = hsw.Zw_drape(Z,hw,i,j) # + (QwA[i,j] - QwC[i,j]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy)
+		if gridfuncs.is_active(i,j,BCs) == False:
+			continue
+
+		kmin = 5
+		Zdkmin = tZw
+
+		# Traversing Neighbours
+		for k in range(4):
+
+			# Getting neighbour k (see rd_grid header lines for erxplanation on the standard)
+			ir,jr = gridfuncs.neighbours(i,j,k, BCs)
+
+			if(ir == -1):
+				continue
+
+			# tSwr = hsw.Zw_drape(Z,hw,ir,jr) + (QwA[ir,jr] - QwC[ir,jr]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy)
+			tZwr = hsw.Zw_drape(Z,hw,ir,jr)
+
+			# if(tZwr == tZw):
+			# 	print('HAPPENS:',i,j,'vs',ir,jr, tZwr,tZw)
+
+			if(tZwr < Zdkmin):
+				Zdkmin = tZwr
+				kmin = k
+
+		if kmin==5:
+			continue
+
+		ir,jr = gridfuncs.neighbours(i,j,kmin, BCs)
+
+
+		D4dir[i,j] = kmin
+
+		# rat = 0.45 + ti.random() * 0.04
+		# rat = 1.
+
+		constrains[i,j,0] = (rat * ti.f64(hsw.Zw_drape(Z,hw,ir,jr)) + (1 - rat) * ti.f64(tZw))
+		# constrains[i,j,0] = hsw.Zw_drape(Z,hw,ir,jr)
+
+
+		ti.atomic_min(constrains[ir,jr,1] , ((1-rat) * ti.f64(hsw.Zw_drape(Z,hw,ir,jr)) + rat * ti.f64(tZw)))
+
+		# ti.atomic_min(constrains[ir,jr,1] , tZw)
+
+		# constrains[i,j,0] -= Z[i,j]
+		# constrains[i,j,1] -= Z[i,j]
+
+	# for i,j in Z:
+	# 	if(constrains[i,j,0] == constrains[i,j,1]):
+	# 		ir,jr = gridfuncs.neighbours(i,j,D4dir[i,j], BCs)
+	# 		print('dsafksjkfgksdjflk::', hsw.Zw_drape(Z,hw,i,j), hsw.Zw_drape(Z,hw,ir,jr), rat * hsw.Zw_drape(Z,hw,ir,jr) + (1 - rat) *  hsw.Zw_drape(Z,hw,i,j))
+
+
+	# Traversing nodes
+	for i,j in Z:
+		
+		# Updating local discharge to new time step
+		QwA[i,j] = QwB[i,j]
+		
+		# Updating flow depth (cannot be < 0)
+		# hw[i,j]  =  ti.math.clamp(
+		# 					 hw[i,j] + (QwA[i,j] - QwC[i,j]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy) ,
+		# 					 # TODO try to keep track of the receivers and to force no inversion
+		# 				constrains[i,j,0], # min
+		# 				# constrains[i,j,1]  # max
+		# 				1e6  # max
+		# 			)
+		# hw[i,j] = ti.math.max(0.,hw[i,j] + (QwA[i,j] - QwC[i,j]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy) )
+
+		if(QwA[i,j] <= 0 or abs(1 - (QwC[i,j]/QwA[i,j])) < threshold ):
+			continue
+
+		hw[i,j] = hw[i,j] + (QwA[i,j] - QwC[i,j]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy) 
+
+		# if(constrains[i,j,0] == 1e6):
+		# 	constrains[i,j,0] = Z[i,j]
+		# if(constrains[i,j,1] == 1e6):
+		# 	constrains[i,j,1] = Z[i,j]
+
+		# if(constrains[i,j,0] == constrains[i,j,1]):
+		# 	print("HAPPENS")
+		
+		constrains[i,j,0] -= Z[i,j]
+		constrains[i,j,1] -= Z[i,j]
+
+
+		
+		if(gridfuncs.can_out(i,j,BCs) == False):
+			if(hw[i,j] < constrains[i,j,0]):
+				hw[i,j] = constrains[i,j,0]
+			elif(hw[i,j] > constrains[i,j,1]):
+				hw[i,j] = constrains[i,j,1]
+	
+
+	# # DEBUG DEBUG DEBUG
+	# # Traversing nodes
+	# Nhap = 0
+	# NNhap = 0
+	# for i,j in Z:
+	# 	if(D4dir[i,j] == 5 or gridfuncs.can_out(i,j,BCs)):
+	# 		continue
+
+	# 	ir,jr = gridfuncs.neighbours(i,j,D4dir[i,j], BCs)
+
+	# 	if(hsw.Zw_drape(Z,hw,i,j) == hsw.Zw_drape(Z,hw,ir,jr) and (ir != i or jr != j)):
+	# 		print('gabul', hsw.Zw_drape(Z,hw,i,j) ,'vs',hsw.Zw_drape(Z,hw,ir,jr), 'constrains node were', constrains[i,j,0] + Z[i,j], constrains[i,j,1] + Z[i,j], 'and rec', constrains[ir,jr,0] + Z[ir,jr], constrains[ir,jr,1] + Z[ir,jr]  )
+
+	# # 	if( constrains[i,j,0] + Z[i,j] ==  constrains[ir,jr,0] + Z[ir,jr] or constrains[i,j,0] + Z[i,j] ==  constrains[ir,jr,1] + Z[ir,jr]  or constrains[i,j,1] + Z[i,j] ==  constrains[ir,jr,0] + Z[ir,jr] or constrains[i,j,1] + Z[i,j] ==  constrains[ir,jr,1] + Z[ir,jr]):
+	# # 		Nhap +=1
+	# # 	else:
+	# # 		NNhap +=1
+	# # print('error:', Nhap/(NNhap + Nhap))
+
+
+@ti.kernel
+def _compute_hw_drape_CFL(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.template(), QwC:ti.template(), D4dir:ti.template(), constrains:ti.template(), BCs:ti.template(), alpha:ti.f32 ):
+	'''
+	EXPERIMENTAL
+	Compute flow depth by div.Q and update discharge to t+1.
+	Also computes QwC (out at t) 
+	Arguments:
+		- Z: a 2D field of topographic elevation
+		- hw: a 2D field of flow depth
+		- QwA: a 2D field of discharge A (in)
+		- QwB: a 2D field of discharge B (in t+1)
+		- QwC: a 2D field of discharge C (out)
+		- constrains: a 3D field of minimum [i,j,0] and maximum [i,j,1] Zw possible for every nodes
+		- BCs: a 2D field of boundary conditions
+	Returns:
+		- Nothing, update flow depth in place
+	Authors:
+		- B.G. (last modification 03/05/2024)
+	'''	
+
+	for i,j in Z:
+
+		constrains[i,j,0] = -1e6
+		constrains[i,j,1] = 1e6
+		D4dir[i,j] = 5
+
+	rat = 0.45
+
+	for i,j in Z:
+
+		tZw = hsw.Zw_drape(Z,hw,i,j) # + (QwA[i,j] - QwC[i,j]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy)
+		if gridfuncs.is_active(i,j,BCs) == False:
+			continue
+
+		kmin = 5
+		Zdkmin = tZw
+
+		# Traversing Neighbours
+		for k in range(4):
+
+			# Getting neighbour k (see rd_grid header lines for erxplanation on the standard)
+			ir,jr = gridfuncs.neighbours(i,j,k, BCs)
+
+			if(ir == -1):
+				continue
+
+			# tSwr = hsw.Zw_drape(Z,hw,ir,jr) + (QwA[ir,jr] - QwC[ir,jr]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy)
+			tZwr = hsw.Zw_drape(Z,hw,ir,jr)
+
+			# if(tZwr == tZw):
+			# 	print('HAPPENS:',i,j,'vs',ir,jr, tZwr,tZw)
+
+			if(tZwr < Zdkmin):
+				Zdkmin = tZwr
+				kmin = k
+
+		if kmin==5:
+			continue
+
+		ir,jr = gridfuncs.neighbours(i,j,kmin, BCs)
+
+
+		D4dir[i,j] = kmin
+
+		# rat = 0.45 + ti.random() * 0.04
+		# rat = 1.
+
+		constrains[i,j,0] = (rat * ti.f64(hsw.Zw_drape(Z,hw,ir,jr)) + (1 - rat) * ti.f64(tZw))
+		# constrains[i,j,0] = hsw.Zw_drape(Z,hw,ir,jr)
+
+
+		ti.atomic_min(constrains[ir,jr,1] , ((1-rat) * ti.f64(hsw.Zw_drape(Z,hw,ir,jr)) + rat * ti.f64(tZw)))
+
+		# ti.atomic_min(constrains[ir,jr,1] , tZw)
+
+		# constrains[i,j,0] -= Z[i,j]
+		# constrains[i,j,1] -= Z[i,j]
+
+	# for i,j in Z:
+	# 	if(constrains[i,j,0] == constrains[i,j,1]):
+	# 		ir,jr = gridfuncs.neighbours(i,j,D4dir[i,j], BCs)
+	# 		print('dsafksjkfgksdjflk::', hsw.Zw_drape(Z,hw,i,j), hsw.Zw_drape(Z,hw,ir,jr), rat * hsw.Zw_drape(Z,hw,ir,jr) + (1 - rat) *  hsw.Zw_drape(Z,hw,i,j))
+
+
+	# Traversing nodes
+	for i,j in Z:
+		
+		# Updating local discharge to new time step
+		QwA[i,j] = QwB[i,j]
+		
+		# Updating flow depth (cannot be < 0)
+		# hw[i,j]  =  ti.math.clamp(
+		# 					 hw[i,j] + (QwA[i,j] - QwC[i,j]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy) ,
+		# 					 # TODO try to keep track of the receivers and to force no inversion
+		# 				constrains[i,j,0], # min
+		# 				# constrains[i,j,1]  # max
+		# 				1e6  # max
+		# 			)
+		# hw[i,j] = ti.math.max(0.,hw[i,j] + (QwA[i,j] - QwC[i,j]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy) )
+		tdt = ti.math.max(PARAMHYDRO.dt_hydro, alpha *GRID.dx/(QwA[i,j]/(ti.math.max(1e-4, hw[i,j]))) )		
+		hw[i,j] = hw[i,j] + (QwA[i,j] - QwC[i,j]) * tdt/(GRID.dx*GRID.dy) 
+
+		# if(constrains[i,j,0] == 1e6):
+		# 	constrains[i,j,0] = Z[i,j]
+		# if(constrains[i,j,1] == 1e6):
+		# 	constrains[i,j,1] = Z[i,j]
+
+		# if(constrains[i,j,0] == constrains[i,j,1]):
+		# 	print("HAPPENS")
+		
+		constrains[i,j,0] -= Z[i,j]
+		constrains[i,j,1] -= Z[i,j]
+
+
+		
+		if(gridfuncs.can_out(i,j,BCs) == False):
+			if(hw[i,j] < constrains[i,j,0]):
+				hw[i,j] = constrains[i,j,0]
+			elif(hw[i,j] > constrains[i,j,1]):
+				hw[i,j] = constrains[i,j,1]
+	
+
+	# # DEBUG DEBUG DEBUG
+	# # Traversing nodes
+	# Nhap = 0
+	# NNhap = 0
+	# for i,j in Z:
+	# 	if(D4dir[i,j] == 5 or gridfuncs.can_out(i,j,BCs)):
+	# 		continue
+
+	# 	ir,jr = gridfuncs.neighbours(i,j,D4dir[i,j], BCs)
+
+	# 	if(hsw.Zw_drape(Z,hw,i,j) == hsw.Zw_drape(Z,hw,ir,jr) and (ir != i or jr != j)):
+	# 		print('gabul', hsw.Zw_drape(Z,hw,i,j) ,'vs',hsw.Zw_drape(Z,hw,ir,jr), 'constrains node were', constrains[i,j,0] + Z[i,j], constrains[i,j,1] + Z[i,j], 'and rec', constrains[ir,jr,0] + Z[ir,jr], constrains[ir,jr,1] + Z[ir,jr]  )
+
+	# # 	if( constrains[i,j,0] + Z[i,j] ==  constrains[ir,jr,0] + Z[ir,jr] or constrains[i,j,0] + Z[i,j] ==  constrains[ir,jr,1] + Z[ir,jr]  or constrains[i,j,1] + Z[i,j] ==  constrains[ir,jr,0] + Z[ir,jr] or constrains[i,j,1] + Z[i,j] ==  constrains[ir,jr,1] + Z[ir,jr]):
+	# # 		Nhap +=1
+	# # 	else:
+	# # 		NNhap +=1
+	# # print('error:', Nhap/(NNhap + Nhap))
 
 
 

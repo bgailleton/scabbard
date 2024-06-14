@@ -8,6 +8,7 @@ B.G. - 29/04/2024
 import taichi as ti
 import numpy as np
 from scabbard.riverdale.rd_grid import GRID
+import scabbard.riverdale.rd_grid as gridfuncs
 
 
 ###############################################################
@@ -16,7 +17,7 @@ from scabbard.riverdale.rd_grid import GRID
 
 
 @ti.func
-def Zw(Z: ti.template(), hw: ti.template(), i:ti.i32, j:ti.i32) -> ti.f32:
+def Zw(Z: ti.template(), hw: ti.template(), i:ti.i32, j:ti.i32) -> ti.f64:
 	'''
 	Internal helping function returning the hydrayulic surface (elevation of the water surface)
 	Arguments:
@@ -33,7 +34,7 @@ def Zw(Z: ti.template(), hw: ti.template(), i:ti.i32, j:ti.i32) -> ti.f32:
 
 
 @ti.func
-def Zw_drape(Z: ti.template(), hw: ti.template(), i:ti.i32, j:ti.i32) -> ti.f32:
+def Zw_drape(Z: ti.template(), hw: ti.template(), i:ti.i32, j:ti.i32) -> ti.f64:
 	'''
 	Internal helping function returning the hydrayulic surface (elevation of the water surface)
 	Arguments:
@@ -55,7 +56,7 @@ def Zw_drape(Z: ti.template(), hw: ti.template(), i:ti.i32, j:ti.i32) -> ti.f32:
 ###############################################################
 
 @ti.func
-def Sw(Z: ti.template(), hw: ti.template(), i:ti.template(), j:ti.template(), ir:ti.template(), jr:ti.template())->ti.f32:
+def Sw(Z: ti.template(), hw: ti.template(), i:ti.template(), j:ti.template(), ir:ti.template(), jr:ti.template())->ti.f64:
 	'''
 	Internal helping function returning the hydrayulic slope
 	Arguments:
@@ -71,7 +72,7 @@ def Sw(Z: ti.template(), hw: ti.template(), i:ti.template(), j:ti.template(), ir
 	return (Zw(Z,hw, i,j) - Zw(Z,hw, ir,jr))/GRID.dx
 
 @ti.func
-def Sz(Z: ti.template(), i:ti.template(), j:ti.template(), ir:ti.template(), jr:ti.template())->ti.f32:
+def Sz(Z: ti.template(), i:ti.template(), j:ti.template(), ir:ti.template(), jr:ti.template())->ti.f64:
 	'''
 	Internal helping function returning the topographic slope
 	Arguments:
@@ -84,4 +85,70 @@ def Sz(Z: ti.template(), i:ti.template(), j:ti.template(), ir:ti.template(), jr:
 		- B.G. (last modification 20/05/2024)
 	'''
 	return (Z[i,j] - Z[ir,jr])/GRID.dx
+
+
+@ti.func
+def hydraulic_gradient_value(Z:ti.template(), hw:ti.template(),BCs:ti.template(),i:ti.i32, j:ti.i32 ) -> ti.f64:
+	'''
+	Calculates the local hydraulic gradient value.
+	gradient = sqrt(max_slope_in_X^2 + max_slope_in_y^2)
+	Convenient function, but only optimised for cases where calculating the hydraulic gradient value is the only neighbouring operation.
+
+	Arguments:
+		- Z: the field of topographic elevation
+		- hw: the field of flow depth
+		- BCs: the field of boundary conditions
+		- i: the row index of the node in question
+		- j: the column index of the node in question
+	Returns:
+		- the value of the steepest slope, 0 if no downslope neighbours
+	Authors:
+		- B.G. (last modification: 06/2024)
+	'''
+
+
+	# Keeping in mind the steepest slope in the x and y direction to calculate the norm of the vector
+	SSx = 0.
+	SSy = 0.
+	gradSw = 0.
+
+	# Traversing Neighbours
+	for k in range(4):
+
+		# getting neighbour k (see rd_grid header lines for erxplanation on the standard)
+		ir,jr = gridfuncs.neighbours(i,j,k, BCs)
+
+		# if not a neighbours, by convention is < 0 and I pass
+		if(ir == -1):
+			continue
+
+		if(gridfuncs.can_receive(ir,jr, BCs) == False):
+			continue
+
+		# Local hydraulic slope
+		tS = Sw(Z,hw,i,j,ir,jr)
+
+		# If < 0, neighbour is a donor and I am not interested
+		if(tS <= 0):
+			continue
+
+		# Registering the steepest clope in both directions (see rd_grid header lines for erxplanation on the standard)
+		if(k == 0 or k == 3):
+			if(tS > SSy):
+				SSy = tS
+		else:
+			if(tS > SSx):
+				SSx = tS
+
+		# Done with processing this particular neighbour
+
+
+		# Calculating local norm for the gradient
+		# The condition manages the boundary conditions
+		gradSw = ti.math.sqrt(SSx*SSx + SSy*SSy)
+
+	return gradSw
+
+
+
 

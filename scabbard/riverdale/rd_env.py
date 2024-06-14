@@ -71,6 +71,9 @@ but in the meantime you can run the model in batch using subprocess.
 		self.input_cols_Qs = None
 		self.input_Qs = None
 
+		# temporary fields
+		self.temp_fields = {ti.u8:[], ti.i32:[], ti.f32:[], ti.f64:[]}
+
 
 
 	def run_hydro(self, n_steps):
@@ -171,7 +174,7 @@ but in the meantime you can run the model in batch using subprocess.
 		if(self.param is None):
 			raise ValueError('cannot return convergence ratio if the model is not initialised')
 		if(self.convrat is None):
-			self.convrat = ti.field(dtype = ti.f32, shape = ())
+			self.convrat = ti.field(dtype = self.param.dtype_float, shape = ())
 		rdhy.check_convergence(self.QwA, self.QwC, 0.01, self.convrat, self.BCs)
 		return float(self.convrat.to_numpy())
 
@@ -187,11 +190,17 @@ but in the meantime you can run the model in batch using subprocess.
 			- B.G. (last modification: 30/05/2024)
 		'''
 		return dag.GridCPP_f32(self.param._nx,self.param._ny,self.param._dx,self.param._dy,0 if self.param.boundaries == rdgd.BoundaryConditions.normal else 3)
+		# return dag.GridCPP_f32(self.param._nx,self.param._ny,self.param._dx,self.param._dy,0 if self.param.boundaries == rdgd.BoundaryConditions.normal else 3) if self.param.dtype_float == ti.f32 else dag.GridCPP_f64(self.param._nx,self.param._ny,self.param._dx,self.param._dy,0 if self.param.boundaries == rdgd.BoundaryConditions.normal else 3)
 
 	@classmethod
 	def _create_instance(cls):
 		'''
 		Private function creating an empty instance and returning it
+		Long story short it ensure the class is only instanciated once and for all
+
+		At some point I]ll try to find a workaround to get multiple instances but so far it is complicated
+
+		B.G. 
 		'''
 		
 		cls._instance_created = True
@@ -200,6 +209,68 @@ but in the meantime you can run the model in batch using subprocess.
 		cls._instance_created = False
 
 		return instance
+
+
+	def query_temporary_fields(self, N, dtype = 'f32'):
+		'''
+		Ask riverdale for a number of temporary fields of a given type. 
+		Effectively avoids unecessary new fields and memory leaks.
+		It only creates a temporary field if it does not exist yet.
+			
+		Arguments:
+			- N: the number of fields to return
+			- dtype: the data type: f32, u8 or i32 so far
+		Returns:
+			- a tuple with all the fields
+		Authors:
+			- B.G. (last modification: 12/06/2024)
+		'''
+		
+		# Data type conversion to the dict key
+		if(dtype in ['f32',self.param.dtype_float, np.float32]):
+			dtype = ti.f32
+		elif(dtype in ['u8',np.uint8, ti.u8]):
+			dtype = ti.u8
+		elif(dtype in ['i32',np.int32, ti.i32]):
+			dtype = ti.i32
+		else:
+			raise TypeError(f"dtype {dtype} is not recognised. Should be one of ['f32','u8','i32'] or their taichi/numpy equivalents (e.g. np.float32 or ti.f32)")
+
+		# gathering the results in a list
+		output = []
+		for i in range(N):
+			# DO I need to create the field or does it exist already?
+			if(i >= len(self.temp_fields[dtype])):
+				self.temp_fields[dtype].append(ti.field(dtype=dtype, shape = (self.GRID.ny,self.GRID.nx)))
+			# Filling it with 0s by default	
+			self.temp_fields[dtype][i].fill(0)
+			#saving a ref in the list
+			output.append(self.temp_fields[dtype][i])
+
+		# Done, returning the list conerted into a tuple
+		return tuple(output)
+
+
+
+	def save(self, fname = 'riverdale_run'):
+		'''
+		Experiments on saving files
+		'''
+
+		import pickle
+		# import copy
+		param = self.param
+		param._RD = None
+		tosave = {'param':param, 'hw':self.hw.to_numpy(), 'Z':self.Z.to_numpy(), 'QwA':self.QwA.to_numpy(), 'QwC':self.QwC.to_numpy()}
+		with open(fname+'.rvd', 'wb') as f:
+			pickle.dump(tosave, f)
+
+
+
+
+
+
+
 
 # External factory function
 def create_from_params(param):
@@ -245,16 +316,16 @@ def create_from_params(param):
 	# Compiling the hydrodynamics
 	rdhy.set_hydro_CC()
 
-	instance.QwA = ti.field(ti.f32, shape = (instance.GRID.ny,instance.GRID.nx))
+	instance.QwA = ti.field(instance.param.dtype_float, shape = (instance.GRID.ny,instance.GRID.nx))
 	instance.QwA.from_numpy(np.zeros((param._ny,param._nx), dtype = np.float32))
-	instance.QwB = ti.field(ti.f32, shape = (instance.GRID.ny,instance.GRID.nx))
+	instance.QwB = ti.field(instance.param.dtype_float, shape = (instance.GRID.ny,instance.GRID.nx))
 	instance.QwB.from_numpy(np.zeros((param._ny,param._nx), dtype = np.float32))
-	instance.QwC = ti.field(ti.f32, shape = (instance.GRID.ny,instance.GRID.nx))
+	instance.QwC = ti.field(instance.param.dtype_float, shape = (instance.GRID.ny,instance.GRID.nx))
 	instance.QwC.from_numpy(np.zeros((param._ny,param._nx), dtype = np.float32))
 
-	instance.Z = ti.field(ti.f32, shape = (instance.GRID.ny,instance.GRID.nx))
+	instance.Z = ti.field(instance.param.dtype_float, shape = (instance.GRID.ny,instance.GRID.nx))
 	instance.Z.from_numpy(param.initial_Z)
-	instance.hw = ti.field(ti.f32, shape = (instance.GRID.ny,instance.GRID.nx))
+	instance.hw = ti.field(instance.param.dtype_float, shape = (instance.GRID.ny,instance.GRID.nx))
 	
 	if(param.initial_hw is not None):
 		instance.hw.from_numpy(param.initial_hw)
@@ -262,7 +333,7 @@ def create_from_params(param):
 		instance.hw.from_numpy(np.zeros((param._ny,param._nx), dtype = np.float32))
 
 	if param._2D_precipitations:
-		instance.P = ti.field(ti.f32, shape = (instance.GRID.ny,instance.GRID.nx)) 
+		instance.P = ti.field(instance.param.dtype_float, shape = (instance.GRID.ny,instance.GRID.nx)) 
 		instance.P.from_numpy(param.precipitations.astype(np.float32))
 	else:
 		instance.P = param.precipitations
@@ -273,7 +344,7 @@ def create_from_params(param):
 		instance.input_rows_Qw.from_numpy(param._input_rows_Qw)
 		instance.input_cols_Qw = ti.field(ti.i32, shape = (n_inputs_QW))
 		instance.input_cols_Qw.from_numpy(param._input_cols_Qw)
-		instance.input_Qw = ti.field(ti.f32, shape = (n_inputs_QW))
+		instance.input_Qw = ti.field(instance.param.dtype_float, shape = (n_inputs_QW))
 		instance.input_Qw.from_numpy(param._input_Qw)
 
 	if(param.morpho):
@@ -293,11 +364,11 @@ def create_from_params(param):
 
 		rdmo.set_morpho_CC()
 
-		instance.QsA = ti.field(ti.f32, shape = (instance.GRID.ny,instance.GRID.nx))
+		instance.QsA = ti.field(instance.param.dtype_float, shape = (instance.GRID.ny,instance.GRID.nx))
 		instance.QsA.from_numpy(np.zeros((param._ny,param._nx), dtype = np.float32))
-		instance.QsB = ti.field(ti.f32, shape = (instance.GRID.ny,instance.GRID.nx))
+		instance.QsB = ti.field(instance.param.dtype_float, shape = (instance.GRID.ny,instance.GRID.nx))
 		instance.QsB.from_numpy(np.zeros((param._ny,param._nx), dtype = np.float32))
-		instance.QsC = ti.field(ti.f32, shape = (instance.GRID.ny,instance.GRID.nx))
+		instance.QsC = ti.field(instance.param.dtype_float, shape = (instance.GRID.ny,instance.GRID.nx))
 		instance.QsC.from_numpy(np.zeros((param._ny,param._nx), dtype = np.float32))
 
 	
@@ -308,7 +379,19 @@ def create_from_params(param):
 	return instance
 
 
+def load_riverdale(fname):
+	import pickle
+	with open(fname, 'rb') as f:
+		loaded_dict = pickle.load(f)
 
+	rd = create_from_params(loaded_dict['param'])
+
+	rd.hw.from_numpy(loaded_dict['hw'])
+	rd.Z.from_numpy(loaded_dict['Z'])
+	rd.QwA.from_numpy(loaded_dict['QwA'])
+	rd.QwC.from_numpy(loaded_dict['QwC'])
+	
+	return rd
 
 
 
