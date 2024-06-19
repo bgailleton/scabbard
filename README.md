@@ -1,13 +1,8 @@
-========
-scabbard
-========
+# Scabbard
 
 
 .. image:: https://img.shields.io/pypi/v/scabbard.svg
         :target: https://pypi.python.org/pypi/scabbard
-
-.. image:: https://img.shields.io/travis/bgailleton/scabbard.svg
-        :target: https://travis-ci.com/bgailleton/scabbard
 
 .. image:: https://readthedocs.org/projects/scabbard/badge/?version=latest
         :target: https://scabbard.readthedocs.io/en/latest/?version=latest
@@ -15,22 +10,40 @@ scabbard
 
 
 
+Python package for topographic analysis, landscape evolution modelling and hydro-morphodynamics modelling
 
-high-level python package for the DAGGER suite
+Includes:
+
+- Python interface to (`DAGGER`)[https://github.com/bgailleton/DAGGER], my `c++` sets of tools for topographic analysis, landscape evolution modelling 
+- CHONK (refactoring in progress, so far), see (GMD)[https://egusphere.copernicus.org/preprints/2023/egusphere-2022-1394]
+- Graphflood as published in (esurf)[https://egusphere.copernicus.org/preprints/2024/egusphere-2024-1239]
+- Some general `python` routines to process a DEM (e.g, io operations with `rasterio`)
+- `riverdale`: a GPU sets of tools for large-scale hydrodynamics (paper in progress)
 
 
 * Free software: MIT license
-* Documentation: https://scabbard.readthedocs.io.
+<!-- * Documentation: https://scabbard.readthedocs.io. -->
+
+## How to install
+
+I need to clean/properly set the dependencies. So far:
+
+```
+mamba install numpy scipy matplotlib ipympl jupyterlab rasterio numba cmcrameri plotly nicegui daggerpy
+pip install taichi
+```
 
 
-Features
---------
+## Usage
+
+TODO
+
+## Features
 
 * TODO
 
 
-Experimental
-------------
+## Experimental
 
 Among the experimental features is a tentative link to Blender to make nice 3D plots. The latter will only get activated if called from blender and will happily be ignored by most.
 
@@ -43,10 +56,10 @@ Only tested on Ubuntu, it requires the following steps:
 
 `ln -s /path/to/your/environment/site-packages/* ~/.config/blender/3.X/scripts/addons/modules/`
 
-Where you obviously need to adapts the paths and version number (yes I had multiple times the question "urgh it cannot find /path/to/your/environment")
+Where you need to adapts the paths and version number
 
-Credits
--------
+## Credits
+
 
 This package was created with Cookiecutter_ and the `audreyr/cookiecutter-pypackage`_ project template.
 
