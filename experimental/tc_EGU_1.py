@@ -10,19 +10,14 @@ def calculate_MPM_from_D(D, l_transp, rho_water = 1000, gravity = 9.8, rho_sedim
 	k_erosion = E_MPM/l_transp
 	return k_erosion, tau_c
 
-
-def f2img(tfield):
-	out = tfield.to_numpy()
-	return np.rot90((out - np.nanmin(out))/(np.nanmax(out) - np.nanmin(out)), -1)
-
 from opensimplex import noise2array
 
 
 nx,ny = 200, 512
 dx,dy = 1, 1
 noise = 0e-1
-wnoise = 1e-1
-S0 = 5e-3
+wnoise = 0e-1
+S0 = 1e-2
 # seed = 42
 # np.random.seed(seed)
 
@@ -64,12 +59,12 @@ B = (max_val + min_val) / 2
 
 morpho = True
 NHYDRO = 200
-l_transp = 10
+l_transp = 1000
 gravity = 9.8
 rho_water = 1000.
 rho_sediment = 2560.
 visc = 15.e-6 
-D = 4e-3
+D = 5e-3
 csin = 0.
 rho_ratio = (rho_sediment - rho_water)/rho_water
 
@@ -78,23 +73,14 @@ Le = 0.5*D*rho_ratio
 # print(np.pi * Le/S0)
 
 
-dt_morpho = 1e-3
+dt_morpho = 1e-4
 
 K = rho_ratio * gravity * D**2/(visc)
 # K = 1e-4
 # K*=1e-9
 betalpha = 2
 tau_c = 0.7
-# mu_c = 0.7
-
-print(K)
-# quit()
-
 kz = 1.
-
-
-# paramgf.kz = paramgf.tau_c/(0.04 * 1650 * 9.8)
-# paramgf.kh = paramgf.tau_c/(0.08 * 1000 * 0.01 * 9.8)
 
 ti.init(arch=ti.gpu)  # Initialize Taichi to use the CPU
 

@@ -88,6 +88,9 @@ class RDParams:
 		self._boundary_slope_mode = rdgd.BoundaryConditionsSlope.fixed_slope
 		self._boundary_slope_value = 1e-2
 
+		# Can the nodes who input Qs/Qw (boundaries GIVE or FORCE_GIVE) update their topo in morphomode
+		self._update_morpho_at_input_points = False
+
 
 		##############################
 		# Initial conditions
@@ -524,6 +527,17 @@ class RDParams:
 			return True
 		else:
 			return False
+
+	@property
+	def update_morpho_at_input_points(self):
+		return self._update_morpho_at_input_points
+
+	@update_morpho_at_input_points.setter
+	def update_morpho_at_input_points(self, val:bool):
+		if(self._RD is None):
+			self._update_morpho_at_input_points = val
+		else:
+			warnings.warn('Cannot update static update_morpho_at_input_points param after model initialisation')
 
 	@property
 	def reshp(self):

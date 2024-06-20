@@ -19,7 +19,8 @@ class MorphoMode(Enum):
 	'''
 	Enumeration of the different boundary condition types possible
 	'''	
-	fbal = 0
+	fbal = 0,
+	MPM_like = 1.
 
 
 @scaut.singleton
@@ -55,6 +56,8 @@ class MorphoParams:
 		self.transport_length = 4
 		# water viscosity
 		self.viscosity = 15.e-6
+
+		self.update_morpho_at_input_points = False
 
 
 PARAMMORPHO = MorphoParams()
@@ -138,7 +141,7 @@ def input_discharge_sediment_points(input_rows: ti.template(), input_cols:ti.tem
 		QsB[input_rows[i],input_cols[i]] += input_values[i]
 
 @ti.kernel
-def _compute_Qs(Z:ti.template(), hw:ti.template(), QsA:ti.template(), QsB:ti.template(), QsC:ti.template(), BCs:ti.template() ):
+def _compute_Qs_fbal(Z:ti.template(), hw:ti.template(), QsA:ti.template(), QsB:ti.template(), QsC:ti.template(), BCs:ti.template() ):
 	'''
 	Compute and transfer QwA (in from t-1) into a temporary QwB (in for t).
 	Also computes QwC (out at t) 
@@ -191,7 +194,7 @@ def _compute_Qs(Z:ti.template(), hw:ti.template(), QsA:ti.template(), QsB:ti.tem
 				ir,jr = gridfuncs.neighbours(i,j,k, BCs)
 
 				# if not a neighbours, by convention is < 0 and I pass
-				if(ir == -1):
+				if(ir == -1 or gridfuncs.can_receive(ir,jr,BCs) == False):
 					continue
 
 				# Local topographic slope
@@ -296,6 +299,129 @@ def _compute_Qs(Z:ti.template(), hw:ti.template(), QsA:ti.template(), QsB:ti.tem
 
 		if(QsC[i,j] < 0):
 			QsC[i,j] = QsA[i,j]
+
+
+@ti.kernel
+def _compute_Qs_MPM_like(Z:ti.template(), hw:ti.template(), QsA:ti.template(), QsB:ti.template(), QsC:ti.template(), BCs:ti.template() ):
+	'''
+	Compute and transfer QwA (in from t-1) into a temporary QwB (in for t).
+	Also computes QwC (out at t) 
+	Arguments:
+		- Z: a 2D field of topographic elevation
+		- hw: a 2D field of flow depth
+		- QwA: a 2D field of discharge A (in)
+		- QwB: a 2D field of discharge B (in t+1)
+		- QwC: a 2D field of discharge C (out)
+		- BCs: a 2D field of boundary conditions
+	Returns:
+		- Nothing, Caluclates disccharges in place
+	Authors:
+		- B.G. (last modification 03/05/2024)
+	'''
+
+
+	# Traversing each nodes
+	for i,j in Z:
+
+		# Case of normal, internal node
+		if(gridfuncs.can_out(i,j,BCs) == False):
+
+			# I'll store the hydraulic slopes in this vector
+			Sws = ti.math.vec4(0.,0.,0.,0.)
+
+			# I'll need the sum of the hydraulic slopes in the positive directions
+			sumSlopes = 0.
+
+			# Keeping in mind the steepest slope in the x and y direction to calculate the norm of the vector
+			## Hydraulic slope
+			SSwx = 0.
+			SSwy = 0.
+			
+			# Traversing Neighbours
+			for k in range(4):
+				# getting neighbour k (see rd_grid header lines for erxplanation on the standard)
+				ir,jr = gridfuncs.neighbours(i,j,k, BCs)
+
+				# if not a neighbours, by convention is < 0 and I pass
+				if(ir == -1):
+					continue
+
+				# Local topographic slope
+				tSw = ti.max(hsw.Sw(Z,hw,i,j,ir,jr),0.)
+
+				# Registering the steepest clope in both directions (see rd_grid header lines for erxplanation on the standard)
+				if(k == 0 or k == 3):
+					if(tSw > SSwy):
+						SSwy = tSw
+				else:
+					if(tSw > SSwx):
+						SSwx = tSw
+
+				# Registering local partitioning slope
+				Sws[k] = tSw
+				# Summing it to global
+				sumSlopes += tSw
+
+			# Done with processing this particular neighbour
+
+			# Local minima management (cheap but works)
+			## If I have no downward slope, I increase the elevation by a bit
+			if(sumSlopes == 0.):
+				QsC[i,j] = -1
+				continue
+
+
+			# Calculating local norms for the gradients
+			gradSw = ti.math.sqrt(SSwx*SSwx + SSwy*SSwy)
+
+			# Not sure I still need that
+			if(gradSw <= 0):
+				continue
+
+			local_erosion_rate = ti.max(PARAMMORPHO.k_erosion * ti.math.pow(PARAMMORPHO.rho_water * PARAMMORPHO.GRAVITY * max(hw[i,j],0.) * gradSw - PARAMMORPHO.tau_c, PARAMMORPHO.alpha_erosion), 0.)
+
+			CA = GRID.dx*GRID.dx
+
+			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
+			tK = (1. / PARAMMORPHO.transport_length);
+			edotpsy = (local_erosion_rate) / tK;
+			C1 = QsA[i,j] / GRID.dx - edotpsy;
+			QsC[i,j] = GRID.dx * (edotpsy + C1 * ti.math.exp(-GRID.dx * tK));
+
+			# If the node cannot give and can only receive, I pass this node
+			if(gridfuncs.can_give(i,j,BCs) == False or gridfuncs.can_receive(i,j,BCs) == False):
+				QsC[i,j] = -1
+			else:
+				# Transferring flow to neighbours
+				for k in range(4):
+
+					# local neighbours
+					ir,jr = gridfuncs.neighbours(i,j,k, BCs)
+					
+					# checking if neighbours
+					if(ir == -1):
+						continue
+					
+					# Transferring prop to the hydraulic slope
+					ti.atomic_add(QsB[ir,jr], Sws[k]/sumSlopes * QsC[i,j])
+		else:
+
+			gradSw = ti.max(hsw.Zw(Z,hw,i,j) -  PARAMHYDRO.hydro_slope_bc_val, 1e-6)/GRID.dx if PARAMHYDRO.hydro_slope_bc_mode == 0 else PARAMHYDRO.hydro_slope_bc_val
+
+			local_erosion_rate = ti.max(PARAMMORPHO.k_erosion * ti.math.pow(PARAMMORPHO.rho_water * PARAMMORPHO.GRAVITY * max(hw[i,j],0.) * gradSw - PARAMMORPHO.tau_c, PARAMMORPHO.alpha_erosion), 0.)
+
+			CA = GRID.dx*GRID.dx
+
+			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
+			# QsC[i,j] = (QsA[i,j] + local_erosion_rate * CA)/(1 + CA * PARAMMORPHO.transport_length / GRID.dx)
+			QsC[i,j] = QsA[i,j]
+
+	for i,j in Z:
+		# Updating local discharge to new time step
+		# QsA[i,j] = QsB[i,j]
+
+		if(QsC[i,j] < 0):
+			QsC[i,j] = QsA[i,j]
 			
 
 
@@ -326,6 +452,9 @@ def _compute_hs(Z:ti.template(), hw:ti.template(), QsA:ti.template(), QsB:ti.tem
 
 	# Traversing nodes
 	for i,j in Z:
+
+		if(gridfuncs.can_receive(i,j,BCs) == False and PARAMMORPHO.update_morpho_at_input_points == False):
+			continue
 		
 		# Only where nodes are active (i.e. flow cannot leave and can traverse)
 		# if(gridfuncs.is_active(i,j,BCs) == False):
@@ -335,8 +464,11 @@ def _compute_hs(Z:ti.template(), hw:ti.template(), QsA:ti.template(), QsB:ti.tem
 
 		# Updating flow depth (cannot be < 0)
 		Z[i,j] += dz
-		# hw[i,j] = ti.max(hw[i,j] - dz, 0.)
+		hw[i,j] = hw[i,j] - dz
 		QsA[i,j] = QsB[i,j]
+
+
+
 
 ########################################################################
 ########################################################################
@@ -369,6 +501,9 @@ def set_morpho_CC():
 	# Feed it
 	if(PARAMMORPHO.morphomode == MorphoMode.fbal):
 		compute_hs = _compute_hs
-		compute_Qs = _compute_Qs
+		compute_Qs = _compute_Qs_fbal
+	elif(PARAMMORPHO.morphomode == MorphoMode.MPM_like):
+		compute_hs = _compute_hs
+		compute_Qs = _compute_Qs_MPM_like
 	else:
 		raise NotImplementedError('PARAMMORPHO Not implemented yet')

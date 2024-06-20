@@ -274,6 +274,11 @@ but in the meantime you can run the model in batch using subprocess.
 
 # External factory function
 def create_from_params(param):
+	'''
+		This function creates the instance of the model and binds the input param sheet
+		In some sort it "compiles" the model. 
+		IMPORTANT: every static variable and constants will be fixed at that point
+	'''
 
 	# Generating the empty instance, which should be the sole one
 	instance = Riverdale._create_instance()

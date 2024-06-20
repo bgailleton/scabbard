@@ -18,6 +18,7 @@ from scabbard.riverdale.rd_hillshading import hillshading
 import plotly.graph_objects as go
 import cmcrameri.cm as cmc
 import scabbard.nice_utils as nut
+import scabbard.nice_helper as nhe
 import sys
 
 
@@ -47,86 +48,13 @@ stuff = {
 # path of execution
 CURRENT_PATH = os.getcwd()
 
-def update_flow_depth():
-	'''
-		Plots flow depth as the main figure
-	'''
-	# just gathering the global dictionary
-	global stuff
-
-	# Contextual
-	with stuff['main_figure']:
-		# colormap.remove()
-		stuff['value'] = stuff['rd'].hw.to_numpy()
-		stuff['im'].set_data(stuff['value'])
-		stuff['im'].set_cmap('Blues')
-		stuff['im'].set_clim(0,1)
-
-
-def update_Qw():
-	# just gathering the global dictionary
-	global stuff
-
-	with stuff['main_figure']:
-		# colormap.remove()
-		stuff['value'] = stuff['rd'].QwA.to_numpy()
-		stuff['im'].set_data(stuff['value'])
-		stuff['im'].set_cmap('Purples')
-		stuff['im'].set_clim(stuff['value'].min(),np.percentile(stuff['value'],98))
-
-def update_u():
-	# just gathering the global dictionary
-	global stuff
-
-	with stuff['main_figure']:
-		# colormap.remove()
-		stuff['value'] = rdta.compute_flow_velocity(stuff['rd'])
-		stuff['im'].set_data(stuff['value'])
-		stuff['im'].set_cmap('viridis')
-		stuff['im'].set_clim(stuff['value'].min(),np.percentile(stuff['value'],98))
-
-def update_effa():
-	# just gathering the global dictionary
-	global stuff
-
-	with stuff['main_figure']:
-		# colormap.remove()
-		stuff['value'] = rdta.compute_effective_drainage_area(stuff['rd'])
-		stuff['im'].set_data(stuff['value'])
-		stuff['im'].set_cmap('cividis')
-		stuff['im'].set_clim(stuff['value'].min(),np.percentile(stuff['value'],90))
-
-def update_shr():
-	# just gathering the global dictionary
-	global stuff
-
-	with stuff['main_figure']:
-		# colormap.remove()
-		stuff['value'] = rdta.compute_shear_stress(stuff['rd'])
-		stuff['im'].set_data(stuff['value'])
-		stuff['im'].set_cmap('magma')
-		stuff['im'].set_clim(stuff['value'].min(),np.percentile(stuff['value'],95))
-
 def update_clim():
-	# just gathering the global dictionary
+	'''
+	Reinit the colorscale to the min/max of the plot
+	'''
 	global stuff
-	stuff['main_figure'].update_traces(
-		zmin=stuff['model']['range']['min'],
-		zmax=stuff['model']['range']['max'],
-		selector=dict(name='datamap')
-	)
-
-	stuff['ui']['plot'].update()
-
-	# with stuff['main_figure']:
-	# 	stuff['im'].set_clim(stuff['model']['range']['min'], stuff['model']['range']['max'])
-
-def on_click(event):
-	print('yolo')
-	# Check if the event is a mouse button press
-	if event.button:
-		# Print the x and y coordinates of the click
-		print(f'Clicked at x={event.xdata}, y={event.ydata}')
+	nhe._update_clim(stuff)
+	
 
 def update_plot_value(stuff, val, cmin = None, cmax = None):
 	'''
@@ -374,32 +302,6 @@ async def pick_file() -> None:
 
 	# with stuff['ui']['r1c1']:
 	update_tool({'value':'Topography'})
-
-	# 	with stuff['main_figure'] as tfig:
-	# 		stuff['ax'] = tfig.gca()
-	# 		stuff['im'] = stuff['ax'].imshow(stuff['value'], cmap = "gist_earth" )
-	# 		stuff['ax'].imshow(hillshading(stuff['rd'],), cmap = 'gray',alpha = 0.45)
-	# 		stuff['colormap'] = plt.colorbar(stuff['im'])
-
-			
-	# 						# Define the event handler function
-			
-	# 		# Connect the event handler to the figure
-	# 		tfig.canvas.mpl_connect('button_press_event', on_click)
-
-	# 	with ui.column():
-	# 		ui.button('Flow depth', on_click = update_flow_depth)
-	# 		ui.button('Qw', on_click = update_Qw)
-	# 		ui.button('Flow velocity', on_click = update_u)
-	# 		ui.button('Eff. area', on_click = update_effa)
-	# 		ui.button('Shear Stress', on_click = update_shr)
-
-	# # I'll need to make a factory for that 
-	# ui.label('Colormap range')
-	# color_range = ui.range(min=stuff['value'].min(), max=stuff['value'].max(), step = (stuff['value'].max() - stuff['value'].min())/250, value = {'min': 1000, 'max': 1400}) \
-	# .props('label-always snap label-color="secondary" right-label-text-color="black"', ).bind_value(stuff['model'],'range').on('change', update_clim, throttle = 5)
-
-	# ui.button('YOLO')
 
 
 

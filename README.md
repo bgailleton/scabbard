@@ -1,12 +1,12 @@
 # Scabbard
 
-
+<!-- 
 .. image:: https://img.shields.io/pypi/v/scabbard.svg
         :target: https://pypi.python.org/pypi/scabbard
 
 .. image:: https://readthedocs.org/projects/scabbard/badge/?version=latest
         :target: https://scabbard.readthedocs.io/en/latest/?version=latest
-        :alt: Documentation Status
+        :alt: Documentation Status -->
 
 
 
