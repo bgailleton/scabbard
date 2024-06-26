@@ -59,4 +59,20 @@ def is_numpy(val, shape = None, dtype = None):
 	# If the code reaches there then all good, the array is valid
 	return True
 
+
+def print_neighbourhood2D(arr, row, col, precision = 6):
+	'''
+	'''
+	format_spec = f".{precision}f"
+	gog = 0
+	for i in [-1,0,1]:
+		for j in [-1,0,1]:
+			print('|', end = '')
+			gog += 1
+			if(gog == 3):
+				gog = 0
+				print(f"{ arr[ row + i , col + j ]:{format_spec}}", end = ' \n')
+			else:
+				print(f"{ arr[ row + i , col + j ]:{format_spec}}", end = ' | ')
+
 	

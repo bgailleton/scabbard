@@ -569,6 +569,31 @@ def _is_active_customs(i:int, j:int, BCs:ti.template()):
 
 
 
+########################################################################
+########################################################################
+############### GENERIC  FUNCTIONS #####################################
+########################################################################
+########################################################################
+
+
+@ti.func
+def oppk(k:ti.i32):
+	'''
+	Returns the opposite neighbour code, e.g. if supplied with 1 (left neighbour), returns 2 (right neighbour)
+	Useful to check if a k neighbour points toward a cell
+	
+	Arguments:
+		k: the neihgbour code
+
+	returns:
+		The opposite neighbour code
+
+	Authors:
+		- B.G. (last modifications: 06/2024)
+	'''
+	return 3 if k == 0 else (2 if k == 1 else (1 if k == 2 else (0 if k == 3 else 5)))
+
+
 
 
 ########################################################################

@@ -17,7 +17,7 @@ import scabbard.riverdale.rd_grid as gridfuncs
 
 
 @ti.func
-def Zw(Z: ti.template(), hw: ti.template(), i:ti.i32, j:ti.i32) -> ti.f64:
+def Zw(Z: ti.template(), hw: ti.template(), i:ti.i32, j:ti.i32) -> ti.f32:
 	'''
 	Internal helping function returning the hydrayulic surface (elevation of the water surface)
 	Arguments:
@@ -34,7 +34,7 @@ def Zw(Z: ti.template(), hw: ti.template(), i:ti.i32, j:ti.i32) -> ti.f64:
 
 
 @ti.func
-def Zw_drape(Z: ti.template(), hw: ti.template(), i:ti.i32, j:ti.i32) -> ti.f64:
+def Zw_drape(Z: ti.template(), hw: ti.template(), i:ti.i32, j:ti.i32) -> ti.f32:
 	'''
 	Internal helping function returning the hydrayulic surface (elevation of the water surface)
 	Arguments:
@@ -56,7 +56,7 @@ def Zw_drape(Z: ti.template(), hw: ti.template(), i:ti.i32, j:ti.i32) -> ti.f64:
 ###############################################################
 
 @ti.func
-def Sw(Z: ti.template(), hw: ti.template(), i:ti.template(), j:ti.template(), ir:ti.template(), jr:ti.template())->ti.f64:
+def Sw(Z: ti.template(), hw: ti.template(), i:ti.template(), j:ti.template(), ir:ti.template(), jr:ti.template())->ti.f32:
 	'''
 	Internal helping function returning the hydrayulic slope
 	Arguments:
@@ -72,7 +72,7 @@ def Sw(Z: ti.template(), hw: ti.template(), i:ti.template(), j:ti.template(), ir
 	return (Zw(Z,hw, i,j) - Zw(Z,hw, ir,jr))/GRID.dx
 
 @ti.func
-def Sz(Z: ti.template(), i:ti.template(), j:ti.template(), ir:ti.template(), jr:ti.template())->ti.f64:
+def Sz(Z: ti.template(), i:ti.template(), j:ti.template(), ir:ti.template(), jr:ti.template())->ti.f32:
 	'''
 	Internal helping function returning the topographic slope
 	Arguments:
@@ -88,7 +88,7 @@ def Sz(Z: ti.template(), i:ti.template(), j:ti.template(), ir:ti.template(), jr:
 
 
 @ti.func
-def hydraulic_gradient_value(Z:ti.template(), hw:ti.template(),BCs:ti.template(),i:ti.i32, j:ti.i32 ) -> ti.f64:
+def hydraulic_gradient_value(Z:ti.template(), hw:ti.template(),BCs:ti.template(),i:ti.i32, j:ti.i32 ) -> ti.f32:
 	'''
 	Calculates the local hydraulic gradient value.
 	gradient = sqrt(max_slope_in_X^2 + max_slope_in_y^2)

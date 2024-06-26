@@ -11,6 +11,7 @@ import scabbard.utils as scaut
 from scabbard.riverdale.rd_grid import GRID
 import scabbard.riverdale.rd_grid as gridfuncs
 import scabbard.riverdale.rd_helper_surfw as hsw
+import scabbard.riverdale.rd_utils as rut
 
 
 
@@ -36,6 +37,8 @@ class HydroParams:
 		self.hydro_slope_bc_mode = 0
 		self.hydro_slope_bc_val = 0
 
+		# Constant for minimal step in the draping function
+		self.mini_drape_step = np.float32(0.0005)
 
 
 PARAMHYDRO = HydroParams()
@@ -244,9 +247,10 @@ def _compute_Qw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), 5./3) * ti.math.sqrt(tSw)
 
 @ti.kernel
-def _compute_Qw_drape(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.template(), QwC:ti.template(), constrains:ti.template(), BCs:ti.template() ):
+def _compute_Qw_drape(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.template(), QwC:ti.template(), BCs:ti.template() ):
 	'''
 	EXPERIMENTAL: testing some dynamic draping
+	Variant of Qw that applies a draping algorithm to avoid the creation of local minimas
 	Compute and transfer QwA (in from t-1) into a temporary QwB (in for t).
 	Also computes QwC (out at t) 
 	Arguments:
@@ -286,131 +290,6 @@ def _compute_Qw_drape(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:
 
 		# None boundary case
 		if(gridfuncs.can_out(i,j,BCs) == False):
-			# While I do not have external slope
-			while(sumSw == 0.):
-				
-				# First incrementing the safety check
-				lockcheck += 1
-
-				# Traversing Neighbours
-				for k in range(4):
-
-					# getting neighbour k (see rd_grid header lines for erxplanation on the standard)
-					ir,jr = gridfuncs.neighbours(i,j,k, BCs)
-
-					# if not a neighbours, by convention is < 0 and I pass
-					if(ir == -1):
-						continue
-
-					if(gridfuncs.can_receive(ir,jr, BCs) == False):
-						continue
-
-					# Local hydraulic slope
-					tS = hsw.Sw(Z,hw,i,j,ir,jr)
-
-					# If < 0, neighbour is a donor and I am not interested
-					if(tS <= 0):
-						continue
-
-					# Registering the steepest clope in both directions (see rd_grid header lines for erxplanation on the standard)
-					if(k == 0 or k == 3):
-						if(tS > SSy):
-							SSy = tS
-					else:
-						if(tS > SSx):
-							SSx = tS
-
-					# Registering local slope
-					Sws[k] = tS
-					# Summing it to global
-					sumSw += tS
-
-					# Done with processing this particular neighbour
-
-				# Local minima management (cheap but works)
-				## If I have no downward slope, I increase the elevation by a bit
-				if(sumSw == 0.):
-					hw[i,j] += 1e-4
-
-				## And if I added like a metre and it did not slolve it, I stop for that node
-				if(lockcheck > 100):
-					break
-
-			# Calculating local norm for the gradient
-			# The condition manages the boundary conditions
-			gradSw = ti.math.sqrt(SSx*SSx + SSy*SSy)
-			
-			# Not sure I still need that
-			if(gradSw == 0):
-				continue
-
-			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
-			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), 5./3) * sumSw/ti.math.sqrt(gradSw)
-
-			# Transferring flow to neighbours
-			for k in range(4):
-
-				# local neighbours
-				ir,jr = gridfuncs.neighbours(i,j,k, BCs)
-				
-				# checking if neighbours
-				if(ir == -1):
-					continue
-				
-				# Transferring prop to the hydraulic slope
-				ti.atomic_add(QwB[ir,jr], Sws[k]/sumSw * QwA[i,j])
-
-		# Boundary case
-		else:
-			tSw = ti.max(hsw.Zw(Z,hw,i,j) -  PARAMHYDRO.hydro_slope_bc_val, 1e-6)/GRID.dx if PARAMHYDRO.hydro_slope_bc_mode == 0 else PARAMHYDRO.hydro_slope_bc_val
-			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
-			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), 5./3) * ti.math.sqrt(tSw)
-
-
-@ti.kernel
-def _compute_Qw_noLM(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.template(), QwC:ti.template(), BCs:ti.template() ):
-	'''
-	Compute and transfer QwA (in from t-1) into a temporary QwB (in for t).
-	Also computes QwC (out at t) 
-	Arguments:
-		- Z: a 2D field of topographic elevation
-		- hw: a 2D field of flow depth
-		- QwA: a 2D field of discharge A (in)
-		- QwB: a 2D field of discharge B (in t+1)
-		- QwC: a 2D field of discharge C (out)
-		- BCs: a 2D field of boundary conditions
-	Returns:
-		- Nothing, Caluclates disccharges in place
-	Authors:
-		- B.G. (last modification 03/05/2024)
-	'''
-
-
-	# Traversing each nodes
-	for i,j in Z:
-
-		# If the node cannot give and can only receive, I pass this node
-		if(gridfuncs.is_active(i,j,BCs) == False):
-			continue
-
-		# I'll store the hydraulic slope in this vector
-		Sws = ti.math.vec4(0.,0.,0.,0.)
-
-		# I'll need the sum of the hydraulic slopes in the positive directions
-		sumSw = 0.
-
-		# Keeping in mind the steepest slope in the x and y direction to calculate the norm of the vector
-		SSx = 0.
-		SSy = 0.
-
-		# Safety check: gets incremented at each while iteration and manually breaks the loop if > 10k (avoid getting stuck in an infinite hole)
-		lockcheck = 0
-
-
-		# None boundary case
-		if(gridfuncs.can_out(i,j,BCs) == False):
-
-			
 			# First incrementing the safety check
 			lockcheck += 1
 
@@ -447,6 +326,7 @@ def _compute_Qw_noLM(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:t
 				# Summing it to global
 				sumSw += tS
 
+				# Done with processing this particular neighbour
 
 			# Calculating local norm for the gradient
 			# The condition manages the boundary conditions
@@ -477,9 +357,6 @@ def _compute_Qw_noLM(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:t
 			tSw = ti.max(hsw.Zw(Z,hw,i,j) -  PARAMHYDRO.hydro_slope_bc_val, 1e-6)/GRID.dx if PARAMHYDRO.hydro_slope_bc_mode == 0 else PARAMHYDRO.hydro_slope_bc_val
 			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
 			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), 5./3) * ti.math.sqrt(tSw)
-
-
-
 
 
 @ti.kernel
@@ -518,8 +395,9 @@ def _compute_hw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 @ti.kernel
 def _compute_hw_CFL(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.template(), QwC:ti.template(), BCs:ti.template(), alpha : ti.f32, threshold:ti.f32 ):
 	'''
-	Compute flow depth by div.Q and update discharge to t+1.
-	Also computes QwC (out at t) 
+	Status: STILL EXPERIMENTAL
+	Variant of _compute_hw that does not consider nodes nearly equillibrated AND
+	
 	Arguments:
 		- Z: a 2D field of topographic elevation
 		- hw: a 2D field of flow depth
@@ -593,7 +471,7 @@ def _compute_hw_th(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.
 
 
 @ti.kernel
-def _compute_hw_drape(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.template(), QwC:ti.template(), D4dir:ti.template(), constrains:ti.template(), BCs:ti.template() ):
+def _compute_hw_drape(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.template(), QwC:ti.template(), constrains:ti.template(), BCs:ti.template() ):
 	'''
 	EXPERIMENTAL
 	Compute flow depth by div.Q and update discharge to t+1.
@@ -612,22 +490,28 @@ def _compute_hw_drape(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:
 		- B.G. (last modification 03/05/2024)
 	'''	
 
+	#Reinitialising the constrains to their default values
 	for i,j in Z:
 
 		constrains[i,j,0] = -1e6
 		constrains[i,j,1] = 1e6
-		D4dir[i,j] = 5
 
-	rat = 0.45
+	# Constant of draping, manages
+	rat = ti.f32(0.45)
 
+	# First determining the draping constrains
 	for i,j in Z:
 
-		tZw = hsw.Zw_drape(Z,hw,i,j) # + (QwA[i,j] - QwC[i,j]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy)
-		if gridfuncs.is_active(i,j,BCs) == False:
+		# Local elevation
+		tZw = hsw.Zw_drape(Z,hw,i,j)
+
+		# Ignoring nodes outletting (they still get a constrain[i,j,1] given by donors)
+		if gridfuncs.can_out(i,j,BCs):
 			continue
 
-		kmin = 5
+		# keeping track of the mini elev
 		Zdkmin = tZw
+		kmin = 5
 
 		# Traversing Neighbours
 		for k in range(4):
@@ -635,102 +519,67 @@ def _compute_hw_drape(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:
 			# Getting neighbour k (see rd_grid header lines for erxplanation on the standard)
 			ir,jr = gridfuncs.neighbours(i,j,k, BCs)
 
+			# not a neighbour
 			if(ir == -1):
 				continue
 
-			# tSwr = hsw.Zw_drape(Z,hw,ir,jr) + (QwA[ir,jr] - QwC[ir,jr]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy)
+			# Note that Zw_drape() returns the absolute hw + Z, even if hw is < 0
 			tZwr = hsw.Zw_drape(Z,hw,ir,jr)
 
-			# if(tZwr == tZw):
-			# 	print('HAPPENS:',i,j,'vs',ir,jr, tZwr,tZw)
-
+			# Registering new steepest neighbour if needed
 			if(tZwr < Zdkmin):
 				Zdkmin = tZwr
 				kmin = k
 
-		if kmin==5:
+		# Local minima ? I skip
+		if kmin == 5:
 			continue
 
+		# Row col of the receiver
 		ir,jr = gridfuncs.neighbours(i,j,kmin, BCs)
 
+		# Calculating constrains
+		if(gridfuncs.can_receive(ir,jr,BCs)):
 
-		D4dir[i,j] = kmin
+			# Checking if I have enough space between my nodes
+			if(tZw - Zdkmin >= PARAMHYDRO.mini_drape_step):
 
-		# rat = 0.45 + ti.random() * 0.04
-		# rat = 1.
+				# if I do, I calculate the min/max function of a slightly unbalanced mean between our node and its receiver
+				constrains[i,j,0] = ti.math.max(rat * (hsw.Zw_drape(Z,hw,ir,jr)) + (1 - rat) * (tZw), hsw.Zw_drape(Z,hw,ir,jr) + PARAMHYDRO.mini_drape_step)
 
-		constrains[i,j,0] = (rat * ti.f64(hsw.Zw_drape(Z,hw,ir,jr)) + (1 - rat) * ti.f64(tZw))
-		# constrains[i,j,0] = hsw.Zw_drape(Z,hw,ir,jr)
+				# Propagating to tneighbour's max possible elevation
+				ti.atomic_min(constrains[ir,jr,1] , ti.math.min( (1-rat) * hsw.Zw_drape(Z,hw,ir,jr) + rat * tZw, tZw - PARAMHYDRO.mini_drape_step) )
 
+			else:
+				# If we do not have enough space
+				# i "lock" the node for now. It will be eventually unlocked by reorganisation of neighbours
+				constrains[i,j,0] = tZw
 
-		ti.atomic_min(constrains[ir,jr,1] , ((1-rat) * ti.f64(hsw.Zw_drape(Z,hw,ir,jr)) + rat * ti.f64(tZw)))
-
-		# ti.atomic_min(constrains[ir,jr,1] , tZw)
-
-		# constrains[i,j,0] -= Z[i,j]
-		# constrains[i,j,1] -= Z[i,j]
-
-	# for i,j in Z:
-	# 	if(constrains[i,j,0] == constrains[i,j,1]):
-	# 		ir,jr = gridfuncs.neighbours(i,j,D4dir[i,j], BCs)
-	# 		print('dsafksjkfgksdjflk::', hsw.Zw_drape(Z,hw,i,j), hsw.Zw_drape(Z,hw,ir,jr), rat * hsw.Zw_drape(Z,hw,ir,jr) + (1 - rat) *  hsw.Zw_drape(Z,hw,i,j))
+				# Propagating to tneighbour's max possible elevation
+				ti.atomic_min(constrains[ir,jr,1] , hsw.Zw_drape(Z,hw,ir,jr))
 
 
-	# Traversing nodes
+	# Draped increment 
 	for i,j in Z:
 		
+
 		# Updating local discharge to new time step
 		QwA[i,j] = QwB[i,j]
-		
-		# Updating flow depth (cannot be < 0)
-		# hw[i,j]  =  ti.math.clamp(
-		# 					 hw[i,j] + (QwA[i,j] - QwC[i,j]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy) ,
-		# 					 # TODO try to keep track of the receivers and to force no inversion
-		# 				constrains[i,j,0], # min
-		# 				# constrains[i,j,1]  # max
-		# 				1e6  # max
-		# 			)
-		# hw[i,j] = ti.math.max(0.,hw[i,j] + (QwA[i,j] - QwC[i,j]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy) )
+				
+		# Applying the increment whatsoever YOLO lol
 		hw[i,j] = hw[i,j] + (QwA[i,j] - QwC[i,j]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy) 
-
-		# if(constrains[i,j,0] == 1e6):
-		# 	constrains[i,j,0] = Z[i,j]
-		# if(constrains[i,j,1] == 1e6):
-		# 	constrains[i,j,1] = Z[i,j]
-
-		# if(constrains[i,j,0] == constrains[i,j,1]):
-		# 	print("HAPPENS")
 		
+		# Converting constrains into flow depth clamper
 		constrains[i,j,0] -= Z[i,j]
 		constrains[i,j,1] -= Z[i,j]
 
 
-		
-		if(gridfuncs.can_out(i,j,BCs) == False):
-			if(hw[i,j] < constrains[i,j,0]):
-				hw[i,j] = constrains[i,j,0]
-			elif(hw[i,j] > constrains[i,j,1]):
-				hw[i,j] = constrains[i,j,1]
-	
+		# Clamp
+		if(hw[i,j] < constrains[i,j,0]):
+			hw[i,j] = constrains[i,j,0]
+		elif(hw[i,j] > constrains[i,j,1]):
+			hw[i,j] = constrains[i,j,1]
 
-	# # DEBUG DEBUG DEBUG
-	# # Traversing nodes
-	# Nhap = 0
-	# NNhap = 0
-	# for i,j in Z:
-	# 	if(D4dir[i,j] == 5 or gridfuncs.can_out(i,j,BCs)):
-	# 		continue
-
-	# 	ir,jr = gridfuncs.neighbours(i,j,D4dir[i,j], BCs)
-
-	# 	if(hsw.Zw_drape(Z,hw,i,j) == hsw.Zw_drape(Z,hw,ir,jr) and (ir != i or jr != j)):
-	# 		print('gabul', hsw.Zw_drape(Z,hw,i,j) ,'vs',hsw.Zw_drape(Z,hw,ir,jr), 'constrains node were', constrains[i,j,0] + Z[i,j], constrains[i,j,1] + Z[i,j], 'and rec', constrains[ir,jr,0] + Z[ir,jr], constrains[ir,jr,1] + Z[ir,jr]  )
-
-	# # 	if( constrains[i,j,0] + Z[i,j] ==  constrains[ir,jr,0] + Z[ir,jr] or constrains[i,j,0] + Z[i,j] ==  constrains[ir,jr,1] + Z[ir,jr]  or constrains[i,j,1] + Z[i,j] ==  constrains[ir,jr,0] + Z[ir,jr] or constrains[i,j,1] + Z[i,j] ==  constrains[ir,jr,1] + Z[ir,jr]):
-	# # 		Nhap +=1
-	# # 	else:
-	# # 		NNhap +=1
-	# # print('error:', Nhap/(NNhap + Nhap))
 
 
 @ti.kernel
@@ -800,11 +649,11 @@ def _compute_hw_drape_th(Z:ti.template(), hw:ti.template(), QwA:ti.template(), Q
 		# rat = 0.45 + ti.random() * 0.04
 		# rat = 1.
 
-		constrains[i,j,0] = (rat * ti.f64(hsw.Zw_drape(Z,hw,ir,jr)) + (1 - rat) * ti.f64(tZw))
+		constrains[i,j,0] = (rat * (hsw.Zw_drape(Z,hw,ir,jr)) + (1 - rat) * (tZw))
 		# constrains[i,j,0] = hsw.Zw_drape(Z,hw,ir,jr)
 
 
-		ti.atomic_min(constrains[ir,jr,1] , ((1-rat) * ti.f64(hsw.Zw_drape(Z,hw,ir,jr)) + rat * ti.f64(tZw)))
+		ti.atomic_min(constrains[ir,jr,1] , ((1-rat) * (hsw.Zw_drape(Z,hw,ir,jr)) + rat * (tZw)))
 
 		# ti.atomic_min(constrains[ir,jr,1] , tZw)
 
@@ -945,11 +794,11 @@ def _compute_hw_drape_CFL(Z:ti.template(), hw:ti.template(), QwA:ti.template(), 
 		# rat = 0.45 + ti.random() * 0.04
 		# rat = 1.
 
-		constrains[i,j,0] = (rat * ti.f64(hsw.Zw_drape(Z,hw,ir,jr)) + (1 - rat) * ti.f64(tZw))
+		constrains[i,j,0] = (rat * (hsw.Zw_drape(Z,hw,ir,jr)) + (1 - rat) * (tZw))
 		# constrains[i,j,0] = hsw.Zw_drape(Z,hw,ir,jr)
 
 
-		ti.atomic_min(constrains[ir,jr,1] , ((1-rat) * ti.f64(hsw.Zw_drape(Z,hw,ir,jr)) + rat * ti.f64(tZw)))
+		ti.atomic_min(constrains[ir,jr,1] , ((1-rat) * (hsw.Zw_drape(Z,hw,ir,jr)) + rat * (tZw)))
 
 		# ti.atomic_min(constrains[ir,jr,1] , tZw)
 
