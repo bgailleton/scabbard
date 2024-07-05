@@ -62,6 +62,7 @@ but in the meantime you can run the model in batch using subprocess.
 		self.input_cols_Qw = None
 		self.input_Qw = None
 		self.convrat = None
+		self.constraints = None
 
 		## Field for morpho
 		self.QsA = None
@@ -76,7 +77,7 @@ but in the meantime you can run the model in batch using subprocess.
 
 
 
-	def run_hydro(self, n_steps):
+	def run_hydro(self, n_steps, expe_N_prop = 0, expe_CFL_variable = False):
 		'''
 		Main runner function for the hydrodynamics part of the model.
 		NOte that all the parameters have been compiled prior to running that functions, so not much to control here
@@ -89,7 +90,7 @@ but in the meantime you can run the model in batch using subprocess.
 		'''
 
 		# Running loop
-		for _ in range(n_steps):
+		for it in range(n_steps):
 			
 			# Initialising step: setting stuff to 0, reset some counters and things like that
 			self._run_init_hydro()
@@ -98,7 +99,8 @@ but in the meantime you can run the model in batch using subprocess.
 			self._run_hydro_inputs()
 
 			# Actually runs the runoff simulation
-			self._run_hydro()
+			# self._run_hydro() if expe_N_prop <= 1 or (it % expe_N_prop == 0) else rdhy._propagate_QwA_only(self.Z, self.hw, self.QwA, self.QwB, self.BCs )
+			self._run_hydro(expe_CFL_variable = expe_CFL_variable)
 
 		# That's it reallly, see bellow for the internal functions
 
@@ -130,10 +132,17 @@ but in the meantime you can run the model in batch using subprocess.
 		if(self.param.need_input_Qw):
 			rdhy.input_discharge_points(self.input_rows_Qw, self.input_cols_Qw, self.input_Qw, self.QwA, self.QwB, self.BCs)
 
-	def _run_hydro(self):
-		rdhy.compute_Qw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs)
-		rdhy.compute_hw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs)
+	def _run_hydro(self, expe_CFL_variable = False):
+		'''
+		Internal runner for hydro functions
 
+		'''
+		rdhy.compute_Qw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs) #if rdhy.FlowMode.static_drape != self.param._hydro_compute_mode else rdhy.compute_Qw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.constraints, self.BCs)
+		
+		if(expe_CFL_variable):
+			rdhy._compute_hw_CFL(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs, 1e-4, 0.001 )
+		else:			
+			rdhy.compute_hw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs) if rdhy.FlowMode.static_drape != self.param.hydro_compute_mode else rdhy.compute_hw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.constraints, self.BCs)
 
 	def run_morpho(self, n_steps):
 		'''
@@ -162,20 +171,26 @@ but in the meantime you can run the model in batch using subprocess.
 
 	def _run_init_morpho(self):
 		rdmo.initiate_step(self.QsB)
+
 	def _run_inputs_Qs(self):
 		rdmo.input_discharge_sediment_points(self.input_rows_Qs, self.input_cols_Qs, self.input_Qs, self.QsA, self.QsB, self.BCs)
+
 	def _run_morpho(self):
-		rdmo.compute_Qs(self.Z, self.hw, self.QsA, self.QsB, self.QsC, self.BCs )
+		rdmo.compute_Qs(self.Z, self.hw, self.QsA, self.QsB, self.QsC, self.QwA, self.QwC, self.BCs )
 		rdmo.compute_hs(self.Z, self.hw, self.QsA, self.QsB, self.QsC, self.BCs )
 
 
 	@property
 	def convergence_ratio(self):
+
 		if(self.param is None):
 			raise ValueError('cannot return convergence ratio if the model is not initialised')
+
 		if(self.convrat is None):
 			self.convrat = ti.field(dtype = self.param.dtype_float, shape = ())
+
 		rdhy.check_convergence(self.QwA, self.QwC, 0.01, self.convrat, self.BCs)
+
 		return float(self.convrat.to_numpy())
 
 	def get_GridCPP(self):
@@ -303,6 +318,7 @@ def create_from_params(param):
 
 	instance.PARAMHYDRO.hydro_slope_bc_mode = int(param._boundary_slope_mode.value)
 	instance.PARAMHYDRO.hydro_slope_bc_val = param._boundary_slope_value
+	instance.PARAMHYDRO.flowmode = param.hydro_compute_mode
 
 
 	if(param.BCs is None):
@@ -327,6 +343,7 @@ def create_from_params(param):
 	instance.QwB.from_numpy(np.zeros((param._ny,param._nx), dtype = np.float32))
 	instance.QwC = ti.field(instance.param.dtype_float, shape = (instance.GRID.ny,instance.GRID.nx))
 	instance.QwC.from_numpy(np.zeros((param._ny,param._nx), dtype = np.float32))
+	instance.constraints = ti.field(instance.param.dtype_float, shape = (instance.GRID.ny,instance.GRID.nx,2)) if rdhy.FlowMode.static_drape == instance.param._hydro_compute_mode else None
 
 	instance.Z = ti.field(instance.param.dtype_float, shape = (instance.GRID.ny,instance.GRID.nx))
 	instance.Z.from_numpy(param.initial_Z)

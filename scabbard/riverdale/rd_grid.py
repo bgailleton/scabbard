@@ -460,8 +460,11 @@ def _cast_neighbour_customs(i:int, j:int, k:int, valid:bool, BCs:ti.template()):
 		if(k == 3):
 			ir,jr = i+1, j
 
-	if(BCs[i,j] == 0 or (ir != -1 and BCs[ir,jr] == 0)):
+	if(BCs[i,j] == 0 or ir == -1):
 		ir,jr = -1,-1
+	elif(BCs[ir,jr] == 0):
+		ir,jr = -1,-1
+		
 
 	return ir, jr
 

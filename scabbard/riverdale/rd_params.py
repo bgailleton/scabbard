@@ -13,6 +13,7 @@ import numpy as np
 from enum import Enum
 import scabbard.riverdale.rd_grid as rdgd
 import scabbard.riverdale.rd_morphodynamics as rdmo
+import scabbard.riverdale.rd_hydrodynamics as rdhy
 import scabbard.utils as scaut 
 import scabbard as scb
 import dagger as dag
@@ -106,6 +107,8 @@ class RDParams:
 		##############################
 		# HYDRO Parameters
 		##############################
+
+		self._hydro_compute_mode = rdhy.FlowMode.static_incremental
 		
 		# Manning's Roughness/friction coefficient
 		self._manning = 0.033
@@ -133,6 +136,10 @@ class RDParams:
 		self._input_cols_Qw = None
 		## Input values in m^3/s
 		self._input_Qw = None
+
+		#TODO once I find a stable method
+		# # Stability criterion
+		# self._
 
 
 
@@ -329,6 +336,27 @@ class RDParams:
 		self._boundary_slope_value = val
 		
 
+
+	@property
+	def hydro_compute_mode(self):
+		return self._hydro_compute_mode
+
+	@hydro_compute_mode.setter
+	def hydro_compute_mode(self, value):
+		'''
+
+		'''
+
+		# # At the moment it needs to be compile-time constant
+		# if(self._RD is not None):
+		# 	raise Exception("Compute mode for hydro cannot be changed while the model is already initialised (WIP to dynamically do that)")
+		# else:
+		self._hydro_compute_mode = value
+		if(self._RD is not None):
+			self._RD.PARAMHYDRO.flowmode = value
+			rdhy.set_hydro_CC()
+			if (self._RD.constraints is None and rdhy.FlowMode.static_drape == self._RD.param._hydro_compute_mode):
+				self._RD.constraints = ti.field(self._RD.param.dtype_float, shape = (self._RD.GRID.ny,self._RD.GRID.nx,2))
 
 
 

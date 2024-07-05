@@ -13,6 +13,8 @@ from scabbard.riverdale.rd_grid import GRID
 import scabbard.riverdale.rd_grid as gridfuncs
 import scabbard.riverdale.rd_helper_surfw as srf
 import dagger as dag
+from scipy.ndimage import gaussian_filter
+
 
 
 # (is cpu)
@@ -38,12 +40,66 @@ def priority_flood(rd, Zw = True, step = 1e-3):
 	else:
 		rd.Z.from_numpy(tZw)
 
+def smooth_hw(rd, strength = 3, recompute_QwA = True):
+	'''
+	Applies priority flood's Algorithm in D4 topology to the riverdale's elevation.
+	Note that it takes into account the boundary conditions.
+
+	Arguments:
+		- rd: An initialised RiverDale's instance
+		- Zw: If True, fills the water surface, if False, the topography
+	Returns:
+		- Nothing, edits hte model in place and retransfer the data to GPU
+	Authors:
+		- B.G. (last modification: 30/05/2024)
+	'''
+	import scabbard.riverdale.rd_hydrodynamics as rdhy
+
+	tZw = rd.Z.to_numpy() + rd.hw.to_numpy()
+	mask = rd.hw.to_numpy() <= 0
+	tZw = gaussian_filter(tZw, strength)
+	thw = tZw - rd.Z.to_numpy()
+	thw[mask] = 0.
+	rd.hw.from_numpy(thw)
+	if (recompute_QwA):
+		rdhy._compute_QwA_from_Zw(rd.Z, rd.hw, rd.QwA, rd.BCs )
+
+
+
+@ti.kernel
+def N_conv(hw:ti.template(), QwA:ti.template(), QwC:ti.template(), BCs:ti.template(), threshold_QwA:ti.f32, threshold_hw:ti.f32, threshold_conv:ti.f32) -> (ti.i32, ti.i32):
+
+	N:ti.i32 = 0
+	NC:ti.i32 = 0
+
+	for i,j in hw:
+
+		if gridfuncs.is_active(i,j,BCs) == False:
+			continue
+
+		if QwA[i,j] < threshold_QwA or threshold_hw > hw[i,j]:
+			continue
+
+		N += 1
+
+		if(abs(QwC[i,j]/QwA[i,j] - 1) < threshold_conv):
+			NC += 1
+
+	return NC,N
+
+def compute_convergence(rd, threshold_QwA = 1e-4, threshold_hw = 1e-2, threshold_conv = 0.05, min_N = 100):
+	NC,N = N_conv(rd.hw, rd.QwA, rd.QwC, rd.BCs, threshold_QwA, threshold_hw, threshold_conv)
+	print(NC,N)
+	if N < min_N:
+		return 0
+	else:
+		return NC/N
 
 
 @ti.kernel
 def constrain_drape(Z:ti.template(), hw:ti.template(), constrains:ti.template(), BCs:ti.template()):
 	'''
-	TODO
+	TODO to deprecate probably
 	'''
 
 	# So, let's try to constrain the min/max height to add without creating local minimas

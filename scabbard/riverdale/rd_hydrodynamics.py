@@ -20,6 +20,8 @@ class FlowMode(Enum):
 	Enumeration of the different boundary condition types possible
 	'''	
 	static_incremental = 0
+	static_drape = 1
+	static_link = 2
 
 
 @scaut.singleton
@@ -39,6 +41,8 @@ class HydroParams:
 
 		# Constant for minimal step in the draping function
 		self.mini_drape_step = np.float32(0.0005)
+
+		self.use_heffmax = False
 
 
 PARAMHYDRO = HydroParams()
@@ -163,6 +167,10 @@ def _compute_Qw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 		# Safety check: gets incremented at each while iteration and manually breaks the loop if > 10k (avoid getting stuck in an infinite hole)
 		lockcheck = 0
 
+		if(gridfuncs.can_give(i,j,BCs) == False and gridfuncs.can_out(i,j,BCs) == False):
+			continue
+
+		thw = 0.
 
 		# None boundary case
 		if(gridfuncs.can_out(i,j,BCs) == False):
@@ -191,6 +199,8 @@ def _compute_Qw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 					# If < 0, neighbour is a donor and I am not interested
 					if(tS <= 0):
 						continue
+
+					thw = ti.math.max(thw, ti.max(hsw.Zw(Z,hw,i,j),hsw.Zw(Z,hw,ir,jr)) - ti.max(Z[i,j],Z[ir,jr]))
 
 					# Registering the steepest clope in both directions (see rd_grid header lines for erxplanation on the standard)
 					if(k == 0 or k == 3):
@@ -224,8 +234,11 @@ def _compute_Qw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 			if(gradSw == 0):
 				continue
 
+			if(PARAMHYDRO.use_heffmax == False):
+				thw = ti.math.max(0., hw[i,j])
+
 			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
-			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), 5./3) * sumSw/ti.math.sqrt(gradSw)
+			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(thw, 5./3) * sumSw/ti.math.sqrt(gradSw)
 
 			# Transferring flow to neighbours
 			for k in range(4):
@@ -245,6 +258,217 @@ def _compute_Qw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 			tSw = ti.max(hsw.Zw(Z,hw,i,j) -  PARAMHYDRO.hydro_slope_bc_val, 1e-6)/GRID.dx if PARAMHYDRO.hydro_slope_bc_mode == 0 else PARAMHYDRO.hydro_slope_bc_val
 			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
 			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), 5./3) * ti.math.sqrt(tSw)
+
+
+@ti.kernel
+def _propagate_QwA_only(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.template(), BCs:ti.template() ):
+	'''
+	Compute one iteration of QwA propagation
+
+	Arguments:
+		- Z: a 2D field of topographic elevation
+		- hw: a 2D field of flow depth
+		- QwA: a 2D field of discharge A (in)
+		- QwB: a 2D field of discharge B (in t+1)
+		- QwC: a 2D field of discharge C (out)
+		- BCs: a 2D field of boundary conditions
+	Returns:
+		- Nothing, Caluclates disccharges in place
+	Authors:
+		- B.G. (last modification 03/05/2024)
+	'''
+
+	for i,j in Z:
+		QwB[i,j] = 0.
+
+
+	# Traversing each nodes
+	for i,j in Z:
+
+		# If the node cannot give and can only receive, I pass this node
+		if(gridfuncs.is_active(i,j,BCs) == False):
+			continue
+
+		# I'll store the hydraulic slope in this vector
+		Sws = ti.math.vec4(0.,0.,0.,0.)
+
+		# I'll need the sum of the hydraulic slopes in the positive directions
+		sumSw = 0.
+
+		# Keeping in mind the steepest slope in the x and y direction to calculate the norm of the vector
+		SSx = 0.
+		SSy = 0.
+
+		if(gridfuncs.can_give(i,j,BCs) == False and gridfuncs.can_out(i,j,BCs) == False):
+			continue
+
+
+		# None boundary case
+		if(gridfuncs.can_out(i,j,BCs) == False):
+
+
+			# Traversing Neighbours
+			for k in range(4):
+
+				# getting neighbour k (see rd_grid header lines for erxplanation on the standard)
+				ir,jr = gridfuncs.neighbours(i,j,k, BCs)
+
+				# if not a neighbours, by convention is < 0 and I pass
+				if(ir == -1):
+					continue
+
+				if(gridfuncs.can_receive(ir,jr, BCs) == False):
+					continue
+
+				# Local hydraulic slope
+				tS = hsw.Sw(Z,hw,i,j,ir,jr)
+
+				# If < 0, neighbour is a donor and I am not interested
+				if(tS <= 0):
+					continue
+
+				# Registering the steepest clope in both directions (see rd_grid header lines for erxplanation on the standard)
+				if(k == 0 or k == 3):
+					if(tS > SSy):
+						SSy = tS
+				else:
+					if(tS > SSx):
+						SSx = tS
+
+				# Registering local slope
+				Sws[k] = tS
+				# Summing it to global
+				sumSw += tS
+
+				# Done with processing this particular neighbour
+
+			# Calculating local norm for the gradient
+			# The condition manages the boundary conditions
+			gradSw = ti.math.sqrt(SSx*SSx + SSy*SSy)
+			
+			# Not sure I still need that
+			if(gradSw == 0):
+				continue
+
+			# Transferring flow to neighbours
+			for k in range(4):
+
+				# local neighbours
+				ir,jr = gridfuncs.neighbours(i,j,k, BCs)
+				
+				# checking if neighbours
+				if(ir == -1):
+					continue
+				
+				# Transferring prop to the hydraulic slope
+				ti.atomic_add(QwB[ir,jr], Sws[k]/sumSw * QwA[i,j])
+
+	for i,j in Z:
+		QwA[i,j] = QwB[i,j]
+
+
+@ti.kernel
+def _compute_QwA_from_Zw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), BCs:ti.template() ):
+	'''
+	Compute and transfer QwA (in from t-1) into a temporary QwB (in for t).
+	Also computes QwC (out at t) 
+	Arguments:
+		- Z: a 2D field of topographic elevation
+		- hw: a 2D field of flow depth
+		- QwA: a 2D field of discharge A (in)
+		- QwB: a 2D field of discharge B (in t+1)
+		- QwC: a 2D field of discharge C (out)
+		- BCs: a 2D field of boundary conditions
+	Returns:
+		- Nothing, Caluclates disccharges in place
+	Authors:
+		- B.G. (last modification 03/05/2024)
+	'''
+
+
+	# Traversing each nodes
+	for i,j in Z:
+
+		# If the node cannot give and can only receive, I pass this node
+		if(gridfuncs.is_active(i,j,BCs) == False):
+			continue
+
+		# I'll store the hydraulic slope in this vector
+		Sws = ti.math.vec4(0.,0.,0.,0.)
+
+		# I'll need the sum of the hydraulic slopes in the positive directions
+		sumSw = 0.
+
+		# Keeping in mind the steepest slope in the x and y direction to calculate the norm of the vector
+		SSx = 0.
+		SSy = 0.
+
+		if(gridfuncs.can_give(i,j,BCs) == False and gridfuncs.can_out(i,j,BCs) == False):
+			continue
+
+		# None boundary case
+		if(gridfuncs.can_out(i,j,BCs) == False):
+							
+
+
+			# Traversing Neighbours
+			for k in range(4):
+
+				# getting neighbour k (see rd_grid header lines for erxplanation on the standard)
+				ir,jr = gridfuncs.neighbours(i,j,k, BCs)
+
+				# if not a neighbours, by convention is < 0 and I pass
+				if(ir == -1):
+					continue
+
+				if(gridfuncs.can_receive(ir,jr, BCs) == False):
+					continue
+
+				# Local hydraulic slope
+				tS = hsw.Sw(Z,hw,i,j,ir,jr)
+
+				# If < 0, neighbour is a donor and I am not interested
+				if(tS <= 0):
+					continue
+
+				# Registering the steepest clope in both directions (see rd_grid header lines for erxplanation on the standard)
+				if(k == 0 or k == 3):
+					if(tS > SSy):
+						SSy = tS
+				else:
+					if(tS > SSx):
+						SSx = tS
+
+				# Registering local slope
+				Sws[k] = tS
+				# Summing it to global
+				sumSw += tS
+
+				# Done with processing this particular neighbour
+
+				# Local minima management (cheap but works)
+				## If I have no downward slope, I increase the elevation by a bit
+				if(sumSw == 0.):
+					QwA[i,j] = 0.
+
+
+			# Calculating local norm for the gradient
+			# The condition manages the boundary conditions
+			gradSw = ti.math.sqrt(SSx*SSx + SSy*SSy)
+			
+			# Not sure I still need that
+			if(gradSw == 0):
+				QwA[i,j] = 0.
+				continue
+
+			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
+			QwA[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), 5./3) * sumSw/ti.math.sqrt(gradSw)
+
+		# Boundary case
+		else:
+			tSw = ti.max(hsw.Zw(Z,hw,i,j) -  PARAMHYDRO.hydro_slope_bc_val, 1e-6)/GRID.dx if PARAMHYDRO.hydro_slope_bc_mode == 0 else PARAMHYDRO.hydro_slope_bc_val
+			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
+			QwA[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), 5./3) * ti.math.sqrt(tSw)
 
 @ti.kernel
 def _compute_Qw_drape(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.template(), QwC:ti.template(), BCs:ti.template() ):
@@ -429,7 +653,8 @@ def _compute_hw_CFL(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti
 		# Updating flow depth (cannot be < 0)
 		tdt = PARAMHYDRO.dt_hydro
 		if(QwC[i,j] > 0):	
-			tdt = ti.math.max(PARAMHYDRO.dt_hydro, alpha *GRID.dx/(QwA[i,j]/(ti.math.max(1e-4, hw[i,j]))) )		
+			tdt = ti.math.max(PARAMHYDRO.dt_hydro, alpha *GRID.dx/(QwA[i,j]/(ti.math.max(1e-4, hw[i,j]))) )
+			
 		hw[i,j] = hw[i,j] + (QwA[i,j] - QwC[i,j]) * tdt/(GRID.dx*GRID.dy) 
 
 @ti.kernel
@@ -870,6 +1095,137 @@ def _compute_hw_drape_CFL(Z:ti.template(), hw:ti.template(), QwA:ti.template(), 
 
 
 
+@ti.kernel
+def _compute_link_based(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.template(), QwC:ti.template(), BCs:ti.template() ):
+	'''
+	Compute and transfer QwA (in from t-1) into a temporary QwB (in for t).
+	Also computes QwC (out at t) 
+	Arguments:
+		- Z: a 2D field of topographic elevation
+		- hw: a 2D field of flow depth
+		- QwA: a 2D field of discharge A (in)
+		- QwB: a 2D field of discharge B (in t+1)
+		- QwC: a 2D field of discharge C (out)
+		- BCs: a 2D field of boundary conditions
+	Returns:
+		- Nothing, Caluclates disccharges in place
+	Authors:
+		- B.G. (last modification 03/05/2024)
+	'''
+
+	for i,j in Z:
+		QwB[i,j] = 0.
+		QwC[i,j] = 0.
+		# QwD[i,j] = 0.
+
+
+	# Traversing each nodes
+	for i,j in Z:
+
+		# If the node cannot give and can only receive, I pass this node
+		if(gridfuncs.is_active(i,j,BCs) == False):
+			continue
+
+		# I'll store the hydraulic slope in this vector
+		Sws = ti.math.vec4(0.,0.,0.,0.)
+
+		# I'll need the sum of the hydraulic slopes in the positive directions
+		sumSw = 0.
+
+		# Keeping in mind the steepest slope in the x and y direction to calculate the norm of the vector
+		SSx = 0.
+		SSy = 0.
+
+		if(gridfuncs.can_give(i,j,BCs) == False and gridfuncs.can_out(i,j,BCs) == False):
+			continue
+
+
+		# None boundary case
+		if(gridfuncs.can_out(i,j,BCs) == False):
+
+
+			while(True):
+				# Traversing Neighbours
+				for k in range(4):
+
+					# getting neighbour k (see rd_grid header lines for erxplanation on the standard)
+					ir,jr = gridfuncs.neighbours(i,j,k, BCs)
+
+					# if not a neighbours, by convention is < 0 and I pass
+					if(ir == -1):
+						continue
+
+					if(gridfuncs.can_receive(ir,jr, BCs) == False):
+						continue
+
+					# Local hydraulic slope
+					tS = hsw.Sw(Z,hw,i,j,ir,jr)
+
+					# If < 0, neighbour is a donor and I am not interested
+					if(tS <= 0):
+						continue
+
+					# Registering the steepest clope in both directions (see rd_grid header lines for erxplanation on the standard)
+					if(k == 0 or k == 3):
+						if(tS > SSy):
+							SSy = tS
+					else:
+						if(tS > SSx):
+							SSx = tS
+
+					# Registering local slope
+					Sws[k] = tS
+					# Summing it to global
+					sumSw += tS
+				
+				if(sumSw > 0):
+					break
+
+				hw[i,j] += 1e-4
+
+				# Done with processing this particular neighbour
+
+			# Calculating local norm for the gradient
+			# The condition manages the boundary conditions
+			gradSw = ti.math.sqrt(SSx*SSx + SSy*SSy)
+			
+			# Not sure I still need that
+			if(gradSw == 0):
+				continue
+
+			# Transferring flow to neighbours
+			for k in range(4):
+
+				# local neighbours
+				ir,jr = gridfuncs.neighbours(i,j,k, BCs)
+				
+				# checking if neighbours
+				if(ir == -1):
+					continue
+
+				if (Sws[k] <= 0 ):
+					continue
+				
+				hw_eff = ti.max(hsw.Zw(Z,hw,i,j),hsw.Zw(Z,hw,ir,jr)) - ti.max(Z[i,j],Z[ir,jr])
+				# hw_eff = ti.max(0,hw[i,j])
+				tQw = GRID.dx * ti.math.pow(hw_eff,5./3.)/PARAMHYDRO.manning * Sws[k]/ti.math.sqrt(sumSw)
+				QwC[i,j] += tQw
+
+				# Transferring prop to the hydraulic slope
+				ti.atomic_add(QwB[ir,jr], Sws[k]/sumSw * QwA[i,j])
+
+		# Boundary case
+		else:
+			tSw = ti.max(hsw.Zw(Z,hw,i,j) -  PARAMHYDRO.hydro_slope_bc_val, 1e-6)/GRID.dx if PARAMHYDRO.hydro_slope_bc_mode == 0 else PARAMHYDRO.hydro_slope_bc_val
+			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
+			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), 5./3) * ti.math.sqrt(tSw)
+
+
+
+
+###########################################################
+# Other sets of functions to help wiith hydrodynamcis
+###########################################################
 
 @ti.kernel
 def check_convergence(QwA : ti.template(), QwC : ti.template(), tolerance:ti.f32, converged:ti.template(), BCs:ti.template()):
@@ -939,5 +1295,11 @@ def set_hydro_CC():
 	if(PARAMHYDRO.flowmode == FlowMode.static_incremental):
 		compute_hw = _compute_hw
 		compute_Qw = _compute_Qw
+	elif(PARAMHYDRO.flowmode == FlowMode.static_drape):
+		compute_hw = _compute_hw_drape
+		compute_Qw = _compute_Qw_drape
+	elif(PARAMHYDRO.flowmode == FlowMode.static_link):
+		compute_hw = _compute_hw
+		compute_Qw = _compute_link_based
 	else:
 		raise NotImplementedError('FLOWMODEW Not implemented yet')
