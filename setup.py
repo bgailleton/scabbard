@@ -44,6 +44,7 @@ setup(
 	],
 	description="high-level python package for the DAGGER suite",
 	entry_points={
+
 		'console_scripts': [
 				'scb-baseplot=scabbard.phineas:simplemapwizard' ,
 				'scb-graphflood=scabbard.phineas:graphflood_basic' ,
@@ -55,7 +56,9 @@ setup(
 				'scb-quick-hydro=scabbard.phineas:GPUgraphflood' ,
 		],
 	},
+	
 	scripts = ['scabbard/nice_haguid.py'],
+
 	install_requires=requirements,
 	license="MIT license",
 	long_description=readme + '\n\n' + history,

@@ -22,3 +22,5 @@ from .environment import *
 from .blendplot import *
 from .local_file_picker import *
 
+from . import riverdale
+

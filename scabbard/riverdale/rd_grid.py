@@ -78,7 +78,7 @@ GRID = GridParams()
 
 
 @ti.func
-def _check_top_row_normal(i:int, j:int, k:int):
+def _check_top_row_normal(i:int, j:int, k:int, valid:bool):
 	'''
 	Internal function to check if neighbouring is possible for nodes at the top row
 	Arguments:
@@ -90,8 +90,7 @@ def _check_top_row_normal(i:int, j:int, k:int):
 	Authors:
 		- B.G. (last modification 30/04/2024)
 	'''
-	# I assume it's good
-	valid = True
+	
 	# Only checking if it actually is on the first row
 	if(i == 0):
 		# Checking all the different cases: firs, last cols and the middle
@@ -101,7 +100,7 @@ def _check_top_row_normal(i:int, j:int, k:int):
 	return valid
 
 @ti.func
-def _check_leftest_col_normal(i:int, j:int, k:int):
+def _check_leftest_col_normal(i:int, j:int, k:int, valid:bool):
 	'''
 	Internal function to check if neighbouring is possible for nodes at the leftest column
 	Caution: this is optimised for neighbouring checks and ignores the top and bottom rows
@@ -114,8 +113,7 @@ def _check_leftest_col_normal(i:int, j:int, k:int):
 	Authors:
 		- B.G. (last modification 30/04/2024)
 	'''
-	# I assume it's good
-	valid = True
+	
 	# Only checking if it actually is on the first col
 	if(j == 0):
 		if(k==1):
@@ -124,7 +122,7 @@ def _check_leftest_col_normal(i:int, j:int, k:int):
 	return valid
 
 @ti.func
-def _check_rightest_col_normal(i:int, j:int, k:int):
+def _check_rightest_col_normal(i:int, j:int, k:int, valid:bool):
 	'''
 	Internal function to check if neighbouring is possible for nodes at the rightest column
 	Caution: this is optimised for neighbouring checks and ignores the top and bottom rows
@@ -137,8 +135,7 @@ def _check_rightest_col_normal(i:int, j:int, k:int):
 	Authors:
 		- B.G. (last modification 30/04/2024)
 	'''
-	# I assume it's good
-	valid = True
+	
 	# Only checking if it actually is on the first col
 	if(j == GRID.nx-1):
 		if(k==2):
@@ -147,7 +144,7 @@ def _check_rightest_col_normal(i:int, j:int, k:int):
 	return valid
 
 @ti.func
-def _check_bottom_row_normal(i:int, j:int, k:int):
+def _check_bottom_row_normal(i:int, j:int, k:int, valid:bool):
 	'''
 	Internal function to check if neighbouring is possible for nodes at the bottom row
 	Caution: this is optimised for neighbouring checks and ignores the top and bottom rows
@@ -160,8 +157,7 @@ def _check_bottom_row_normal(i:int, j:int, k:int):
 	Authors:
 		- B.G. (last modification 30/04/2024)
 	'''
-	# I assume it's good
-	valid = True
+	
 	# Only checking if it actually is on the first row
 	if(i == GRID.ny-1):
 		# Checking all the different cases: firs, last cols and the middle
@@ -221,10 +217,10 @@ def _neighbours_normal(i:int, j:int, k:int, BCs:ti.template()):
 	valid = True
 
 	# Breaking down the checks
-	valid = _check_top_row_normal(i,j,k)
-	valid = _check_leftest_col_normal(i,j,k)
-	valid = _check_rightest_col_normal(i,j,k)
-	valid = _check_bottom_row_normal(i,j,k)
+	valid = _check_top_row_normal(i,j,k,valid)
+	valid = _check_leftest_col_normal(i,j,k,valid)
+	valid = _check_rightest_col_normal(i,j,k,valid)
+	valid = _check_bottom_row_normal(i,j,k,valid)
 
 	# getting the actual neighbours
 	return _cast_neighbour_normal(i,j,k,valid)
@@ -338,7 +334,7 @@ PERIODIC_BORDER = 9
 
 
 @ti.func
-def _check_top_row_customs(i:int, j:int, k:int, BCs:ti.template()):
+def _check_top_row_customs(i:int, j:int, k:int, BCs:ti.template(), valid:bool):
 	'''
 	Internal function to check if neighbouring is possible for nodes at the top row
 	Arguments:
@@ -361,7 +357,7 @@ def _check_top_row_customs(i:int, j:int, k:int, BCs:ti.template()):
 	return valid
 
 @ti.func
-def _check_leftest_col_customs(i:int, j:int, k:int, BCs:ti.template()):
+def _check_leftest_col_customs(i:int, j:int, k:int, BCs:ti.template(), valid:bool):
 	'''
 	Internal function to check if neighbouring is possible for nodes at the leftest column
 	Caution: this is optimised for neighbouring checks and ignores the top and bottom rows
@@ -384,7 +380,7 @@ def _check_leftest_col_customs(i:int, j:int, k:int, BCs:ti.template()):
 	return valid
 
 @ti.func
-def _check_rightest_col_customs(i:int, j:int, k:int, BCs:ti.template()):
+def _check_rightest_col_customs(i:int, j:int, k:int, BCs:ti.template(), valid:bool):
 	'''
 	Internal function to check if neighbouring is possible for nodes at the rightest column
 	Caution: this is optimised for neighbouring checks and ignores the top and bottom rows
@@ -407,7 +403,7 @@ def _check_rightest_col_customs(i:int, j:int, k:int, BCs:ti.template()):
 	return valid
 
 @ti.func
-def _check_bottom_row_customs(i:int, j:int, k:int, BCs:ti.template()):
+def _check_bottom_row_customs(i:int, j:int, k:int, BCs:ti.template(), valid:bool):
 	'''
 	Internal function to check if neighbouring is possible for nodes at the bottom row
 	Caution: this is optimised for neighbouring checks and ignores the top and bottom rows
@@ -489,10 +485,10 @@ def _neighbours_customs(i:int, j:int, k:int, BCs:ti.template()):
 	valid = True
 
 	# Breaking down the checks
-	valid = _check_top_row_customs(i,j,k,BCs)
-	valid = _check_leftest_col_customs(i,j,k,BCs)
-	valid = _check_rightest_col_customs(i,j,k,BCs)
-	valid = _check_bottom_row_customs(i,j,k,BCs)
+	valid = _check_top_row_customs(i,j,k,BCs,valid)
+	valid = _check_leftest_col_customs(i,j,k,BCs,valid)
+	valid = _check_rightest_col_customs(i,j,k,BCs,valid)
+	valid = _check_bottom_row_customs(i,j,k,BCs,valid)
 
 	# getting the actual neighbours
 	return _cast_neighbour_customs(i,j,k,valid,BCs)
