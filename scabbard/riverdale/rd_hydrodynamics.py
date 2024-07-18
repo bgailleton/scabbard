@@ -44,6 +44,10 @@ class HydroParams:
 
 		self.use_heffmax = False
 
+		self.use_original_dir_for_LM = True
+		self.clamp_div_hw = True
+		self.clamp_div_hw_val = 1e-3
+
 
 PARAMHYDRO = HydroParams()
 
@@ -129,7 +133,7 @@ def input_discharge_points(input_rows: ti.template(), input_cols:ti.template(), 
 
 
 @ti.kernel
-def _compute_Qw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.template(), QwC:ti.template(), BCs:ti.template() ):
+def _compute_Qw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.template(), QwC:ti.template(), BCs:ti.template(), flowdir:ti.template() ):
 	'''
 	Compute and transfer QwA (in from t-1) into a temporary QwB (in for t).
 	Also computes QwC (out at t) 
@@ -171,6 +175,7 @@ def _compute_Qw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 			continue
 
 		thw = 0.
+		LM = False
 
 		# None boundary case
 		if(gridfuncs.can_out(i,j,BCs) == False):
@@ -220,10 +225,11 @@ def _compute_Qw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 				# Local minima management (cheap but works)
 				## If I have no downward slope, I increase the elevation by a bit
 				if(sumSw == 0.):
+					LM = True
 					hw[i,j] += 1e-4
 
 				## And if I added like a metre and it did not slolve it, I stop for that node
-				if(lockcheck > 100):
+				if(lockcheck > 10000):
 					break
 
 			# Calculating local norm for the gradient
@@ -239,6 +245,13 @@ def _compute_Qw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 
 			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
 			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(thw, 5./3) * sumSw/ti.math.sqrt(gradSw)
+
+			if(LM):
+				if(PARAMHYDRO.use_original_dir_for_LM):
+					if(flowdir[i,j] != 5):
+						ir,jr = gridfuncs.neighbours(i, j, flowdir[i,j], BCs)
+						ti.atomic_add(QwB[ir,jr], QwA[i,j])
+				continue
 
 			# Transferring flow to neighbours
 			for k in range(4):
@@ -258,6 +271,64 @@ def _compute_Qw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 			tSw = ti.max(hsw.Zw(Z,hw,i,j) -  PARAMHYDRO.hydro_slope_bc_val, 1e-6)/GRID.dx if PARAMHYDRO.hydro_slope_bc_mode == 0 else PARAMHYDRO.hydro_slope_bc_val
 			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
 			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), 5./3) * ti.math.sqrt(tSw)
+
+
+
+@ti.kernel
+def _flush_QwA_only(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.template(), BCs:ti.template(), flowdir:ti.template() ):
+	'''
+	Compute one iteration of QwA propagation
+
+	Arguments:
+		- Z: a 2D field of topographic elevation
+		- hw: a 2D field of flow depth
+		- QwA: a 2D field of discharge A (in)
+		- QwB: a 2D field of discharge B (in t+1)
+		- QwC: a 2D field of discharge C (out)
+		- BCs: a 2D field of boundary conditions
+	Returns:
+		- Nothing, Caluclates disccharges in place
+	Authors:
+		- B.G. (last modification 03/05/2024)
+	'''
+
+	for i,j in Z:
+		QwB[i,j] = 0.
+
+
+	# Traversing each nodes
+	for i,j in Z:
+
+		# If the node cannot give and can only receive, I pass this node
+		if(gridfuncs.is_active(i,j,BCs) == False):
+			continue
+
+		# I'll store the hydraulic slope in this vector
+		Sws = ti.math.vec4(0.,0.,0.,0.)
+
+		# I'll need the sum of the hydraulic slopes in the positive directions
+		sumSw = 0.
+
+		# Keeping in mind the steepest slope in the x and y direction to calculate the norm of the vector
+		SSx = 0.
+		SSy = 0.
+
+		if(gridfuncs.can_give(i,j,BCs) == False and gridfuncs.can_out(i,j,BCs) == False):
+			continue
+
+
+		# None boundary case
+		if(gridfuncs.can_out(i,j,BCs) == False):
+
+
+			if(flowdir[i,j] != 5):
+				ir,jr = gridfuncs.neighbours(i,j,flowdir[i,j], BCs)
+				# Transferring prop to the hydraulic slope
+				ti.atomic_add(QwB[ir,jr], QwA[i,j])
+
+	for i,j in Z:
+		QwA[i,j] = QwB[i,j]
+
 
 
 @ti.kernel
@@ -614,7 +685,16 @@ def _compute_hw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 
 
 		# Updating flow depth (cannot be < 0)
-		hw[i,j] = hw[i,j] + (QwA[i,j] - QwC[i,j]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy)
+		dhw = (QwA[i,j] - QwC[i,j]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy)
+
+		if(PARAMHYDRO.clamp_div_hw)
+			if(dhw>0):
+				dhw = ti.math.min(PARAMHYDRO.clamp_div_hw_val,dhw)
+			else:
+				dhw = ti.math.max(-PARAMHYDRO.clamp_div_hw_val,dhw)
+
+		hw[i,j] = ti.max(0.,hw[i,j] + dhw)
+
 
 @ti.kernel
 def _compute_hw_CFL(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.template(), QwC:ti.template(), BCs:ti.template(), alpha : ti.f32, threshold:ti.f32 ):

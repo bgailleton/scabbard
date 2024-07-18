@@ -109,6 +109,7 @@ class RDParams:
 		##############################
 
 		self._hydro_compute_mode = rdhy.FlowMode.static_incremental
+		self._force_LM_to_original_flowdir  = True
 		
 		# Manning's Roughness/friction coefficient
 		self._manning = 0.033
@@ -340,6 +341,10 @@ class RDParams:
 	@property
 	def hydro_compute_mode(self):
 		return self._hydro_compute_mode
+
+	@property
+	def force_LM_to_original_flowdir(self):
+		return self._force_LM_to_original_flowdir
 
 	@hydro_compute_mode.setter
 	def hydro_compute_mode(self, value):

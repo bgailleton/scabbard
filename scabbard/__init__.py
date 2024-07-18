@@ -23,4 +23,9 @@ from .blendplot import *
 from .local_file_picker import *
 
 from . import riverdale
+from . import steenbok
+from . import riverdale as rvd
+from . import steenbok as ste
+from . import _utils as ut
+from . import flow
 

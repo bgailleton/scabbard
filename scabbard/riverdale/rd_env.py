@@ -14,8 +14,10 @@ from enum import Enum
 import dagger as dag
 import scabbard.riverdale.rd_params as rdpa
 import scabbard.riverdale.rd_grid as rdgd
+import scabbard.riverdale.rd_flow as rdfl
 import scabbard.riverdale.rd_hydrodynamics as rdhy
 import scabbard.riverdale.rd_morphodynamics as rdmo
+import scabbard.riverdale.rd_LM as rdlm
 
 
 # @ti.data_oriented
@@ -26,20 +28,20 @@ class Riverdale:
 	'''
 
 	#
-	_already_created = False
-	_instance_created = False
+	# _already_created = False
+	# _instance_created = False
 	
 	def __init__(self):
 
-		if not Riverdale._instance_created:
-			raise Exception("Riverdale cannot be instantiated directly. Please use the factory functions.")
+# 		if not Riverdale._instance_created:
+# 			raise Exception("Riverdale cannot be instantiated directly. Please use the factory functions.")
 
-		if Riverdale._already_created:
-			raise Exception("""
-Riverdale cannot be instantiated more than once so far within the same runtime (~= within the same script). 
-This is because only one unique taichi lang context can exist at once as far as I know, I am working on solutions 
-but in the meantime you can run the model in batch using subprocess.
-""")
+# 		if Riverdale._already_created:
+# 			raise Exception("""
+# Riverdale cannot be instantiated more than once so far within the same runtime (~= within the same script). 
+# This is because only one unique taichi lang context can exist at once as far as I know, I am working on solutions 
+# but in the meantime you can run the model in batch using subprocess.
+# """)
 		
 		# Place holders for the different variables
 		## This is the parameter sheet
@@ -64,6 +66,8 @@ but in the meantime you can run the model in batch using subprocess.
 		self.convrat = None
 		self.constraints = None
 
+		self.fdir = None
+
 		## Field for morpho
 		self.QsA = None
 		self.QsB = None
@@ -77,7 +81,7 @@ but in the meantime you can run the model in batch using subprocess.
 
 
 
-	def run_hydro(self, n_steps, expe_N_prop = 0, expe_CFL_variable = False):
+	def run_hydro(self, n_steps, expe_N_prop = 0, expe_CFL_variable = False, flush_LM = False):
 		'''
 		Main runner function for the hydrodynamics part of the model.
 		NOte that all the parameters have been compiled prior to running that functions, so not much to control here
@@ -100,7 +104,7 @@ but in the meantime you can run the model in batch using subprocess.
 
 			# Actually runs the runoff simulation
 			# self._run_hydro() if expe_N_prop <= 1 or (it % expe_N_prop == 0) else rdhy._propagate_QwA_only(self.Z, self.hw, self.QwA, self.QwB, self.BCs )
-			self._run_hydro(expe_CFL_variable = expe_CFL_variable)
+			self._run_hydro(expe_CFL_variable = expe_CFL_variable, flush_LM = flush_LM)
 
 		# That's it reallly, see bellow for the internal functions
 
@@ -132,12 +136,17 @@ but in the meantime you can run the model in batch using subprocess.
 		if(self.param.need_input_Qw):
 			rdhy.input_discharge_points(self.input_rows_Qw, self.input_cols_Qw, self.input_Qw, self.QwA, self.QwB, self.BCs)
 
-	def _run_hydro(self, expe_CFL_variable = False):
+	def _run_hydro(self, expe_CFL_variable = False, flush_LM = False):
 		'''
 		Internal runner for hydro functions
 
 		'''
-		rdhy.compute_Qw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs) #if rdhy.FlowMode.static_drape != self.param._hydro_compute_mode else rdhy.compute_Qw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.constraints, self.BCs)
+
+		if(flush_LM):
+			rdhy._flush_QwA_only(self.Z, self.hw, self.QwA, self.QwB, self.BCs, self.fdir)
+			return
+
+		rdhy.compute_Qw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs, self.fdir) #if rdhy.FlowMode.static_drape != self.param._hydro_compute_mode else rdhy.compute_Qw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.constraints, self.BCs)
 		
 		if(expe_CFL_variable):
 			rdhy._compute_hw_CFL(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs, 1e-4, 0.001 )
@@ -207,23 +216,23 @@ but in the meantime you can run the model in batch using subprocess.
 		return dag.GridCPP_f32(self.param._nx,self.param._ny,self.param._dx,self.param._dy,0 if self.param.boundaries == rdgd.BoundaryConditions.normal else 3)
 		# return dag.GridCPP_f32(self.param._nx,self.param._ny,self.param._dx,self.param._dy,0 if self.param.boundaries == rdgd.BoundaryConditions.normal else 3) if self.param.dtype_float == ti.f32 else dag.GridCPP_f64(self.param._nx,self.param._ny,self.param._dx,self.param._dy,0 if self.param.boundaries == rdgd.BoundaryConditions.normal else 3)
 
-	@classmethod
-	def _create_instance(cls):
-		'''
-		Private function creating an empty instance and returning it
-		Long story short it ensure the class is only instanciated once and for all
+	# @classmethod
+	# def _create_instance(cls):
+	# 	'''
+	# 	Private function creating an empty instance and returning it
+	# 	Long story short it ensure the class is only instanciated once and for all
 
-		At some point I]ll try to find a workaround to get multiple instances but so far it is complicated
+	# 	At some point I]ll try to find a workaround to get multiple instances but so far it is complicated
 
-		B.G. 
-		'''
+	# 	B.G. 
+	# 	'''
 		
-		cls._instance_created = True
-		instance = cls()
-		cls._already_created = True
-		cls._instance_created = False
+	# 	cls._instance_created = True
+	# 	instance = cls()
+	# 	cls._already_created = True
+	# 	cls._instance_created = False
 
-		return instance
+	# 	return instance
 
 
 	def query_temporary_fields(self, N, dtype = 'f32'):
@@ -296,7 +305,8 @@ def create_from_params(param):
 	'''
 
 	# Generating the empty instance, which should be the sole one
-	instance = Riverdale._create_instance()
+	# instance = Riverdale._create_instance()
+	instance = Riverdale()
 
 	# Referencing it in the Param files thus fixing it 
 	param._RD = instance
@@ -333,6 +343,11 @@ def create_from_params(param):
 	# Setting up the flow conditions
 	instance.PARAMHYDRO.manning = param.manning
 	instance.PARAMHYDRO.dt_hydro = param.dt_hydro
+
+	#WILL NEED TO ADD THE OPTION  LATER
+	if(param.force_LM_to_original_flowdir):
+		instance.fdir = ti.field(ti.u8, shape = (instance.GRID.ny,instance.GRID.nx))
+		instance.PARAMMORPHO.use_original_dir_for_LM = True
 
 	# Compiling the hydrodynamics
 	rdhy.set_hydro_CC()
@@ -397,6 +412,17 @@ def create_from_params(param):
 	instance.input_rows_Qs = None
 	instance.input_cols_Qs = None
 	instance.input_Qs = None
+
+
+	#running eventual preprocessors
+	if(param.force_LM_to_original_flowdir):
+		print('debug info: computing fdir')
+		# creating the original hydraulic pattern by pre filling the topography with water
+		rdlm.priority_flood(instance)
+		# Calculating the motherflow direction, used to trasfer Qw out of local minimas
+		rdfl.compute_D4_Zw(instance.Z, instance.hw, instance.fdir, instance.BCs)
+		print(np.unique(instance.fdir.to_numpy()))
+	
 
 	return instance
 

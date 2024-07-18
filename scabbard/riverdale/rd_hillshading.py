@@ -92,7 +92,7 @@ def _std_hillshading(Z:ti.template(), hillshade:ti.template(), light_dir: ti.f32
 		shaded = 0.
 
 		# Ignoring nodes inactive (e.g. no data and all)
-		if i > 0 and i < Z.shape[0] - 1 and j>0 and j < Z.shape[0] - 1:
+		if i > 0 and i < Z.shape[0] - 1 and j>0 and j < Z.shape[1] - 1:
 
 			# Get elevation differences between D4 neighbors
 			dzdx = (Z[i + 1, j] - Z[i - 1, j]) * Z_exaggeration / 2.0
