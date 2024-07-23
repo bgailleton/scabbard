@@ -56,7 +56,8 @@ def _hillshading(Z:ti.template(), hillshade:ti.template(), BCs:ti.template(), li
 			
 			# Calculate the hillshade value
 			shaded = ti.cos(zenith) * ti.cos(slope) + ti.sin(zenith) * ti.sin(slope) * ti.cos(azimuth - aspect)
-			shaded = ti.max(0, shaded)  # Ensure non-negative
+			# shaded = ti.max(0, shaded)  # Ensure non-negative
+			shaded = ti.abs(shaded)  # Ensure non-negative
 
 		# Saving the value aaaaaand
 		hillshade[i, j] = shaded if(inverted) else (1 - shaded)

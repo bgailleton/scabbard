@@ -38,8 +38,10 @@ def _compute_shear_stress(shear_stress:ti.template(),Z:ti.template(), hw:ti.temp
 	'''
 
 	for i,j in Z:
-		shear_stress[i,j] = hsw.hydraulic_gradient_value(Z, hw, BCs, i, j) * ti.math.max(hw[i,j],0.) * rho * g
-
+		if(gridfuncs.is_active(i,j,BCs) and gridfuncs.can_receive(i,j,BCs)):
+			shear_stress[i,j] = hsw.hydraulic_gradient_value(Z, hw, BCs, i, j) * ti.math.max(hw[i,j],0.) * rho * g
+		else:
+			shear_stress[i,j] = 0.
 
 def compute_shear_stress(rd):
 	'''
@@ -59,7 +61,7 @@ def compute_shear_stress(rd):
 	'''
 
 	output, = rd.query_temporary_fields(1,dtype = ti.f32)
-	_compute_shear_stress(output, rd.Z,rd.hw,rd.BCs, 1000., 9.8)
+	_compute_shear_stress(output, rd.Z,rd.hw,rd.BCs, 1000., 9.81)
 	return output.to_numpy()
 
 def compute_flow_velocity(rd, use_Qwin = True):

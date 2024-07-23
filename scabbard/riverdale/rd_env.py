@@ -416,12 +416,12 @@ def create_from_params(param):
 
 	#running eventual preprocessors
 	if(param.force_LM_to_original_flowdir):
-		print('debug info: computing fdir')
+		# print('debug info: computing fdir')
 		# creating the original hydraulic pattern by pre filling the topography with water
 		rdlm.priority_flood(instance)
 		# Calculating the motherflow direction, used to trasfer Qw out of local minimas
 		rdfl.compute_D4_Zw(instance.Z, instance.hw, instance.fdir, instance.BCs)
-		print(np.unique(instance.fdir.to_numpy()))
+		# print(np.unique(instance.fdir.to_numpy()))
 	
 
 	return instance

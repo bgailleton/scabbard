@@ -347,11 +347,10 @@ def _check_top_row_customs(i:int, j:int, k:int, BCs:ti.template(), valid:bool):
 		- B.G. (last modification 02/05/2024)
 	'''
 	# I assume it's good
-	valid = True
 	# Only checking if it actually is on the first row
 	if(i == 0):
 		# Checking all the different cases: firs, last cols and the middle
-		if((j == 0 and k <= 1) or (j == GRID.nx-1 and (k == 0 or k == 2)) or (k==0)):
+		if(k==0):
 			valid = False
 	# Done
 	return valid
@@ -371,7 +370,6 @@ def _check_leftest_col_customs(i:int, j:int, k:int, BCs:ti.template(), valid:boo
 		- B.G. (last modification 02/05/2024)
 	'''
 	# I assume it's good
-	valid = True
 	# Only checking if it actually is on the first col
 	if(j == 0):
 		if(k==1):
@@ -394,7 +392,6 @@ def _check_rightest_col_customs(i:int, j:int, k:int, BCs:ti.template(), valid:bo
 		- B.G. (last modification 02/05/2024)
 	'''
 	# I assume it's good
-	valid = True
 	# Only checking if it actually is on the first col
 	if(j == GRID.nx-1):
 		if(k==2):
@@ -417,11 +414,10 @@ def _check_bottom_row_customs(i:int, j:int, k:int, BCs:ti.template(), valid:bool
 		- B.G. (last modification 02/05/2024)
 	'''
 	# I assume it's good
-	valid = True
 	# Only checking if it actually is on the first row
 	if(i == GRID.ny-1):
 		# Checking all the different cases: firs, last cols and the middle
-		if((j == 0 and (k == 1 or k == 3)) or (j == GRID.nx-1 and (k == 3 or k == 2)) or (k==3)):
+		if(k==3):
 			valid = False
 	# Done
 	return valid
@@ -456,7 +452,9 @@ def _cast_neighbour_customs(i:int, j:int, k:int, valid:bool, BCs:ti.template()):
 		if(k == 3):
 			ir,jr = i+1, j
 
-	if(BCs[i,j] == 0 or ir == -1):
+	if(ir == -1 or jr == -1):
+		ir,jr = -1,-1
+	elif(BCs[i,j] == 0):
 		ir,jr = -1,-1
 	elif(BCs[ir,jr] == 0):
 		ir,jr = -1,-1
@@ -627,6 +625,7 @@ def set_grid_CC():
 		can_give = _can_give_normal
 		can_out = _can_out_normal
 	elif(GRID.boundaries == BoundaryConditions.customs):
+		print('DEBUG::BC::CUSTOM')
 		neighbours = _neighbours_customs
 		is_active = _is_active_customs
 		can_receive = _can_receive_customs

@@ -52,6 +52,8 @@ FORCE_IN = 8,
 PERIODIC_BORDER = 9
 '''
 
+_TOPOL = 4
+
 
 @nb.njit()
 def _check_top_row_customs(i:int, j:int, k:int, BCs, valid:bool):

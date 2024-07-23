@@ -290,6 +290,7 @@ class RDParams:
 		if(self._RD is None):
 			self._BCs = val
 			self._boundaries = rdgd.BoundaryConditions.customs
+
 		# If the model is instanciated I need extra checks and work
 		else:
 			# Checking if the mdel has been initialised to the right mode

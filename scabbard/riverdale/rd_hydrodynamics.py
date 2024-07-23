@@ -175,6 +175,8 @@ def _compute_Qw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 			continue
 
 		thw = 0.
+
+		# Tracking if I am in a local minima 
 		LM = False
 
 		# None boundary case
@@ -225,6 +227,7 @@ def _compute_Qw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 				# Local minima management (cheap but works)
 				## If I have no downward slope, I increase the elevation by a bit
 				if(sumSw == 0.):
+					# I am in a local minima
 					LM = True
 					hw[i,j] += 1e-4
 
@@ -246,11 +249,29 @@ def _compute_Qw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
 			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(thw, 5./3) * sumSw/ti.math.sqrt(gradSw)
 
+			# If I am in a local minima
+			# either I propel the drainage area along a predefined railway to ensure its escape
+			# or I just ignore it
 			if(LM):
+				# this option ensures the drainage of LM through the original rail
 				if(PARAMHYDRO.use_original_dir_for_LM):
+					# Flow dir == 5 is no flow
 					if(flowdir[i,j] != 5):
-						ir,jr = gridfuncs.neighbours(i, j, flowdir[i,j], BCs)
+						# That section ensures that a stochastic number of receivers are traversed to flush the local minima
+						# And avoid ping-pong or localisation based biases
+						ii,jj = i,j
+						ir,jr = i,j
+						first = True
+						# Receivers are poped out at least once, and then has a probability of 0.5 to continue
+						while(flowdir[ir,jr] != 5 and (ti.random() < 0.5 or first)):
+							ii,jj = ir,jr
+							first = False
+							ir,jr = gridfuncs.neighbours(ii, jj, flowdir[ii,jj], BCs)
 						ti.atomic_add(QwB[ir,jr], QwA[i,j])
+				else:
+					# In that case, I keep everything
+					ti.atomic_add(QwB[i,j], QwA[i,j])
+
 				continue
 
 			# Transferring flow to neighbours
@@ -687,7 +708,7 @@ def _compute_hw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 		# Updating flow depth (cannot be < 0)
 		dhw = (QwA[i,j] - QwC[i,j]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy)
 
-		if(PARAMHYDRO.clamp_div_hw)
+		if(PARAMHYDRO.clamp_div_hw):
 			if(dhw>0):
 				dhw = ti.math.min(PARAMHYDRO.clamp_div_hw_val,dhw)
 			else:
