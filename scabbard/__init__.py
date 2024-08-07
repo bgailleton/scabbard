@@ -28,4 +28,5 @@ from . import riverdale as rvd
 from . import steenbok as ste
 from . import _utils as ut
 from . import flow
+from . import visu
 

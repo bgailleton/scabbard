@@ -625,7 +625,7 @@ def set_grid_CC():
 		can_give = _can_give_normal
 		can_out = _can_out_normal
 	elif(GRID.boundaries == BoundaryConditions.customs):
-		print('DEBUG::BC::CUSTOM')
+		# print('DEBUG::BC::CUSTOM')
 		neighbours = _neighbours_customs
 		is_active = _is_active_customs
 		can_receive = _can_receive_customs

@@ -32,7 +32,7 @@ def drainage_area(input_data):
 	if(isinstance(input_data, SFGraph) == False):
 		raise AttributeError('drainage area WIP, so far requires SFGraph object to calculate')
 
-	return _drainage_area_sfg(input_data.Stack.ravel(), input_data.Sreceivers.ravel(), dx = input_data.dx).reshape(input_data.ny,input_data.nx)
+	return _drainage_area_sfg(input_data.Stack, input_data.Sreceivers, dx = input_data.dx).reshape(input_data.ny,input_data.nx)
 
 
 

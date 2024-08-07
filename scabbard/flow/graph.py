@@ -9,6 +9,7 @@ B.G. (last modification: 07/2024)
 import numpy as np
 import dagger as dag
 import scabbard._utils as ut
+import topotoolbox as ttb
 
 
 
@@ -23,7 +24,7 @@ class SFGraph(object):
 	B.G. (last modification: )
 	"""
 
-	def __init__(self, Z, BCs = None, D4 = True, dx = 1.):
+	def __init__(self, Z, BCs = None, D4 = True, dx = 1., backend = 'ttb', fill_LM = False):
 		'''
 		'''
 		
@@ -33,29 +34,35 @@ class SFGraph(object):
 		# Geometrical infos
 		## Overall shape
 		self.shape = Z.shape
+		self.dim = np.array(self.shape, dtype = np.uint64)
 		# Geometrical infos
 		self.D4 = D4
 
 		self.dx = dx
 
+
+		self.backend = backend
+
 		self.gridcpp = dag.GridCPP_f32(self.nx,self.ny, dx, dx,3) 
 
 		# Getting the graph structure ready
 		## Steepest receiver flat index
-		self.Sreceivers = np.zeros((self.ny,self.nx),dtype = np.int32)
+		self.Sreceivers = np.zeros((self.nxy), dtype = (np.uint64 if self.backend == 'ttb' else np.int32))
+		## distance to Steepest receiver flat index
+		self.Sdx = np.zeros((self.nxy),dtype = np.float32)
 		## Number of Steepest donor per node
-		self.Ndonors = np.zeros((self.ny,self.nx),dtype = np.int32)
+		self.Ndonors = np.zeros((self.nxy), dtype = np.uint8 if self.backend == 'ttb' else np.int32)
 		## Steepest donor per node ([i,j,:Ndonors[i,j]])
-		self.donors = np.zeros((self.ny,self.nx,4 if self.D4 else 8),dtype = np.int32)
+		self.donors = np.zeros((self.nxy * (4 if self.D4 else 8) ), dtype = (np.uint64 if self.backend == 'ttb' else np.int32))
 		## Topological ordering
-		self.Stack = np.zeros(self.nxy,dtype = np.int32)
+		self.Stack = np.zeros(self.nxy, dtype = (np.uint64 if self.backend == 'ttb' else np.int32))
 
 		# Initialising the graph
-		self.update(Z,BCs)
+		self.update(Z, BCs, fill_LM)
 
 	
 
-	def update(self,Z,BCs = None):
+	def update(self, Z, BCs = None, fill_LM = False):
 		'''
 		Updates the graph to a new topography and optional boundary conditions
 		'''
@@ -66,10 +73,15 @@ class SFGraph(object):
 		if(BCs is None):
 			BCs = ut.normal_BCs_from_shape(self.nx,self.ny)
 
-		if self.D4:
-			dag.compute_SF_stack_D4_full_f32(self.gridcpp, Z, self.Sreceivers, self.Ndonors, self.donors, self.Stack, BCs)
-		else:
-			raise ValueError('D8 SFGraph not implemented yet')
+		if(self.backend == 'dagger'):
+			if self.D4:
+				dag.compute_SF_stack_D4_full_f32(self.gridcpp, Z, self.Sreceivers.reshape(self.ny,self.nx), self.Ndonors.reshape(self.ny,self.nx), self.donors.reshape(self.ny,self.nx), self.Stack, BCs)
+			else:
+				raise ValueError('D8 SFGraph not implemented yet')
+		elif self.backend == 'ttb':
+			self.Ndonors.fill(0)
+			print('DEBUG HERE')
+			ttb.graphflood_sfgraph(Z.ravel(), self.Sreceivers, self.Sdx, self.donors, self.Ndonors, self.Stack, BCs.ravel(), self.dim, self.dx * self.dx, not self.D4, fill_LM)
 
 
 	@property

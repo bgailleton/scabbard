@@ -12,7 +12,7 @@ import scabbard.flow._bc_helper as bch
 from scabbard.flow.graph import SFGraph
 import dagger as dag
 from functools import reduce
-
+from collections.abc import Iterable
 
 def get_normal_BCs(nx,ny):
 	'''
@@ -54,8 +54,17 @@ def mask_seas(grid, sea_level = 0., extra_mask = None):
 	else:
 		return (extra_mask & mask)
 
-def mask_single_watershed_from_outlet(grid,row,col, BCs = None, extra_mask = None, MFD = True, stg = None):
-	if(BCs == None):
+def mask_single_watershed_from_outlet(grid, location, BCs = None, extra_mask = None, MFD = True, stg = None):
+
+	# Checks if the input is flat index or rows col
+	if(isinstance(location, Iterable) and not isinstance(location, (str, bytes))):
+		row,col = location
+		index = row * grid.nx + col
+	else:
+		row,col = index // grid.nx, index % grid.nx
+
+	
+	if(BCs is None):
 		BCs = get_normal_BCs(grid.nx,grid.ny)
 	gridcpp = dag.GridCPP_f32(grid.nx,grid.ny,grid.dx,grid.dx,3)
 
@@ -66,7 +75,8 @@ def mask_single_watershed_from_outlet(grid,row,col, BCs = None, extra_mask = Non
 	else:
 		if(stg is None):
 			stg = SFGraph(grid.Z2D, BCs = BCs, D4 = True, dx = 1.)
-		mask = bch.mask_watershed_SFD(row * grid.nx + col, stg.Stack.ravel(), stg.Sreceivers.ravel() ).reshape(grid.rshp)
+			
+		mask = bch.mask_watershed_SFD(index, stg.Stack, stg.Sreceivers).reshape(grid.rshp)
 
 
 	return mask if extra_mask is None else combine_masks(mask,extra_mask)

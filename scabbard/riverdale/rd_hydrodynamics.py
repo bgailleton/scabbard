@@ -692,7 +692,7 @@ def _compute_hw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 	Authors:
 		- B.G. (last modification 03/05/2024)
 	'''	
-
+	# print(PARAMHYDRO.dt_hydro,"OIOIOIOI")
 	# Traversing nodes
 	for i,j in Z:
 		
