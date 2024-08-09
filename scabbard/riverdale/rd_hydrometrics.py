@@ -12,10 +12,56 @@ from scabbard.riverdale.rd_grid import GRID
 import scabbard.riverdale.rd_grid as gridfuncs
 import scabbard.riverdale.rd_drainage_area as rda
 import scabbard.riverdale.rd_helper_surfw as hsw
+import scabbard.riverdale.rd_LM as rlm
 
 
 
+@ti.kernel
+def _compute_hydraulic_gradient(Sw:ti.template(),Z:ti.template(), hw:ti.template(), BCs:ti.template()):
+	'''
+	Taichi kernel to compute the hydraulic gradient (as topographic analysis)
+	
+	Arguments:
+		- Sw: field of hydrualic gradient to be edited in place
+		- Z: field of topographic surface
+		- hw: field of flow depth
+		- BCs: field of boundary conditions
+	
+	Returns:
+		- nothing, but calculates Sw
 
+	Authors:
+		- B.G. (06/2024)
+	'''
+
+	for i,j in Z:
+		if(gridfuncs.is_active(i,j,BCs) and gridfuncs.can_receive(i,j,BCs)):
+			Sw[i,j] = hsw.hydraulic_gradient_value(Z, hw, BCs, i, j) 
+		else:
+			Sw[i,j] = 0.
+
+def compute_hydraulic_gradient(rd, fill_with_PF = False):
+	'''
+	Computes hydraulic gradient as the norm of Z + hw:
+	
+	This function is optimised for analysis, not for internal calculation
+
+	Arguments:
+		- rd: the riverdale object, initialised
+		- fill_with_PF: fill the local minimas with water using an adapted priority flood (Barnes, 2014) if activated
+	Returns:
+		- a numpy array of hydraulic gradient
+	Authors:
+		- B.G (last modifications: 06/2024)
+
+	'''
+
+	if(fill_with_PF):
+		rlm.priority_flood(rd)
+
+	output, = rd.query_temporary_fields(1,dtype = ti.f32)
+	_compute_shear_stress(output, rd.Z,rd.hw,rd.BCs, 1000., 9.81)
+	return output.to_numpy()
 
 @ti.kernel
 def _compute_shear_stress(shear_stress:ti.template(),Z:ti.template(), hw:ti.template(), BCs:ti.template(), rho:ti.f32, g:ti.f32):
@@ -37,13 +83,15 @@ def _compute_shear_stress(shear_stress:ti.template(),Z:ti.template(), hw:ti.temp
 		- B.G. (06/2024)
 	'''
 
+
+
 	for i,j in Z:
 		if(gridfuncs.is_active(i,j,BCs) and gridfuncs.can_receive(i,j,BCs)):
 			shear_stress[i,j] = hsw.hydraulic_gradient_value(Z, hw, BCs, i, j) * ti.math.max(hw[i,j],0.) * rho * g
 		else:
 			shear_stress[i,j] = 0.
 
-def compute_shear_stress(rd):
+def compute_shear_stress(rd, fill_with_PF = False):
 	'''
 	Computes the shear stress for every nodes with water for a given riverdale environment:
 	τ = ρ g h_w S_w
@@ -53,12 +101,16 @@ def compute_shear_stress(rd):
 
 	Arguments:
 		- rd: the riverdale object, initialised
+		- fill_with_PF: fill the local minimas with water using an adapted priority flood (Barnes, 2014) if activated
 	Returns:
 		- a numpy array of shear stress
 	Authors:
 		- B.G (last modifications: 06/2024)
 
 	'''
+
+	if(fill_with_PF):
+		rlm.priority_flood(rd)
 
 	output, = rd.query_temporary_fields(1,dtype = ti.f32)
 	_compute_shear_stress(output, rd.Z,rd.hw,rd.BCs, 1000., 9.81)

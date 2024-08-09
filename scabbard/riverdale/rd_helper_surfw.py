@@ -143,9 +143,9 @@ def hydraulic_gradient_value(Z:ti.template(), hw:ti.template(),BCs:ti.template()
 		# Done with processing this particular neighbour
 
 
-		# Calculating local norm for the gradient
-		# The condition manages the boundary conditions
-		gradSw = ti.math.sqrt(SSx*SSx + SSy*SSy)
+	# Calculating local norm for the gradient
+	# The condition manages the boundary conditions
+	gradSw = ti.math.sqrt(SSx*SSx + SSy*SSy)
 
 	return gradSw
 
