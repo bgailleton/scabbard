@@ -60,7 +60,7 @@ def compute_hydraulic_gradient(rd, fill_with_PF = False):
 		rlm.priority_flood(rd)
 
 	output, = rd.query_temporary_fields(1,dtype = ti.f32)
-	_compute_shear_stress(output, rd.Z,rd.hw,rd.BCs, 1000., 9.81)
+	_compute_hydraulic_gradient(output, rd.Z,rd.hw,rd.BCs)
 	return output.to_numpy()
 
 @ti.kernel

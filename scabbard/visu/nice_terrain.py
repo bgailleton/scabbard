@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 import scabbard.visu.base as base
 
 
-def nice_terrain(dem, cmap = 'terrain', label = 'Metrics', alpha = 0.6, 
-	cut_off_min = None, cut_off_max = None, sea_level = None, vmin = None,
+def nice_terrain(dem, cmap = 'terrain', alpha = 0.55, 
+	sea_level = None, vmin = None,
 	vmax = None, **kwargs):
 	'''
 	Quick visualisation of a DEM as a hillshade + an imshow-like data on the top of it with the same extent
@@ -27,9 +27,8 @@ def nice_terrain(dem, cmap = 'terrain', label = 'Metrics', alpha = 0.6,
 	'''
 	res = {}
 
-	fig,ax = base.hs_drape(dem, dem.Z2D, cmap = 'cividis', label = 'Metrics', alpha = 0.6, 
-	cut_off_min = None, cut_off_max = None, sea_level = None, vmin = None,
-	vmax = None, outputs = res,  **kwargs)
+	fig,ax = base.hs_drape(dem, dem.Z2D, cmap = cmap, label = 'Elevation', alpha = alpha, 
+		sea_level = sea_level, vmin = vmin, vmax = vmax, outputs = res, **kwargs)
 
 	return fig,ax
 
