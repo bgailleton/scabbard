@@ -52,7 +52,7 @@ def hillshaded_basemap(dem, sea_level = None, **kwargs):
 
 def hs_drape(dem, arr2D, cmap = 'cividis', label = 'Metrics', alpha = 0.6, 
 	cut_off_min = None, cut_off_max = None, sea_level = None, vmin = None,
-	vmax = None, **kwargs):
+	vmax = None, res = None, **kwargs):
 	'''
 	Quick visualisation of a DEM as a hillshade + an imshow-like data on the top of it with the same extent
 
@@ -82,5 +82,10 @@ def hs_drape(dem, arr2D, cmap = 'cividis', label = 'Metrics', alpha = 0.6,
 		tp[arr2D>cut_off_max] = np.nan
 
 	im = ax.imshow(tp, extent = dem.extent(), cmap = cmap, alpha = alpha, vmin = vmin, vmax = vmax)
+
+	if(isinstance(res,dict)):
+		res['fig'] = fig
+		res['ax'] = ax
+		res['im'] = im
 
 	return fig,ax
