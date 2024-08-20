@@ -81,7 +81,7 @@ class Riverdale:
 
 
 
-	def run_hydro(self, n_steps, expe_N_prop = 0, expe_CFL_variable = False, flush_LM = False):
+	def run_hydro(self, n_steps, recompute_fdir = False, expe_N_prop = 0, expe_CFL_variable = False, flush_LM = False):
 		'''
 		Main runner function for the hydrodynamics part of the model.
 		NOte that all the parameters have been compiled prior to running that functions, so not much to control here
@@ -92,6 +92,9 @@ class Riverdale:
 		Authors:
 			- B.G (last modification 20/05/2024)
 		'''
+
+		if(recompute_fdir):
+			rdfl.compute_D4_Zw(self.Z, self.hw, self.fdir, self.BCs)
 
 		# Running loop
 		for it in range(n_steps):
@@ -127,7 +130,7 @@ class Riverdale:
 		if(self.param.need_precipitations):
 
 			# then running the 2D precipitations
-			if(self.param._2D_precipitations):
+			if(self.param.precipitations_are_2D):
 					rdhy.variable_rain(self.QwA, self.QwB, self.P,self.BCs)
 			# or the 1D
 			else:
@@ -369,7 +372,7 @@ def create_from_params(param):
 	else:
 		instance.hw.from_numpy(np.zeros((param._ny,param._nx), dtype = np.float32))
 
-	if param._2D_precipitations:
+	if param.precipitations_are_2D:
 		instance.P = ti.field(instance.param.dtype_float, shape = (instance.GRID.ny,instance.GRID.nx)) 
 		instance.P.from_numpy(param.precipitations.astype(np.float32))
 	else:

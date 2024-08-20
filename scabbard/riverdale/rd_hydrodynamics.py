@@ -83,10 +83,10 @@ def constant_rain(QwA: ti.template(), QwB: ti.template(), P: ti.f32, BCs:ti.temp
 	'''
 	for i,j in QwA:
 
-		if(gridfuncs.is_active(i,j, BCs) == False):
+		if(gridfuncs.is_active(i,j, BCs) == False or gridfuncs.can_give(i,j,BCs) == False):
 			continue
 		
-		QwA[i,j] += P * GRID.dx * GRID.dy
+		# QwA[i,j] += P * GRID.dx * GRID.dy
 		QwB[i,j] = P * GRID.dx * GRID.dy
 
 @ti.kernel
@@ -102,13 +102,13 @@ def variable_rain(QwA: ti.template(), QwB: ti.template(), P: ti.template(), BCs:
 	Authors:
 		- B.G. (last modification 30/04/2024)
 	'''
-	for i,j in Z:
+	for i,j in QwA:
 
-		if(gridfuncs.is_active(i,j, BCs) == False):
+		if(gridfuncs.is_active(i,j, BCs) == False or gridfuncs.can_give(i,j,BCs) == False):
 			continue
 
-		QwA[i,j] += P[i,j] * GRID.dx * GRID.dy
-		QwB[i,j] += P[i,j] * GRID.dx * GRID.dy
+		# QwA[i,j] += P[i,j] * GRID.dx * GRID.dy
+		QwB[i,j] = P[i,j] * GRID.dx * GRID.dy
 
 @ti.kernel
 def input_discharge_points(input_rows: ti.template(), input_cols:ti.template(), input_values:ti.template(), QwA: ti.template(), QwB: ti.template(), BCs:ti.template()):
@@ -127,7 +127,7 @@ def input_discharge_points(input_rows: ti.template(), input_cols:ti.template(), 
 	'''
 
 	for i in input_rows:
-		QwA[input_rows[i],input_cols[i]] += input_values[i]
+		# QwA[input_rows[i],input_cols[i]] += input_values[i]
 		QwB[input_rows[i],input_cols[i]] += input_values[i]
 
 
@@ -261,11 +261,11 @@ def _compute_Qw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 						# And avoid ping-pong or localisation based biases
 						ii,jj = i,j
 						ir,jr = i,j
-						first = True
+						first = 1
 						# Receivers are poped out at least once, and then has a probability of 0.5 to continue
-						while(flowdir[ir,jr] != 5 and (ti.random() < 0.5 or first)):
+						while(flowdir[ir,jr] != 5 and (ti.random() < 0.5 or first>=0)):
 							ii,jj = ir,jr
-							first = False
+							first -= 1
 							ir,jr = gridfuncs.neighbours(ii, jj, flowdir[ii,jj], BCs)
 						ti.atomic_add(QwB[ir,jr], QwA[i,j])
 				else:
@@ -293,6 +293,129 @@ def _compute_Qw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
 			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), 5./3) * ti.math.sqrt(tSw)
 
+
+
+
+
+@ti.kernel
+def _compute_hw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.template(), QwC:ti.template(), BCs:ti.template() ):
+	'''
+	Compute flow depth by div.Q and update discharge to t+1.
+	Also computes QwC (out at t) 
+	Arguments:
+		- Z: a 2D field of topographic elevation
+		- hw: a 2D field of flow depth
+		- QwA: a 2D field of discharge A (in)
+		- QwB: a 2D field of discharge B (in t+1)
+		- QwC: a 2D field of discharge C (out)
+		- BCs: a 2D field of boundary conditions
+	Returns:
+		- Nothing, update flow depth in place
+	Authors:
+		- B.G. (last modification 03/05/2024)
+	'''	
+	# print(PARAMHYDRO.dt_hydro,"OIOIOIOI")
+	# Traversing nodes
+	for i,j in Z:
+		
+		# Updating local discharge to new time step
+		QwA[i,j] = QwB[i,j]
+		
+		# ONGOING TEST DO NOT DELETE
+		# # Only where nodes are active (i.e. flow cannot leave and can traverse)
+		# if(gridfuncs.can_out(i,j,BCs)):
+		# 	continue
+
+
+		# Updating flow depth (cannot be < 0)
+		dhw = (QwA[i,j] - QwC[i,j]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy)
+
+		if(PARAMHYDRO.clamp_div_hw):
+			if(dhw>0):
+				dhw = ti.math.min(PARAMHYDRO.clamp_div_hw_val,dhw)
+			else:
+				dhw = ti.math.max(-PARAMHYDRO.clamp_div_hw_val,dhw)
+
+		hw[i,j] = ti.max(0.,hw[i,j] + dhw)
+
+
+@ti.kernel
+def _compute_hw_CFL(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.template(), QwC:ti.template(), BCs:ti.template(), alpha : ti.f32, threshold:ti.f32 ):
+	'''
+	Status: STILL EXPERIMENTAL
+	Variant of _compute_hw that does not consider nodes nearly equillibrated AND
+	
+	Arguments:
+		- Z: a 2D field of topographic elevation
+		- hw: a 2D field of flow depth
+		- QwA: a 2D field of discharge A (in)
+		- QwB: a 2D field of discharge B (in t+1)
+		- QwC: a 2D field of discharge C (out)
+		- BCs: a 2D field of boundary conditions
+	Returns:
+		- Nothing, update flow depth in place
+	Authors:
+		- B.G. (last modification 03/05/2024)
+	'''	
+
+	# Traversing nodes
+	for i,j in Z:
+		
+		# Updating local discharge to new time step
+		QwA[i,j] = QwB[i,j]
+		
+		# ONGOING TEST DO NOT DELETE
+		# # Only where nodes are active (i.e. flow cannot leave and can traverse)
+		# if(gridfuncs.can_out(i,j,BCs)):
+		# 	continue
+
+		if(QwA[i,j] <= 0 or abs(1 - (QwC[i,j]/QwA[i,j])) < threshold ):
+			continue
+
+
+		# Updating flow depth (cannot be < 0)
+		tdt = PARAMHYDRO.dt_hydro
+		if(QwC[i,j] > 0):	
+			tdt = ti.math.max(PARAMHYDRO.dt_hydro, alpha *GRID.dx/(QwA[i,j]/(ti.math.max(1e-4, hw[i,j]))) )
+			
+		hw[i,j] = hw[i,j] + (QwA[i,j] - QwC[i,j]) * tdt/(GRID.dx*GRID.dy) 
+
+@ti.kernel
+def _compute_hw_th(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.template(), QwC:ti.template(), BCs:ti.template(), tdt:ti.f32, threshold:ti.f32 ):
+	'''
+	Compute flow depth by div.Q and update discharge to t+1.
+	Also computes QwC (out at t) 
+	Arguments:
+		- Z: a 2D field of topographic elevation
+		- hw: a 2D field of flow depth
+		- QwA: a 2D field of discharge A (in)
+		- QwB: a 2D field of discharge B (in t+1)
+		- QwC: a 2D field of discharge C (out)
+		- BCs: a 2D field of boundary conditions
+	Returns:
+		- Nothing, update flow depth in place
+	Authors:
+		- B.G. (last modification 03/05/2024)
+	'''	
+
+	# Traversing nodes
+	for i,j in Z:
+		
+		# Updating local discharge to new time step
+		QwA[i,j] = QwB[i,j]
+		
+		# ONGOING TEST DO NOT DELETE
+		# # Only where nodes are active (i.e. flow cannot leave and can traverse)
+		# if(gridfuncs.can_out(i,j,BCs)):
+		# 	continue
+
+		if(QwA[i,j] <= 0 or abs(1 - (QwC[i,j]/QwA[i,j])) < threshold ):
+			continue
+
+
+		# Updating flow depth (cannot be < 0)
+		# tdt = ti.math.max(PARAMHYDRO.dt_hydro, alpha *GRID.dx/(QwA[i,j]/(ti.math.max(1e-4, hw[i,j]))) )		
+		hw[i,j] = hw[i,j] + (QwA[i,j] - QwC[i,j]) * tdt/(GRID.dx*GRID.dy) 
 
 
 @ti.kernel
@@ -673,127 +796,6 @@ def _compute_Qw_drape(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:
 			tSw = ti.max(hsw.Zw(Z,hw,i,j) -  PARAMHYDRO.hydro_slope_bc_val, 1e-6)/GRID.dx if PARAMHYDRO.hydro_slope_bc_mode == 0 else PARAMHYDRO.hydro_slope_bc_val
 			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
 			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), 5./3) * ti.math.sqrt(tSw)
-
-
-@ti.kernel
-def _compute_hw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.template(), QwC:ti.template(), BCs:ti.template() ):
-	'''
-	Compute flow depth by div.Q and update discharge to t+1.
-	Also computes QwC (out at t) 
-	Arguments:
-		- Z: a 2D field of topographic elevation
-		- hw: a 2D field of flow depth
-		- QwA: a 2D field of discharge A (in)
-		- QwB: a 2D field of discharge B (in t+1)
-		- QwC: a 2D field of discharge C (out)
-		- BCs: a 2D field of boundary conditions
-	Returns:
-		- Nothing, update flow depth in place
-	Authors:
-		- B.G. (last modification 03/05/2024)
-	'''	
-	# print(PARAMHYDRO.dt_hydro,"OIOIOIOI")
-	# Traversing nodes
-	for i,j in Z:
-		
-		# Updating local discharge to new time step
-		QwA[i,j] = QwB[i,j]
-		
-		# ONGOING TEST DO NOT DELETE
-		# # Only where nodes are active (i.e. flow cannot leave and can traverse)
-		# if(gridfuncs.can_out(i,j,BCs)):
-		# 	continue
-
-
-		# Updating flow depth (cannot be < 0)
-		dhw = (QwA[i,j] - QwC[i,j]) * PARAMHYDRO.dt_hydro/(GRID.dx*GRID.dy)
-
-		if(PARAMHYDRO.clamp_div_hw):
-			if(dhw>0):
-				dhw = ti.math.min(PARAMHYDRO.clamp_div_hw_val,dhw)
-			else:
-				dhw = ti.math.max(-PARAMHYDRO.clamp_div_hw_val,dhw)
-
-		hw[i,j] = ti.max(0.,hw[i,j] + dhw)
-
-
-@ti.kernel
-def _compute_hw_CFL(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.template(), QwC:ti.template(), BCs:ti.template(), alpha : ti.f32, threshold:ti.f32 ):
-	'''
-	Status: STILL EXPERIMENTAL
-	Variant of _compute_hw that does not consider nodes nearly equillibrated AND
-	
-	Arguments:
-		- Z: a 2D field of topographic elevation
-		- hw: a 2D field of flow depth
-		- QwA: a 2D field of discharge A (in)
-		- QwB: a 2D field of discharge B (in t+1)
-		- QwC: a 2D field of discharge C (out)
-		- BCs: a 2D field of boundary conditions
-	Returns:
-		- Nothing, update flow depth in place
-	Authors:
-		- B.G. (last modification 03/05/2024)
-	'''	
-
-	# Traversing nodes
-	for i,j in Z:
-		
-		# Updating local discharge to new time step
-		QwA[i,j] = QwB[i,j]
-		
-		# ONGOING TEST DO NOT DELETE
-		# # Only where nodes are active (i.e. flow cannot leave and can traverse)
-		# if(gridfuncs.can_out(i,j,BCs)):
-		# 	continue
-
-		if(QwA[i,j] <= 0 or abs(1 - (QwC[i,j]/QwA[i,j])) < threshold ):
-			continue
-
-
-		# Updating flow depth (cannot be < 0)
-		tdt = PARAMHYDRO.dt_hydro
-		if(QwC[i,j] > 0):	
-			tdt = ti.math.max(PARAMHYDRO.dt_hydro, alpha *GRID.dx/(QwA[i,j]/(ti.math.max(1e-4, hw[i,j]))) )
-			
-		hw[i,j] = hw[i,j] + (QwA[i,j] - QwC[i,j]) * tdt/(GRID.dx*GRID.dy) 
-
-@ti.kernel
-def _compute_hw_th(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.template(), QwC:ti.template(), BCs:ti.template(), tdt:ti.f32, threshold:ti.f32 ):
-	'''
-	Compute flow depth by div.Q and update discharge to t+1.
-	Also computes QwC (out at t) 
-	Arguments:
-		- Z: a 2D field of topographic elevation
-		- hw: a 2D field of flow depth
-		- QwA: a 2D field of discharge A (in)
-		- QwB: a 2D field of discharge B (in t+1)
-		- QwC: a 2D field of discharge C (out)
-		- BCs: a 2D field of boundary conditions
-	Returns:
-		- Nothing, update flow depth in place
-	Authors:
-		- B.G. (last modification 03/05/2024)
-	'''	
-
-	# Traversing nodes
-	for i,j in Z:
-		
-		# Updating local discharge to new time step
-		QwA[i,j] = QwB[i,j]
-		
-		# ONGOING TEST DO NOT DELETE
-		# # Only where nodes are active (i.e. flow cannot leave and can traverse)
-		# if(gridfuncs.can_out(i,j,BCs)):
-		# 	continue
-
-		if(QwA[i,j] <= 0 or abs(1 - (QwC[i,j]/QwA[i,j])) < threshold ):
-			continue
-
-
-		# Updating flow depth (cannot be < 0)
-		# tdt = ti.math.max(PARAMHYDRO.dt_hydro, alpha *GRID.dx/(QwA[i,j]/(ti.math.max(1e-4, hw[i,j]))) )		
-		hw[i,j] = hw[i,j] + (QwA[i,j] - QwC[i,j]) * tdt/(GRID.dx*GRID.dy) 
 
 
 @ti.kernel

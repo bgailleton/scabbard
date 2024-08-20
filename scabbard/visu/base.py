@@ -35,7 +35,7 @@ def hillshaded_basemap(dem, sea_level = None, **kwargs):
 	
 	tp /= 2
 	
-	if sea_level is not None:
+	if not (sea_level is None):
 		tp[dem.Z2D<sea_level] = np.nan
 
 	ax.imshow(
@@ -76,10 +76,15 @@ def hs_drape(dem, arr2D, cmap = 'cividis', label = 'Metrics', alpha = 0.6,
 	fig, ax = hillshaded_basemap(dem, sea_level = sea_level, **kwargs)
 
 	tp = arr2D.copy()
-	if cut_off_min is not None:
+	if not (cut_off_min is None):
 		tp[arr2D<cut_off_min] = np.nan
-	if cut_off_max is not None:
+	if not (cut_off_max is None):
 		tp[arr2D>cut_off_max] = np.nan
+
+	if not (sea_level is None):
+		tp[dem.Z2D <= sea_level] = np.nan
+	
+
 
 	im = ax.imshow(tp, extent = dem.extent(), cmap = cmap, alpha = alpha, vmin = vmin, vmax = vmax)
 
