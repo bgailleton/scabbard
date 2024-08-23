@@ -69,7 +69,7 @@ def hillshaded_basemap(dem, sea_level = None, **kwargs):
 	'''
 
 	# Legacy compatibility layer
-	if(isinstance(dem, scb.Rgrid)):
+	if(isinstance(dem, scb.RGrid)):
 		return _legacy_hillshaded_basemap(dem, sea_level = sea_level, **kwargs)
 
 	# Creating the figure
@@ -78,9 +78,9 @@ def hillshaded_basemap(dem, sea_level = None, **kwargs):
 	# array to plot
 	tp = scb.rvd.std_hillshading(dem.Z, 
 		direction = 40., inclinaison = 55., exaggeration = 1.2, 
-		use_gpu = False, D4 = True, dx = dem.dx) + scb.rvd.std_hillshading(dem.Z2D, 
+		use_gpu = False, D4 = True, dx = dem.geo.dx) + scb.rvd.std_hillshading(dem.Z, 
 		direction = 85., inclinaison = 55., exaggeration = 1.2, use_gpu = False,
-		 D4 = True, dx = dem.dx)
+		 D4 = True, dx = dem.geo.dx)
 	
 	tp /= 2
 	
@@ -124,7 +124,7 @@ def hs_drape(dem, arr2D, cmap = 'cividis', label = 'Metrics', alpha = 0.6,
 
 	fig, ax = hillshaded_basemap(dem, sea_level = sea_level, **kwargs)
 
-	if(isinstance(dem, scb.Rgrid)):
+	if(isinstance(dem, scb.RGrid)):
 		legacy = True
 	else:
 		legacy = False

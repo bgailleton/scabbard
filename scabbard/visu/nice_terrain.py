@@ -5,7 +5,7 @@ import scabbard.visu.base as base
 
 def nice_terrain(dem, cmap = 'terrain', alpha = 0.55, 
 	sea_level = None, vmin = None,
-	vmax = None, **kwargs):
+	vmax = None, res = None, **kwargs):
 	'''
 	Quick visualisation of a DEM as a hillshade + an imshow-like data on the top of it with the same extent
 
@@ -27,7 +27,7 @@ def nice_terrain(dem, cmap = 'terrain', alpha = 0.55,
 	'''
 
 	fig,ax = base.hs_drape(dem, dem.Z, cmap = cmap, label = 'Elevation', alpha = alpha, 
-		sea_level = sea_level, vmin = vmin, vmax = vmax, outputs = res, **kwargs)
+		sea_level = sea_level, vmin = vmin, vmax = vmax, **kwargs)
 
 	return fig,ax
 
