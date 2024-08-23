@@ -25,9 +25,8 @@ def nice_terrain(dem, cmap = 'terrain', alpha = 0.55,
 	Author:
 		- B.G. (last modification: 08/2024)
 	'''
-	res = {}
 
-	fig,ax = base.hs_drape(dem, dem.Z2D, cmap = cmap, label = 'Elevation', alpha = alpha, 
+	fig,ax = base.hs_drape(dem, dem.Z, cmap = cmap, label = 'Elevation', alpha = alpha, 
 		sea_level = sea_level, vmin = vmin, vmax = vmax, outputs = res, **kwargs)
 
 	return fig,ax

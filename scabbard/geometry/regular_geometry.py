@@ -38,6 +38,8 @@ class RegularGeometry(BaseGeometry):
 			- B.G. (last modification: 08/2024)
 		'''
 
+		super().__init__()
+
 		self._nx = nx
 		self._ny = ny
 		self._nxy = nx * ny
@@ -98,6 +100,14 @@ class RegularGeometry(BaseGeometry):
 		- B.G. (last modifications: 08/2024)
 		'''
 		return self._ny
+
+	def shape(self):
+		'''
+		Returns a numpy=like shape
+		Authors:
+		- B.G. (last modifications: 08/2024)
+		'''
+		return (self.ny,self.nx)
 
 
 	@property

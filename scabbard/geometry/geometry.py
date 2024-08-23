@@ -22,6 +22,9 @@ class BaseGeometry(ABC):
 
 	"""
 
+	def __init__(self):
+		self._crs = None
+
 	@property
 	@abstractmethod
 	def N(self):
@@ -153,6 +156,15 @@ class BaseGeometry(ABC):
 		return self.ymax
 
 
+	@property
+	@abstractmethod
+	def shape(self):
+		pass
+
+	@property
+	def crs(self):
+		return crs
+
 	@abstractmethod
 	def row_col_to_flatID(self, row, col):
 		'''
@@ -231,3 +243,5 @@ class BaseGeometry(ABC):
 
 		'''
 		return [self.xmin,self.xmax, self.ymax, self.ymin]
+
+
