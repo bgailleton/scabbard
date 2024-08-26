@@ -3,7 +3,7 @@ grid module to help with generic grid manipulations
 '''
 import numpy as np
 import matplotlib.pyplot as plt
-from scabbard import io
+from scabbard import legacy_load_raster
 from scabbard import geography as geo
 import dagger as dag
 from scipy.ndimage import gaussian_filter
@@ -292,7 +292,7 @@ def generate_noise_RGrid(
 
 def raster2RGrid(fname, dtype = np.float32):
 
-	dem = io.load_raster(fname)
+	dem = legacy_load_raster(fname)
 	geog = geo.geog(dem["x_min"],dem["y_min"],dem["x_max"],dem["y_max"],dem["crs"])
 	return RGrid(dem["nx"], dem["ny"], dem["dx"], dem["dy"], dem["array"].ravel().astype(dtype), geography=geog, dtype = dtype)
 

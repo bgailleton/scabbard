@@ -9,7 +9,7 @@ import dagger as dag
 from rasterio.transform import from_origin
 
 
-def load_raster(fname):
+def legacy_load_raster(fname):
 	"""
 	Load a raster array with different options. It uses rasterio that itself uses gdal.
 	Arguments:
@@ -73,7 +73,7 @@ def raster2graphcon(file_name):
 	"""
 		
 	# Loading DEM data with rasterio
-	dem = load_raster(file_name)
+	dem = legacy_load_raster(file_name)
 
 	connector = dag.D8N(dem["nx"], dem["ny"], dem["dx"], dem["dy"], dem["x_min"], dem["y_min"])
 	graph = dag.graph(connector)
@@ -88,7 +88,7 @@ def raster2con(file_name):
 	"""
 		
 	# Loading DEM data with rasterio
-	dem = load_raster(file_name)
+	dem = legacy_load_raster(file_name)
 
 	connector = dag.D8N(dem["nx"], dem["ny"], dem["dx"], dem["dy"], dem["x_min"], dem["y_min"])
 	
