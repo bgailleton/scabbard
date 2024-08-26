@@ -61,6 +61,7 @@ def mask_single_watershed_from_outlet(grid, location, BCs = None, extra_mask = N
 		row,col = location
 		index = row * grid.nx + col
 	else:
+		index = location
 		row,col = index // grid.nx, index % grid.nx
 
 	

@@ -9,7 +9,7 @@ import scabbard as scb
 
 
 
-def _legacy_hillshaded_basemap(dem, sea_level = None, **kwargs):
+def _legacy_hillshaded_basemap(dem, sea_level = None, fig = None, ax = None, **kwargs):
 	'''
 	Ongoing deprecation: switching to the new grid system
 	Return a fig,ax with a hillshaded relief to the right extent. Ready to be used as base map to plot something on the top
@@ -28,7 +28,8 @@ def _legacy_hillshaded_basemap(dem, sea_level = None, **kwargs):
 	'''
 
 	# Creating the figure
-	fig,ax = plt.subplots(**kwargs)
+	if(fig is None):
+		fig,ax = plt.subplots(1, 1, **kwargs)
 
 	# array to plot
 	tp = scb.rvd.std_hillshading(dem.Z2D, direction = 40., inclinaison = 55., exaggeration = 1.2, use_gpu = False, D4 = True, dx = dem.dx) + scb.rvd.std_hillshading(dem.Z2D, direction = 85., inclinaison = 55., exaggeration = 1.2, use_gpu = False, D4 = True, dx = dem.dx)
@@ -46,12 +47,12 @@ def _legacy_hillshaded_basemap(dem, sea_level = None, **kwargs):
 
 	ax.set_xlabel("Easting (m)")
 	ax.set_ylabel("Northing (m)")
-
+	
 	return fig, ax
 
 
 
-def hillshaded_basemap(dem, sea_level = None, **kwargs):
+def hillshaded_basemap(dem, sea_level = None, fig = None, ax = None, **kwargs):
 	'''
 	Return a fig,ax with a hillshaded relief to the right extent. Ready to be used as base map to plot something on the top
 
@@ -70,10 +71,11 @@ def hillshaded_basemap(dem, sea_level = None, **kwargs):
 
 	# Legacy compatibility layer
 	if(isinstance(dem, scb.RGrid)):
-		return _legacy_hillshaded_basemap(dem, sea_level = sea_level, **kwargs)
+		return _legacy_hillshaded_basemap(dem, sea_level = sea_level,fig = fig, ax = ax, **kwargs)
 
 	# Creating the figure
-	fig,ax = plt.subplots(**kwargs)
+	if(fig is None):
+		fig,ax = plt.subplots(1, 1, **kwargs)
 
 	# array to plot
 	tp = scb.rvd.std_hillshading(dem.Z, 
@@ -96,12 +98,13 @@ def hillshaded_basemap(dem, sea_level = None, **kwargs):
 	ax.set_xlabel("Easting (m)")
 	ax.set_ylabel("Northing (m)")
 
+
 	return fig, ax
 
 
 def hs_drape(dem, arr2D, cmap = 'cividis', label = 'Metrics', alpha = 0.6, 
 	cut_off_min = None, cut_off_max = None, sea_level = None, vmin = None,
-	vmax = None, res = None, **kwargs):
+	vmax = None, res = None, fig = None, ax = None, kwargs_imshow = None, **kwargs):
 	'''
 	Quick visualisation of a DEM as a hillshade + an imshow-like data on the top of it with the same extent
 
@@ -122,7 +125,10 @@ def hs_drape(dem, arr2D, cmap = 'cividis', label = 'Metrics', alpha = 0.6,
 		- B.G. (last modification: 08/2024)
 	'''
 
-	fig, ax = hillshaded_basemap(dem, sea_level = sea_level, **kwargs)
+	if(fig is None):
+		fig, ax = hillshaded_basemap(dem, sea_level = sea_level, **kwargs)
+	else:
+		hillshaded_basemap(dem, sea_level = sea_level, fig = fig, ax = ax, **kwargs)
 
 	if(isinstance(dem, scb.RGrid)):
 		legacy = True
@@ -139,12 +145,15 @@ def hs_drape(dem, arr2D, cmap = 'cividis', label = 'Metrics', alpha = 0.6,
 		tp[dem.Z2D <= sea_level] = np.nan
 	
 
-
-	im = ax.imshow(tp, extent = dem.extent() if legacy else dem.geo.extent, cmap = cmap, alpha = alpha, vmin = vmin, vmax = vmax)
+	if(kwargs_imshow is None):
+		im = ax.imshow(tp, extent = dem.extent() if legacy else dem.geo.extent, cmap = cmap, alpha = alpha, vmin = vmin, vmax = vmax)
+	else:
+		im = ax.imshow(tp, extent = dem.extent() if legacy else dem.geo.extent, **kwargs_imshow)
 
 	if(isinstance(res,dict)):
 		res['fig'] = fig
 		res['ax'] = ax
 		res['im'] = im
+
 
 	return fig,ax

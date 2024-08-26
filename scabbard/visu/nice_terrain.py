@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import scabbard.visu.base as base
-
+import scabbard as scb
 
 def nice_terrain(dem, cmap = 'terrain', alpha = 0.55, 
 	sea_level = None, vmin = None,
@@ -26,7 +26,7 @@ def nice_terrain(dem, cmap = 'terrain', alpha = 0.55,
 		- B.G. (last modification: 08/2024)
 	'''
 
-	fig,ax = base.hs_drape(dem, dem.Z, cmap = cmap, label = 'Elevation', alpha = alpha, 
+	fig,ax = base.hs_drape(dem, (dem.Z if isinstance(dem,scb.raster.RegularRasterGrid) else dem.Z2D), cmap = cmap, label = 'Elevation', alpha = alpha, 
 		sea_level = sea_level, vmin = vmin, vmax = vmax, **kwargs)
 
 	return fig,ax

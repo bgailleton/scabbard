@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-
+from matplotlib.ticker import FuncFormatter
 
 def m_to_km(ax, ndec = 1):
 	'''
@@ -37,9 +37,19 @@ def m_to_km(ax, ndec = 1):
 
 def tickgrid(ax, marker = '+', size = 40, color = 'k', alpha = 0.7):
 	'''
-	Adds a tick grid
+	Adds a tick grid to an existing axis
+	tickgrid is a grid only plotting markers at the crossings of the grid lines
+	Feat. Luca Malatesta.
 
-	TODO
+	Arguments:
+		- ax: the matplotlib axis
+		- marker: the matplotlib marker type
+		- size: the point size (argument s in scatter plots)
+		- color: the color (any matplotlib accepted color)
+		- alpha: the transparency (0-1)
+
+	Returns:
+		- nothing, edits in place
 
 	Authors:
 		- B.G. (last modifications: 08/2024)
@@ -58,3 +68,28 @@ def tickgrid(ax, marker = '+', size = 40, color = 'k', alpha = 0.7):
 			Y.append(y)
 
 	ax.scatter(X, Y, marker = marker, s = size, alpha = alpha, edgecolor = color, facecolor = color, lw = 1)
+
+
+def convert_log_colorbar_labels_to_scientific(cb):
+	'''
+	Takes a matplotlib colorbar and converts its label to 10^value
+
+	Arguments:
+		- cb: the colorbar object
+		- ndec (int): the number of decimals to round for
+
+	Returns:
+		- nothing, edits in place
+
+	Authors:
+		- B.G. (last modifications: 08/2024)
+
+	'''
+
+	# Define a formatter function to convert log10 values to scientific notation
+	def scientific_ticks(x, pos):
+		return f"$10^{{{int(x)}}}$"
+
+	# Apply the formatter to the colorbar
+	cb.ax.xaxis.set_major_formatter(FuncFormatter(scientific_ticks))
+	cb.ax.yaxis.set_major_formatter(FuncFormatter(scientific_ticks))
