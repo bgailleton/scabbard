@@ -734,7 +734,61 @@ def can_out(i:int, j:int, BCs):
 
 
 @nb.njit()
-def is_active(i:int, j:int, BCs):
+def can_receive_flat(i:int, BCs):
+	'''
+		Standard complying function for the normal boundaries
+		Arguments:
+			- i: the row index
+			- j: the column index
+			- BCs: a dummy field to keep the standard consistent
+		Returns:
+			- True, all the nodes can receive in the normal boundary conditions
+	'''
+	valid = True
+	if(BCs[i] == 6 or BCs[i] == 7 or BCs[i] == 8 or BCs[i] == 0):
+		valid = False
+	return valid
+
+@nb.njit()
+def can_give_flat(i:int, BCs):
+	'''
+		Standard complying function for the normal boundaries
+		Arguments:
+			- i: the row index
+			- j: the column index
+			- BCs: a dummy field to keep the standard consistent
+		Returns:
+			- True, all the nodes can receive in the normal boundary conditions
+		Authors:
+		- B.G. (last modification 02/05/2024)
+	'''
+	valid = False
+	if(BCs[i] == 1 or BCs[i] == 6 or BCs[i] == 7 or BCs[i] == 8 or BCs[i] == 9):
+		valid = True
+	return valid
+
+
+@nb.njit()
+def can_out_flat(i:int, BCs):
+	'''
+		Standard complying function for the normal boundaries
+		Arguments:
+			- i: the row index
+			- j: the column index
+			- BCs: a dummy field to keep the standard consistent
+		Returns:
+			- True, all the nodes can receive in the normal boundary conditions
+		Authors:
+		- B.G. (last modification 02/05/2024)
+	'''
+	valid = False
+	if(BCs[i] == 3 or BCs[i] == 4 or BCs[i] == 5):
+		valid = True
+	return valid
+
+
+@nb.njit()
+def is_active_flat(i:int, BCs):
 	'''
 		Quick utility function determining if a node is active or not for normal boundaries
 		Arguments:
@@ -748,7 +802,7 @@ def is_active(i:int, j:int, BCs):
 		- B.G. (last modification 02/05/2024)
 	'''
 	valid = True
-	if(BCs[i,j] == 0): #) or _can_out_customs(i,j,BCs) or _can_receive_customs(i,j,BCs) == False):
+	if(BCs[i] == 0): #) or _can_out_customs(i,j,BCs) or _can_receive_customs(i,j,BCs) == False):
 		valid = False
 	return valid
 
@@ -798,8 +852,14 @@ def oppk_D8(k):
 
 @nb.njit()
 def dx_from_k_D4(dx, k):
+	'''
+	Gets the distance to the neighbours
+	'''
 	return dx
 
 @nb.njit()
 def dx_from_k_D8(dx, k):
+	'''
+	Gets the distance to the neighbours
+	'''
 	return dx if (k == 1 or k == 3 or k == 4 or k == 6) else 1.41421356237*dx
