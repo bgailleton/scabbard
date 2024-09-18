@@ -73,6 +73,26 @@ def _check_top_row_customs_D4(i:int, j:int, k:int, BCs, valid:bool):
 	return valid
 
 @nb.njit()
+def _check_top_row_customs_D4_flat(i:int, k:int, BCs, valid:bool, nx:int):
+	'''
+	Internal function to check if neighbouring is possible for nodes at the top row
+	Arguments:
+		- i: Row index
+		- j: column index
+		- k: neighbour number (See top of this module for explanations)
+	Returns:
+		- a boolean: True = neighbour is valid, False: not a neighbour
+	Authors:
+		- B.G. (last modification 02/05/2024)
+	'''
+	# Only checking if it actually is on the first row
+	if(i < nx):
+		if(k == 0):
+			valid = False
+	# Done
+	return valid
+
+@nb.njit()
 def _check_top_row_customs_D8(i:int, j:int, k:int, BCs, valid:bool):
 	'''
 	Internal function to check if neighbouring is possible for nodes at the top row
@@ -87,6 +107,26 @@ def _check_top_row_customs_D8(i:int, j:int, k:int, BCs, valid:bool):
 	'''
 	# Only checking if it actually is on the first row
 	if(i == 0):
+		if(k == 0 or k ==1 or k==2):
+			valid = False
+	# Done
+	return valid
+
+@nb.njit()
+def _check_top_row_customs_D8_flat(i:int, k:int, BCs, valid:bool, nx:int):
+	'''
+	Internal function to check if neighbouring is possible for nodes at the top row
+	Arguments:
+		- i: Row index
+		- j: column index
+		- k: neighbour number (See top of this module for explanations)
+	Returns:
+		- a boolean: True = neighbour is valid, False: not a neighbour
+	Authors:
+		- B.G. (last modification 02/05/2024)
+	'''
+	# Only checking if it actually is on the first row
+	if(i < nx):
 		if(k == 0 or k ==1 or k==2):
 			valid = False
 	# Done
@@ -115,6 +155,27 @@ def _check_leftest_col_customs_D4(i:int, j:int, k:int, BCs, valid:bool):
 	return valid
 
 @nb.njit()
+def _check_leftest_col_customs_D4_flat(i:int, k:int, BCs, valid:bool, nx:int):
+	'''
+	Internal function to check if neighbouring is possible for nodes at the leftest column
+	Caution: this is optimised for neighbouring checks and ignores the top and bottom rows
+	Arguments:
+		- i: Row index
+		- j: column index
+		- k: neighbour number (See top of this module for explanations)
+	Returns:
+		- a boolean: True = neighbour is valid, False: not a neighbour
+	Authors:
+		- B.G. (last modification 02/05/2024)
+	'''
+	# Only checking if it actually is on the first col
+	if( (i//nx) == 0):
+		if(k==1):
+			valid = False
+	# Done
+	return valid
+
+@nb.njit()
 def _check_leftest_col_customs_D8(i:int, j:int, k:int, BCs, valid:bool):
 	'''
 	Internal function to check if neighbouring is possible for nodes at the leftest column
@@ -134,6 +195,28 @@ def _check_leftest_col_customs_D8(i:int, j:int, k:int, BCs, valid:bool):
 			valid = False
 	# Done
 	return valid
+
+@nb.njit()
+def _check_leftest_col_customs_D8_flat(i:int, k:int, BCs, valid:bool, nx:int):
+	'''
+	Internal function to check if neighbouring is possible for nodes at the leftest column
+	Caution: this is optimised for neighbouring checks and ignores the top and bottom rows
+	Arguments:
+		- i: Row index
+		- j: column index
+		- k: neighbour number (See top of this module for explanations)
+	Returns:
+		- a boolean: True = neighbour is valid, False: not a neighbour
+	Authors:
+		- B.G. (last modification 02/05/2024)
+	'''
+	# Only checking if it actually is on the first col
+	if((i//nx) == 0):
+		if(k==0 or k == 3 or k == 5):
+			valid = False
+	# Done
+	return valid
+
 
 @nb.njit()
 def _check_rightest_col_customs_D4(i:int, j:int, k:int, BCs, valid:bool, nx:int):
@@ -157,6 +240,27 @@ def _check_rightest_col_customs_D4(i:int, j:int, k:int, BCs, valid:bool, nx:int)
 	return valid
 
 @nb.njit()
+def _check_rightest_col_customs_D4_flat(i:int, k:int, BCs, valid:bool, nx:int):
+	'''
+	Internal function to check if neighbouring is possible for nodes at the rightest column
+	Caution: this is optimised for neighbouring checks and ignores the top and bottom rows
+	Arguments:
+		- i: Row index
+		- j: column index
+		- k: neighbour number (See top of this module for explanations)
+	Returns:
+		- a boolean: True = neighbour is valid, False: not a neighbour
+	Authors:
+		- B.G. (last modification 02/05/2024)
+	'''
+	# Only checking if it actually is on the first col
+	if(i//nx == nx-1):
+		if(k==2):
+			valid = False
+	# Done
+	return valid
+
+@nb.njit()
 def _check_rightest_col_customs_D8(i:int, j:int, k:int, BCs, valid:bool, nx:int):
 	'''
 	Internal function to check if neighbouring is possible for nodes at the rightest column
@@ -172,6 +276,27 @@ def _check_rightest_col_customs_D8(i:int, j:int, k:int, BCs, valid:bool, nx:int)
 	'''
 	# Only checking if it actually is on the first col
 	if(j == nx-1):
+		if(k==2 or k == 4 or k == 7):
+			valid = False
+	# Done
+	return valid
+
+@nb.njit()
+def _check_rightest_col_customs_D8_flat(i:int, k:int, BCs, valid:bool, nx:int):
+	'''
+	Internal function to check if neighbouring is possible for nodes at the rightest column
+	Caution: this is optimised for neighbouring checks and ignores the top and bottom rows
+	Arguments:
+		- i: Row index
+		- j: column index
+		- k: neighbour number (See top of this module for explanations)
+	Returns:
+		- a boolean: True = neighbour is valid, False: not a neighbour
+	Authors:
+		- B.G. (last modification 02/05/2024)
+	'''
+	# Only checking if it actually is on the first col
+	if(i//nx == nx-1):
 		if(k==2 or k == 4 or k == 7):
 			valid = False
 	# Done
@@ -200,6 +325,28 @@ def _check_bottom_row_customs_D4(i:int, j:int, k:int, BCs, valid:bool, ny:int):
 	return valid
 
 @nb.njit()
+def _check_bottom_row_customs_D4_flat(i:int, k:int, BCs, valid:bool, nx:int, ny:int):
+	'''
+	Internal function to check if neighbouring is possible for nodes at the bottom row
+	Caution: this is optimised for neighbouring checks and ignores the top and bottom rows
+	Arguments:
+		- i: Row index
+		- j: column index
+		- k: neighbour number (See top of this module for explanations)
+	Returns:
+		- a boolean: True = neighbour is valid, False: not a neighbour
+	Authors:
+		- B.G. (last modification 02/05/2024)
+	'''
+	# Only checking if it actually is on the first row
+	if(i >= nx*ny - nx):
+		# Checking all the different cases: firs, last cols and the middle
+		if(k == 3):
+			valid = False
+	# Done
+	return valid
+
+@nb.njit()
 def _check_bottom_row_customs_D8(i:int, j:int, k:int, BCs, valid:bool, ny:int):
 	'''
 	Internal function to check if neighbouring is possible for nodes at the bottom row
@@ -215,6 +362,28 @@ def _check_bottom_row_customs_D8(i:int, j:int, k:int, BCs, valid:bool, ny:int):
 	'''
 	# Only checking if it actually is on the first row
 	if(i == ny-1):
+		# Checking all the different cases: firs, last cols and the middle
+		if(k == 5 or k == 6 or k == 7):
+			valid = False
+	# Done
+	return valid
+
+@nb.njit()
+def _check_bottom_row_customs_D8_flat(i:int, j:int, k:int, BCs, valid:bool, nx:int, ny:int):
+	'''
+	Internal function to check if neighbouring is possible for nodes at the bottom row
+	Caution: this is optimised for neighbouring checks and ignores the top and bottom rows
+	Arguments:
+		- i: Row index
+		- j: column index
+		- k: neighbour number (See top of this module for explanations)
+	Returns:
+		- a boolean: True = neighbour is valid, False: not a neighbour
+	Authors:
+		- B.G. (last modification 02/05/2024)
+	'''
+	# Only checking if it actually is on the first row
+	if(i >= nx*ny - nx):
 		# Checking all the different cases: firs, last cols and the middle
 		if(k == 5 or k == 6 or k == 7):
 			valid = False
@@ -258,6 +427,43 @@ def _cast_neighbour_customs_D4(i:int, j:int, k:int, valid:bool, BCs):
 		
 
 	return ir, jr
+
+@nb.njit()
+def _cast_neighbour_customs_D4_flat(i:int, k:int, valid:bool, BCs, nx:int):
+	'''
+	Internal function that cast the neighbours to the right values in the case of normal boundary conditions
+	Caution: this is optimised for neighbouring checks and should not be used on its own
+	Arguments:
+		- i: Row index
+		- j: column index
+		- k: neighbour number (See top of this module for explanations)
+		- valid: a boolean from previous checks 
+	Returns:
+		- a boolean: True = neighbour is valid, False: not a neighbour
+	Authors:
+		- B.G. (last modification 02/05/2024)
+	'''
+
+	# Preformat the output
+	ir = -1
+
+	# if the neighbouring operation is still valid after that:
+	if(valid):
+		if(k == 0):
+			ir = i-nx
+		if(k == 1):
+			ir = i+1
+		if(k == 2):
+			ir = i+1
+		if(k == 3):
+			ir = i+nx
+
+	if(BCs[i] == 0 or ir == -1):
+		ir = -1
+	elif(BCs[ir] == 0):
+		ir = -1		
+
+	return ir
 
 
 @nb.njit()
@@ -305,6 +511,52 @@ def _cast_neighbour_customs_D8(i:int, j:int, k:int, valid:bool, BCs):
 		
 	return ir, jr
 
+
+@nb.njit()
+def _cast_neighbour_customs_D8_flat(i:int, k:int, valid:bool, BCs, nx:int):
+	'''
+	Internal function that cast the neighbours to the right values in the case of normal boundary conditions
+	Caution: this is optimised for neighbouring checks and should not be used on its own
+	Arguments:
+		- i: Row index
+		- j: column index
+		- k: neighbour number (See top of this module for explanations)
+		- valid: a boolean from previous checks 
+	Returns:
+		- a boolean: True = neighbour is valid, False: not a neighbour
+	Authors:
+		- B.G. (last modification 02/05/2024)
+	'''
+
+	# Preformat the output
+	ir = -1
+
+	# if the neighbouring operation is still valid after that:
+	if(valid):
+		if(k == 0):
+			ir = i-nx-1
+		elif(k == 1):
+			ir = i-nx
+		elif(k == 2):
+			ir = i-nx+1
+		elif(k == 3):
+			ir = i-1
+		elif(k == 4):
+			ir = i+1
+		elif(k == 5):
+			ir = i+nx-1
+		elif(k == 6):
+			ir = i+nx
+		elif(k == 7):
+			ir = i+nx+1
+
+	if(BCs[i] == 0 or ir == -1):
+		ir = -1
+	elif(BCs[ir] == 0):
+		ir = -1
+		
+	return ir
+
 @nb.njit()
 def neighbours_D4(i:int, j:int, k:int, BCs, nx:int, ny:int):
 	'''
@@ -333,6 +585,35 @@ def neighbours_D4(i:int, j:int, k:int, BCs, nx:int, ny:int):
 
 	# getting the actual neighbours
 	return _cast_neighbour_customs_D4(i,j,k,valid,BCs)
+
+@nb.njit()
+def neighbours_D4_flat(i:int, k:int, BCs, nx:int, ny:int):
+	'''
+	GPU function returning the neighbours of a given pixel
+	Arguments:\
+		- i,j are the row and col indices
+		- k is the nth neighbour (4 in D4) following riverdale's convention (see top of this module)
+		- BCs: boundary conditions code. Note that for this function it does not do anything and won't be used but it complies to the standard
+	Returns:
+		- (-1,-1) if hte neighbour is not valid (e.g. normal boundaries at the left border has no left neighbour k=1)
+		- the indices of the row/col of the neighbours
+	Authors:
+		- B.G. (last modification 02/05/2024)
+	TODO:
+		- adding the Periodic boundary management in the checks
+	'''
+
+	# I first assume this mneighbour is valid
+	valid = True
+
+	# Breaking down the checks
+	valid = _check_top_row_customs_D4_flat(i,k,BCs,valid,nx)
+	valid = _check_leftest_col_customs_D4_flat(i,k,BCs,valid,nx)
+	valid = _check_rightest_col_customs_D4_flat(i,k,BCs,valid,nx)
+	valid = _check_bottom_row_customs_D4_flat(i,k,BCs,valid,ny)
+
+	# getting the actual neighbours
+	return _cast_neighbour_customs_D4_flat(i,j,k,valid,BCs,nx)
 
 
 @nb.njit()
@@ -363,6 +644,35 @@ def neighbours_D8(i:int, j:int, k:int, BCs, nx:int, ny:int):
 
 	# getting the actual neighbours
 	return _cast_neighbour_customs_D8(i,j,k,valid,BCs)
+
+@nb.njit()
+def neighbours_D8_flat(i:int, k:int, BCs, nx:int, ny:int):
+	'''
+	GPU function returning the neighbours of a given pixel
+	Arguments:\
+		- i,j are the row and col indices
+		- k is the nth neighbour (4 in D8) following riverdale's convention (see top of this module)
+		- BCs: boundary conditions code. Note that for this function it does not do anything and won't be used but it complies to the standard
+	Returns:
+		- (-1,-1) if hte neighbour is not valid (e.g. normal boundaries at the left border has no left neighbour k=1)
+		- the indices of the row/col of the neighbours
+	Authors:
+		- B.G. (last modification 02/05/2024)
+	TODO:
+		- adding the Periodic boundary management in the checks
+	'''
+
+	# I first assume this mneighbour is valid
+	valid = True
+
+	# Breaking down the checks
+	valid = _check_top_row_customs_D8_flat(i,j,k,BCs,valid,nx)
+	valid = _check_leftest_col_customs_D8_flat(i,j,k,BCs,valid,nx)
+	valid = _check_rightest_col_customs_D8_flat(i,j,k,BCs,valid,nx)
+	valid = _check_bottom_row_customs_D8_flat(i,j,k,BCs,valid,nx,ny)
+
+	# getting the actual neighbours
+	return _cast_neighbour_customs_D8_flat(i,j,k,valid,BCs,nx)
 
 
 
@@ -486,3 +796,10 @@ def oppk_D8(k):
 	return 7 if k == 0 else (6 if k == 1 else (5 if k == 2 else (4 if k == 3 else (3 if k == 4 else (2 if k == 5 else (1 if k==6 else (0))))) ) )
 
 
+@nb.njit()
+def dx_from_k_D4(dx, k):
+	return dx
+
+@nb.njit()
+def dx_from_k_D8(dx, k):
+	return dx if (k == 1 or k == 3 or k == 4 or k == 6) else 1.41421356237*dx
