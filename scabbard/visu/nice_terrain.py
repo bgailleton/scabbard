@@ -2,6 +2,24 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scabbard.visu.base as base
 import scabbard as scb
+import click
+import os
+
+@click.command()
+@click.option('-s', '--sea_level', 'sea_lvl',  type = float, default = 0.)
+@click.argument('fname', type = str)
+def cli_nice_terrain(fname, sea_lvl):
+	
+	if(os.path.exists(fname) == False):
+		raise ValueError(f'FileDoesNotExists: {fname}')
+	
+	dem = scb.io.load_raster(fname)
+	
+	fig,ax = base.hs_drape(dem, dem.Z, cmap = 'terrain', label = 'Elevation', alpha = 0.4, 
+	cut_off_min = None, cut_off_max = None, sea_level = sea_lvl, vmin = None,
+	vmax = None, res = None, fig = None, ax = None)
+	
+	plt.show()
 
 def nice_terrain(dem, cmap = 'terrain', alpha = 0.55, 
 	sea_level = None, vmin = None,

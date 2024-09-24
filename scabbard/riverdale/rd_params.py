@@ -109,13 +109,17 @@ class RDParams:
 		##############################
 
 		self._hydro_compute_mode = rdhy.FlowMode.static_incremental
-		self._force_LM_to_original_flowdir  = True
+		self._use_fdir_D8  = True
+
 		
 		# Manning's Roughness/friction coefficient
 		self._manning = 0.033
 		
 		# time step for the hydrodynamics model
 		self._dt_hydro = 1e-3
+		
+		self._LM_npath = 1
+		self._clamp_div_hw_val = 1e-3
 
 		# Precipitation rates
 		## The value (2 or 2D)
@@ -137,6 +141,8 @@ class RDParams:
 		self._input_cols_Qw = None
 		## Input values in m^3/s
 		self._input_Qw = None
+
+		self._precompute_Qw = False
 
 		#TODO once I find a stable method
 		# # Stability criterion
@@ -550,6 +556,7 @@ class RDParams:
 		'''
 		self._force_no_prec = False
 
+
 	@property
 	def need_input_Qw(self):
 		'''
@@ -561,6 +568,20 @@ class RDParams:
 			return True
 		else:
 			return False
+
+	def preflood_lakes(self):
+
+		tZ = self.initial_Z.copy()
+		if(not (self.initial_hw is None)):
+			tZ += self.initial_hw
+		diff = np.copy(tZ)
+		scb.flow.priority_flood(tZ, BCs = scb.flow.get_normal_BCs(tZ) if self.BCs is None else self.BCs, D4 = True, in_place = True, dx = 1., step_fill = 1e-3)
+		diff = tZ - diff
+
+		self.initial_Z += diff
+
+		return diff
+
 
 	@property
 	def update_morpho_at_input_points(self):
@@ -574,10 +595,33 @@ class RDParams:
 			warnings.warn('Cannot update static update_morpho_at_input_points param after model initialisation')
 
 	@property
+	def use_fdir_D8(self):
+		'''
+		Authors:
+				- B.G. (last modification 09/2024)
+		'''
+		return self._use_fdir_D8
+
+		
+	@use_fdir_D8.setter
+	def use_fdir_D8(self, val:bool):
+		if(self._RD is None):
+			self._use_fdir_D8 = val
+		else:
+			warnings.warn('Cannot update static use_fdir_D8 param after model initialisation')
+
+
+	@property
 	def reshp(self):
 		return self.ny,self.nx
 
+	@property
+	def precompute_Qw(self):
+		return self._precompute_Qw
 
+	@precompute_Qw.setter
+	def precompute_Qw(self,val):
+		self._precompute_Qw = val
 
 	@property
 	def dt_morpho(self):

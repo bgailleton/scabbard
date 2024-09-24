@@ -10,23 +10,29 @@ import numpy as np
 import scabbard._utils as ut
 import scabbard.flow._bc_helper as bch
 from scabbard.flow.graph import SFGraph
+import scabbard as scb
 import dagger as dag
 from functools import reduce
 from collections.abc import Iterable
 
-def get_normal_BCs(nx,ny):
+
+def get_normal_BCs(dem):
 	'''
 	Returns an array of boundary conditions with "normal edges"
 	Flow can out at each edge
 
 	parameters:
-		- nx: number of columns
-		- ny: number of rows
+		- can be a 2D numpy array or a raster object
 	
 	Authors:
 	- B.G (alst modification: 07/2024)
 	'''
-	return ut.normal_BCs_from_shape(nx,ny)
+	if(isinstance(dem,np.ndarray)):
+		return ut.normal_BCs_from_shape(dem.shape[1], dem.shape[0])
+	elif(isinstance(dem,scb.raster.RegularRasterGrid)):
+		return ut.normal_BCs_from_shape(dem.geo.nx, dem.geo.ny)
+	else:
+		raise TypeError('boundary conditions can only be obtained from a RegularRasterGrid or a 2D numpy array')
 
 def combine_masks(*args):
 	return reduce(np.bitwise_and, args) if all(isinstance(arr, np.ndarray) and arr.dtype in [np.uint8, np.bool_] for arr in args) else None

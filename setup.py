@@ -46,7 +46,8 @@ setup(
 	entry_points={
 
 		'console_scripts': [
-				'scb-baseplot=scabbard.phineas:simplemapwizard' ,
+				'scb-baseplot=scabbard.visu.nice_terrain:cli_nice_terrain' ,
+				'scb-crop=scabbard.raster.std_raster_cropper:std_crop_raster' ,
 				'scb-graphflood=scabbard.phineas:graphflood_basic' ,
 				'scb-debugger=scabbard.phineas:_debug_1' ,
 				'scb-reset-config=scabbard.config:defaultConfig' ,

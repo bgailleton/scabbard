@@ -8,6 +8,7 @@ B.G. (last modification: 07/2024)
 
 import numpy as np
 import dagger as dag
+import scabbard as scb
 import scabbard._utils as ut
 import topotoolbox as ttb
 
@@ -24,7 +25,7 @@ class SFGraph(object):
 	B.G. (last modification: )
 	"""
 
-	def __init__(self, Z, BCs = None, D4 = True, dx = 1., backend = 'ttb', fill_LM = False):
+	def __init__(self, Z, BCs = None, D4 = True, dx = 1., backend = 'ttb', fill_LM = False, step_fill = 1e-3):
 		'''
 		'''
 		
@@ -58,11 +59,11 @@ class SFGraph(object):
 		self.Stack = np.zeros(self.nxy, dtype = (np.uint64 if self.backend == 'ttb' else np.int32))
 
 		# Initialising the graph
-		self.update(Z, BCs, fill_LM)
+		self.update(Z, BCs, fill_LM,step_fill)
 
 	
 
-	def update(self, Z, BCs = None, fill_LM = False):
+	def update(self, Z, BCs = None, fill_LM = False, step_fill = 1e-3):
 		'''
 		Updates the graph to a new topography and optional boundary conditions
 		'''
@@ -80,8 +81,11 @@ class SFGraph(object):
 				raise ValueError('D8 SFGraph not implemented yet')
 		elif self.backend == 'ttb':
 			self.Ndonors.fill(0)
-			print('DEBUG HERE')
-			ttb.graphflood_sfgraph(Z.ravel(), self.Sreceivers, self.Sdx, self.donors, self.Ndonors, self.Stack, BCs.ravel(), self.dim, self.dx * self.dx, not self.D4, fill_LM)
+			#Theer is a bug in my implementation in ttb, I need to sort it but the vanilla fill LM does not fill the flats
+			if(fill_LM):
+				scb.ttb.compute_priority_flood_plus_topological_ordering(Z.ravel(), self.Stack, BCs.ravel(), self.dim, not self.D4, step_fill)
+				
+			ttb.graphflood_sfgraph(Z.ravel(), self.Sreceivers, self.Sdx, self.donors, self.Ndonors, self.Stack, BCs.ravel(), self.dim, self.dx * self.dx, not self.D4, False, step_fill) # False cause I fill lm above
 
 
 	@property

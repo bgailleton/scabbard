@@ -18,6 +18,8 @@ import scabbard.riverdale.rd_flow as rdfl
 import scabbard.riverdale.rd_hydrodynamics as rdhy
 import scabbard.riverdale.rd_morphodynamics as rdmo
 import scabbard.riverdale.rd_LM as rdlm
+import scabbard as scb
+from scipy.ndimage import gaussian_filter
 
 
 # @ti.data_oriented
@@ -81,7 +83,7 @@ class Riverdale:
 
 
 
-	def run_hydro(self, n_steps, recompute_fdir = False, expe_N_prop = 0, expe_CFL_variable = False, flush_LM = False):
+	def run_hydro(self, n_steps, recompute_flow = False, expe_N_prop = 0, expe_CFL_variable = False, flush_LM = False):
 		'''
 		Main runner function for the hydrodynamics part of the model.
 		NOte that all the parameters have been compiled prior to running that functions, so not much to control here
@@ -93,8 +95,18 @@ class Riverdale:
 			- B.G (last modification 20/05/2024)
 		'''
 
-		if(recompute_fdir):
-			rdfl.compute_D4_Zw(self.Z, self.hw, self.fdir, self.BCs)
+		if(recompute_flow):
+			if(self.param.use_fdir_D8):
+				rdfl.compute_D4_Zw(self.Z, self.hw, self.fdir, self.BCs)
+			else:
+				fsurf = scb.flow.compute_flow_distance_from_outlet(scb.raster.raster_from_array(self.Z.to_numpy()+self.hw.to_numpy(),self.param._dx),
+					method = 'min',
+					BCs = None if self.param.BCs is None else self.BCs.to_numpy(),
+					fill_LM = True,
+					step_fill = 1e-3,
+					D8 = False
+					)
+				self.fdir.from_numpy(fsurf)
 
 		# Running loop
 		for it in range(n_steps):
@@ -149,12 +161,61 @@ class Riverdale:
 			rdhy._flush_QwA_only(self.Z, self.hw, self.QwA, self.QwB, self.BCs, self.fdir)
 			return
 
-		rdhy.compute_Qw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs, self.fdir) #if rdhy.FlowMode.static_drape != self.param._hydro_compute_mode else rdhy.compute_Qw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.constraints, self.BCs)
+		if(self.param.use_fdir_D8):
+			rdhy._compute_Qw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs, self.fdir) #if rdhy.FlowMode.static_drape != self.param._hydro_compute_mode else rdhy.compute_Qw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.constraints, self.BCs)
+		else:
+			rdhy._compute_Qw_surfrec(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs, self.fdir) #if rdhy.FlowMode.static_drape != self.param._hydro_compute_mode else rdhy.compute_Qw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.constraints, self.BCs)
 		
 		if(expe_CFL_variable):
 			rdhy._compute_hw_CFL(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs, 1e-4, 0.001 )
 		else:			
 			rdhy.compute_hw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs) if rdhy.FlowMode.static_drape != self.param.hydro_compute_mode else rdhy.compute_hw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.constraints, self.BCs)
+
+	def raise_analytical_hw(self):
+		'''
+		This function uses the current fields of hw and Qwin (QwA) to calculate an analytical hw.
+		This is useful in multiple occasions, for example speed up convergence of hillslopes if the rest is fine or creating an initial guess from an external Qwin.
+		WARNING: this is not a magical analytical solution, most of the time it creates a noisy combination of flow depth with walls. 
+		If 2D SWEs had a true easy analytical solution not involving gigantic inverse matrices it would be known
+
+		Arguments:
+			- None
+		returns:
+			- Nothing, update the model internally
+		Authors:
+			- B.G (last modification 09/2024)
+		'''
+		temp, = self.query_temporary_fields(1)
+		rdhy._raise_analytical_hw(self.Z, self.hw, self.QwA, temp, self.BCs)
+
+	def diffuse_hw(self, n_steps = 100):
+
+		temp, = self.query_temporary_fields(1)
+		for i in range(n_steps):
+			rdhy._CA_smooth(self.Z, self.hw, temp, self.BCs)
+		ti.sync()
+		
+
+	def propagate_QwA(self, SFD = True):
+
+		self._run_init_hydro()
+		self._run_hydro_inputs()
+		input_values = self.QwB.to_numpy()
+
+		if(SFD):
+			tZ = (self.Z.to_numpy() + self.hw.to_numpy())
+			tBCs = scb.flow.get_normal_BCs(tZ) if self.param.BCs is None else self.BCs.to_numpy()
+			stg = scb.flow.SFGraph(tZ, BCs = tBCs, D4 = True, dx = self.param._dx, backend = 'ttb', fill_LM = True, step_fill = 1e-3)
+			Qw = scb.flow.propagate(stg, input_values, step_fill = 1e-3)
+		else:
+			tZ = (self.Z.to_numpy() + self.hw.to_numpy())
+			tBCs = scb.flow.get_normal_BCs(tZ) if self.param.BCs is None else self.BCs.to_numpy()
+			grid = scb.raster.raster_from_array(tZ, dx = self.param._dx, xmin = 0., ymin = 0., dtype = np.float32)
+			Qw = scb.flow.propagate(grid, input_values, method = 'mfd_S', BCs = tBCs, D4 = True, fill_LM = True, step_fill = 1e-3)
+
+		self.QwA.from_numpy(Qw.astype(np.float32))
+
+
 
 	def run_morpho(self, n_steps):
 		'''
@@ -207,6 +268,7 @@ class Riverdale:
 
 	def get_GridCPP(self):
 		'''
+		PENDING DEPRECATION
 		Returns a GridCPP object corresponding to the grid geometry and boundary conditions.
 		GridCPP objectss are used to interact with the DAGGER c++ engine which I use for CPU intensive tasks.
 		It will probably also be used for communication with TTBlib and fastscapelib
@@ -217,25 +279,6 @@ class Riverdale:
 			- B.G. (last modification: 30/05/2024)
 		'''
 		return dag.GridCPP_f32(self.param._nx,self.param._ny,self.param._dx,self.param._dy,0 if self.param.boundaries == rdgd.BoundaryConditions.normal else 3)
-		# return dag.GridCPP_f32(self.param._nx,self.param._ny,self.param._dx,self.param._dy,0 if self.param.boundaries == rdgd.BoundaryConditions.normal else 3) if self.param.dtype_float == ti.f32 else dag.GridCPP_f64(self.param._nx,self.param._ny,self.param._dx,self.param._dy,0 if self.param.boundaries == rdgd.BoundaryConditions.normal else 3)
-
-	# @classmethod
-	# def _create_instance(cls):
-	# 	'''
-	# 	Private function creating an empty instance and returning it
-	# 	Long story short it ensure the class is only instanciated once and for all
-
-	# 	At some point I]ll try to find a workaround to get multiple instances but so far it is complicated
-
-	# 	B.G. 
-	# 	'''
-		
-	# 	cls._instance_created = True
-	# 	instance = cls()
-	# 	cls._already_created = True
-	# 	cls._instance_created = False
-
-	# 	return instance
 
 
 	def query_temporary_fields(self, N, dtype = 'f32'):
@@ -332,6 +375,8 @@ def create_from_params(param):
 	instance.PARAMHYDRO.hydro_slope_bc_mode = int(param._boundary_slope_mode.value)
 	instance.PARAMHYDRO.hydro_slope_bc_val = param._boundary_slope_value
 	instance.PARAMHYDRO.flowmode = param.hydro_compute_mode
+	instance.PARAMHYDRO.clamp_div_hw_val = param._clamp_div_hw_val
+	# instance.PARAMHYDRO.flowmode = param.hydro_compute_mode
 
 
 	if(param.BCs is None):
@@ -348,9 +393,17 @@ def create_from_params(param):
 	instance.PARAMHYDRO.dt_hydro = param.dt_hydro
 
 	#WILL NEED TO ADD THE OPTION  LATER
-	if(param.force_LM_to_original_flowdir):
+	if(param.use_fdir_D8):
 		instance.fdir = ti.field(ti.u8, shape = (instance.GRID.ny,instance.GRID.nx))
 		instance.PARAMMORPHO.use_original_dir_for_LM = True
+		instance.PARAMHYDRO.use_original_dir_for_LM = True
+		instance.PARAMHYDRO.LM_pathforcer = param._LM_npath
+	else:
+		instance.fdir = ti.field(ti.f32, shape = (instance.GRID.ny,instance.GRID.nx))
+		instance.PARAMMORPHO.use_original_dir_for_LM = False
+		instance.PARAMHYDRO.use_original_dir_for_LM = False
+
+	
 
 	# Compiling the hydrodynamics
 	rdhy.set_hydro_CC()
@@ -387,6 +440,11 @@ def create_from_params(param):
 		instance.input_Qw = ti.field(instance.param.dtype_float, shape = (n_inputs_QW))
 		instance.input_Qw.from_numpy(param._input_Qw)
 
+	if(param.precompute_Qw):
+		# Precomputing a D8 propagation of QwA within the cpu
+		instance.propagate_QwA()
+
+
 	if(param.morpho):
 
 		instance.PARAMMORPHO.dt_morpho = param.dt_morpho
@@ -418,14 +476,22 @@ def create_from_params(param):
 
 
 	#running eventual preprocessors
-	if(param.force_LM_to_original_flowdir):
+	if(param.use_fdir_D8):
 		# print('debug info: computing fdir')
 		# creating the original hydraulic pattern by pre filling the topography with water
 		rdlm.priority_flood(instance)
 		# Calculating the motherflow direction, used to trasfer Qw out of local minimas
 		rdfl.compute_D4_Zw(instance.Z, instance.hw, instance.fdir, instance.BCs)
 		# print(np.unique(instance.fdir.to_numpy()))
-	
+	else:
+		fsurf = scb.flow.compute_flow_distance_from_outlet(scb.raster.raster_from_array(param.initial_Z,param._dx),
+			method = 'min',
+			BCs = param.BCs,
+			fill_LM = True,
+			step_fill = 1e-3,
+			D8 = False
+			)
+		instance.fdir.from_numpy(fsurf)	
 
 	return instance
 

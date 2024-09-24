@@ -80,8 +80,8 @@ def hillshaded_basemap(dem, sea_level = None, fig = None, ax = None, **kwargs):
 	# array to plot
 	tp = scb.rvd.std_hillshading(dem.Z, 
 		direction = 40., inclinaison = 55., exaggeration = 1.2, 
-		use_gpu = False, D4 = True, dx = dem.geo.dx) + scb.rvd.std_hillshading(dem.Z, 
-		direction = 85., inclinaison = 55., exaggeration = 1.2, use_gpu = False,
+		use_gpu = True, D4 = True, dx = dem.geo.dx) + scb.rvd.std_hillshading(dem.Z, 
+		direction = 85., inclinaison = 55., exaggeration = 1.2, use_gpu = True,
 		 D4 = True, dx = dem.geo.dx)
 	
 	tp /= 2
@@ -141,8 +141,8 @@ def hs_drape(dem, arr2D, cmap = 'cividis', label = 'Metrics', alpha = 0.6,
 	if not (cut_off_max is None):
 		tp[arr2D>cut_off_max] = np.nan
 
-	if not (sea_level is None):
-		tp[dem.Z2D <= sea_level] = np.nan
+	if not (sea_level is None ):
+		tp[(dem.Z2D <= sea_level) if legacy else (dem.Z <= sea_level) ] = np.nan
 	
 
 	if(kwargs_imshow is None):

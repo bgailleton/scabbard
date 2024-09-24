@@ -169,7 +169,7 @@ def _check_leftest_col_customs_D4_flat(i:int, k:int, BCs, valid:bool, nx:int):
 		- B.G. (last modification 02/05/2024)
 	'''
 	# Only checking if it actually is on the first col
-	if( (i//nx) == 0):
+	if( (i%nx) == 0):
 		if(k==1):
 			valid = False
 	# Done
@@ -211,7 +211,7 @@ def _check_leftest_col_customs_D8_flat(i:int, k:int, BCs, valid:bool, nx:int):
 		- B.G. (last modification 02/05/2024)
 	'''
 	# Only checking if it actually is on the first col
-	if((i//nx) == 0):
+	if((i % nx) == 0):
 		if(k==0 or k == 3 or k == 5):
 			valid = False
 	# Done
@@ -254,7 +254,7 @@ def _check_rightest_col_customs_D4_flat(i:int, k:int, BCs, valid:bool, nx:int):
 		- B.G. (last modification 02/05/2024)
 	'''
 	# Only checking if it actually is on the first col
-	if(i//nx == nx-1):
+	if(i%nx == nx-1):
 		if(k==2):
 			valid = False
 	# Done
@@ -296,7 +296,7 @@ def _check_rightest_col_customs_D8_flat(i:int, k:int, BCs, valid:bool, nx:int):
 		- B.G. (last modification 02/05/2024)
 	'''
 	# Only checking if it actually is on the first col
-	if(i//nx == nx-1):
+	if(i%nx == nx-1):
 		if(k==2 or k == 4 or k == 7):
 			valid = False
 	# Done
@@ -369,7 +369,7 @@ def _check_bottom_row_customs_D8(i:int, j:int, k:int, BCs, valid:bool, ny:int):
 	return valid
 
 @nb.njit()
-def _check_bottom_row_customs_D8_flat(i:int, j:int, k:int, BCs, valid:bool, nx:int, ny:int):
+def _check_bottom_row_customs_D8_flat(i:int, k:int, BCs, valid:bool, nx:int, ny:int):
 	'''
 	Internal function to check if neighbouring is possible for nodes at the bottom row
 	Caution: this is optimised for neighbouring checks and ignores the top and bottom rows
@@ -450,18 +450,18 @@ def _cast_neighbour_customs_D4_flat(i:int, k:int, valid:bool, BCs, nx:int):
 	# if the neighbouring operation is still valid after that:
 	if(valid):
 		if(k == 0):
-			ir = i-nx
+			ir = np.int64(i-nx)
 		if(k == 1):
-			ir = i+1
+			ir = np.int64(i-1)
 		if(k == 2):
-			ir = i+1
+			ir = np.int64(i+1)
 		if(k == 3):
-			ir = i+nx
+			ir = np.int64(i+nx)
 
 	if(BCs[i] == 0 or ir == -1):
-		ir = -1
+		ir = np.int64(-1)
 	elif(BCs[ir] == 0):
-		ir = -1		
+		ir = np.int64(-1)
 
 	return ir
 
@@ -529,31 +529,30 @@ def _cast_neighbour_customs_D8_flat(i:int, k:int, valid:bool, BCs, nx:int):
 	'''
 
 	# Preformat the output
-	ir = -1
-
+	ir:nb.int64 = -1
 	# if the neighbouring operation is still valid after that:
 	if(valid):
 		if(k == 0):
-			ir = i-nx-1
+			ir = np.int64(i-nx-1)
 		elif(k == 1):
-			ir = i-nx
+			ir = np.int64(i-nx)
 		elif(k == 2):
-			ir = i-nx+1
+			ir = np.int64(i-nx+1)
 		elif(k == 3):
-			ir = i-1
+			ir = np.int64(i-1)
 		elif(k == 4):
-			ir = i+1
+			ir = np.int64(i+1)
 		elif(k == 5):
-			ir = i+nx-1
+			ir = np.int64(i+nx-1)
 		elif(k == 6):
-			ir = i+nx
+			ir = np.int64(i+nx)
 		elif(k == 7):
-			ir = i+nx+1
+			ir = np.int64(i+nx+1)
 
 	if(BCs[i] == 0 or ir == -1):
-		ir = -1
+		ir = np.int64(-1)
 	elif(BCs[ir] == 0):
-		ir = -1
+		ir = np.int64(-1)
 		
 	return ir
 
@@ -610,10 +609,10 @@ def neighbours_D4_flat(i:int, k:int, BCs, nx:int, ny:int):
 	valid = _check_top_row_customs_D4_flat(i,k,BCs,valid,nx)
 	valid = _check_leftest_col_customs_D4_flat(i,k,BCs,valid,nx)
 	valid = _check_rightest_col_customs_D4_flat(i,k,BCs,valid,nx)
-	valid = _check_bottom_row_customs_D4_flat(i,k,BCs,valid,ny)
+	valid = _check_bottom_row_customs_D4_flat(i,k,BCs,valid,nx,ny)
 
 	# getting the actual neighbours
-	return _cast_neighbour_customs_D4_flat(i,j,k,valid,BCs,nx)
+	return _cast_neighbour_customs_D4_flat(i,k,valid,BCs,nx)
 
 
 @nb.njit()
@@ -666,13 +665,13 @@ def neighbours_D8_flat(i:int, k:int, BCs, nx:int, ny:int):
 	valid = True
 
 	# Breaking down the checks
-	valid = _check_top_row_customs_D8_flat(i,j,k,BCs,valid,nx)
-	valid = _check_leftest_col_customs_D8_flat(i,j,k,BCs,valid,nx)
-	valid = _check_rightest_col_customs_D8_flat(i,j,k,BCs,valid,nx)
-	valid = _check_bottom_row_customs_D8_flat(i,j,k,BCs,valid,nx,ny)
+	valid = _check_top_row_customs_D8_flat(i,k,BCs,valid,nx)
+	valid = _check_leftest_col_customs_D8_flat(i,k,BCs,valid,nx)
+	valid = _check_rightest_col_customs_D8_flat(i,k,BCs,valid,nx)
+	valid = _check_bottom_row_customs_D8_flat(i,k,BCs,valid,nx,ny)
 
 	# getting the actual neighbours
-	return _cast_neighbour_customs_D8_flat(i,j,k,valid,BCs,nx)
+	return _cast_neighbour_customs_D8_flat(i,k,valid,BCs,nx)
 
 
 
@@ -863,3 +862,17 @@ def dx_from_k_D8(dx, k):
 	Gets the distance to the neighbours
 	'''
 	return dx if (k == 1 or k == 3 or k == 4 or k == 6) else 1.41421356237*dx
+
+@nb.njit()
+def dy_from_k_D4(dx, k):
+	'''
+	Gets the distance to the neighbours
+	'''
+	return dx
+
+@nb.njit()
+def dy_from_k_D8(dx, k):
+	'''
+	Gets the distance to the neighbours
+	'''
+	return dx if (k == 1 or k == 3 or k == 4 or k == 6) == False else 1.41421356237*dx

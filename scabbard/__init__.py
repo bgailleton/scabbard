@@ -1,9 +1,11 @@
 """Top-level package for scabbard."""
 
 __author__ = """Boris Gailleton"""
-__email__ = 'boris.gailleton@univ-rennes1.fr'
-__version__ = '0.0.1'
+__email__ = 'boris.gailleton@univ-rennes.fr'
+__version__ = '0.0.6'
 
+
+# Legacy imports
 from .config import *
 from .enumeration import *
 from .utils import *
@@ -22,6 +24,9 @@ from .environment import *
 from .blendplot import *
 from .local_file_picker import *
 
+
+# New module-type import system
+from . import raster
 from . import riverdale
 from . import steenbok
 from . import riverdale as rvd
@@ -29,6 +34,8 @@ from . import steenbok as ste
 from . import _utils as ut
 from . import flow
 from . import visu
-from . import raster
 from . import io
 
+
+# Common import centralised
+import topotoolbox as ttb

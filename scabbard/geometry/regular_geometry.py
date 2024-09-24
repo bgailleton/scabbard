@@ -212,3 +212,7 @@ class RegularGeometry(BaseGeometry):
 		row,col = self.X_Y_to_row_col(X,Y)
 		return self.row_col_to_flatID(row,col)
 
+	@property
+	def dxnxny(self):
+		return self.dx,self.nx,self.ny	 
+
