@@ -16,7 +16,7 @@ def gaussian_fourier(
 
 	if(BCs is None) == False:
 		# Compute the distance transform
-		distance, indices = distance_transform_edt(mask, return_indices=True)
+		distance, indices = distance_transform_edt((mask == 0), return_indices=True)
 
 		# Extract the nearest valid values using the indices
 		topography = topography[tuple(indices)]
