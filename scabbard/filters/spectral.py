@@ -1,6 +1,6 @@
 import numpy as np
 import scabbard as scb
-
+from scipy.ndimage import distance_transform_edt
 
 
 def gaussian_fourier(
@@ -13,7 +13,14 @@ def gaussian_fourier(
 	
 	# Value to filter
 	topography = grid.Z.copy()
-	topography[mask == 0] = 0.
+
+	if(BCs is None) == False:
+		# Compute the distance transform
+		distance, indices = distance_transform_edt(mask, return_indices=True)
+
+		# Extract the nearest valid values using the indices
+		topography = topography[tuple(indices)]
+		
 
 	# Perform the 2D Fourier Transform
 	fourier_transform = np.fft.fft2(topography)
