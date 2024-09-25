@@ -9,11 +9,11 @@ def gaussian_fourier(
 	BCs = None, magnitude = 5):
 	
 	# masking
-	mask = np.ones_like(topography).astype(np.uint8) if BCs is None else np.where(BCs == 0,0,1).astype(np.uint8)
+	mask = np.ones_like(topography).astype(np.uint8) if BCs is None else np.where(BCs == 0, 0, 1).astype(np.uint8)
 	
 	# Value to filter
 	topography = grid.Z.copy()
-	topography[mask] = np.nan
+	topography[mask == 0] = 0.
 
 	# Perform the 2D Fourier Transform
 	fourier_transform = np.fft.fft2(topography)
@@ -37,7 +37,7 @@ def gaussian_fourier(
 	inverse_shifted = np.fft.ifftshift(filtered_fourier)
 	smoothed_topography = np.fft.ifft2(inverse_shifted).real  # Take the real part since the result might be complex
 
-	smoothed_topography[mask == 0] = topography[mask == 0]
+	smoothed_topography[mask == 0] = grid.Z[mask == 0]
 
 	if inplace:
 		grid.z = smoothed_topography
