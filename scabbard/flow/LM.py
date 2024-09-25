@@ -50,8 +50,8 @@ def _priority_flood_from_dem(dem, BCs, D4, in_place, dx, gridcpp, backend, step_
 
 	if(backend == 'ttb'):
 		dims = np.array( [tZ.shape[0], tZ.shape[1]],dtype = np.uint64)
-		ttb.compute_priority_flood_plus_topological_ordering(tZ.ravel(), np.zeros_like(tZ, dtype = np.uint64), BCs.ravel(), dims, not D4,step_fill)
-		# ttb.compute_priority_flood(tZ.ravel(), BCs.ravel(), dem.dims, not D4)
+		ttb.compute_priority_flood(tZ.ravel(), BCs.ravel(), dem.dims, not D4, step_fill)
+		# ttb.compute_priority_flood_plus_topological_ordering(tZ.ravel(), np.zeros_like(tZ, dtype = np.uint64), BCs.ravel(), dims, not D4, step_fill)
 
 	elif backend == 'dagger':
 		if(gridcpp is None):
@@ -60,7 +60,8 @@ def _priority_flood_from_dem(dem, BCs, D4, in_place, dx, gridcpp, backend, step_
 
 	if(in_place == False):
 		return dem.duplicate_with_other_data(tZ)
-
+	else:
+		dem.Z[:,:] = tZ[:,:]
 
 def priority_flood(Z, BCs = None, D4 = True, in_place = True, dx = 1., gridcpp = None, backend = 'ttb', step_fill = 1e-3):
 	'''
@@ -70,6 +71,7 @@ def priority_flood(Z, BCs = None, D4 = True, in_place = True, dx = 1., gridcpp =
 	if(isinstance(Z,np.ndarray)):
 		return _priority_flood_from_Z(Z, BCs, D4, in_place, dx, gridcpp, backend, step_fill)
 	elif(isinstance(Z,scb.raster.RegularRasterGrid)):
+		print("FILLING")
 		return _priority_flood_from_dem(Z, BCs, D4, in_place, dx, gridcpp, backend, step_fill)
 
 	

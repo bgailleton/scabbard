@@ -5,7 +5,7 @@ from scipy.ndimage import distance_transform_edt
 
 def gaussian_fourier(
 	grid: scb.raster.RegularRasterGrid, 
-	inplace = False, 
+	in_place = False, 
 	BCs = None, magnitude = 5):
 	
 	# masking
@@ -42,11 +42,11 @@ def gaussian_fourier(
 
 	# Perform the inverse Fourier Transform to reconstruct the smoothed topography
 	inverse_shifted = np.fft.ifftshift(filtered_fourier)
-	smoothed_topography = np.fft.ifft2(inverse_shifted).real  # Take the real part since the result might be complex
+	smoothed_topography = np.fft.ifft2(inverse_shifted).real.astype(grid.Z.dtype)  # Take the real part since the result might be complex
 
 	smoothed_topography[mask == 0] = grid.Z[mask == 0]
 
-	if inplace:
-		grid.z = smoothed_topography
+	if in_place:
+		grid.Z[:,:] = smoothed_topography[:,:]
 	else:
 		return grid.duplicate_with_other_data(smoothed_topography)

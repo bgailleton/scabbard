@@ -69,6 +69,7 @@ class Riverdale:
 		self.constraints = None
 
 		self.fdir = None
+		self.fsurf = None
 
 		## Field for morpho
 		self.QsA = None
@@ -99,14 +100,12 @@ class Riverdale:
 			if(self.param.use_fdir_D8):
 				rdfl.compute_D4_Zw(self.Z, self.hw, self.fdir, self.BCs)
 			else:
-				fsurf = scb.flow.compute_flow_distance_from_outlet(scb.raster.raster_from_array(self.Z.to_numpy()+self.hw.to_numpy(),self.param._dx),
-					method = 'min',
-					BCs = None if self.param.BCs is None else self.BCs.to_numpy(),
-					fill_LM = True,
-					step_fill = 1e-3,
-					D8 = False
-					)
-				self.fdir.from_numpy(fsurf)
+				fsurf = scb.raster.raster_from_array(self.Z.to_numpy()+self.hw.to_numpy(),self.param._dx)
+				tBCs = None if self.param.BCs is None else self.BCs.to_numpy()
+				scb.flow.priority_flood(fsurf, in_place = True,BCs = tBCs)
+				scb.filters.gaussian_fourier(fsurf, in_place = True, magnitude = 50,BCs = tBCs)				 
+				scb.flow.priority_flood(fsurf, in_place = True,BCs = tBCs)
+				self.fsurf.from_numpy(fsurf.Z.astype(np.float32))
 
 		# Running loop
 		for it in range(n_steps):
@@ -164,7 +163,7 @@ class Riverdale:
 		if(self.param.use_fdir_D8):
 			rdhy._compute_Qw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs, self.fdir) #if rdhy.FlowMode.static_drape != self.param._hydro_compute_mode else rdhy.compute_Qw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.constraints, self.BCs)
 		else:
-			rdhy._compute_Qw_surfrec(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs, self.fdir) #if rdhy.FlowMode.static_drape != self.param._hydro_compute_mode else rdhy.compute_Qw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.constraints, self.BCs)
+			rdhy._compute_Qw_surfrec(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs, self.fsurf) #if rdhy.FlowMode.static_drape != self.param._hydro_compute_mode else rdhy.compute_Qw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.constraints, self.BCs)
 		
 		if(expe_CFL_variable):
 			rdhy._compute_hw_CFL(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs, 1e-4, 0.001 )
@@ -393,15 +392,14 @@ def create_from_params(param):
 	instance.PARAMHYDRO.dt_hydro = param.dt_hydro
 
 	#WILL NEED TO ADD THE OPTION  LATER
+	instance.fdir = ti.field(ti.u8, shape = (instance.GRID.ny,instance.GRID.nx))
+	instance.PARAMMORPHO.use_original_dir_for_LM = True
+	instance.PARAMHYDRO.use_original_dir_for_LM = True
+	instance.PARAMHYDRO.LM_pathforcer = param._LM_npath
 	if(param.use_fdir_D8):
-		instance.fdir = ti.field(ti.u8, shape = (instance.GRID.ny,instance.GRID.nx))
-		instance.PARAMMORPHO.use_original_dir_for_LM = True
-		instance.PARAMHYDRO.use_original_dir_for_LM = True
-		instance.PARAMHYDRO.LM_pathforcer = param._LM_npath
-	else:
-		instance.fdir = ti.field(ti.f32, shape = (instance.GRID.ny,instance.GRID.nx))
-		instance.PARAMMORPHO.use_original_dir_for_LM = False
-		instance.PARAMHYDRO.use_original_dir_for_LM = False
+		instance.fsurf = ti.field(ti.f32, shape = (instance.GRID.ny,instance.GRID.nx))
+	instance.PARAMMORPHO.use_original_dir_for_LM = False
+	instance.PARAMHYDRO.use_original_dir_for_LM = False
 
 	
 
@@ -484,14 +482,12 @@ def create_from_params(param):
 		rdfl.compute_D4_Zw(instance.Z, instance.hw, instance.fdir, instance.BCs)
 		# print(np.unique(instance.fdir.to_numpy()))
 	else:
-		fsurf = scb.flow.compute_flow_distance_from_outlet(scb.raster.raster_from_array(param.initial_Z,param._dx),
-			method = 'min',
-			BCs = param.BCs,
-			fill_LM = True,
-			step_fill = 1e-3,
-			D8 = False
-			)
-		instance.fdir.from_numpy(fsurf)	
+		fsurf = scb.raster.raster_from_array(instance.Z.to_numpy()+instance.hw.to_numpy(),instance.param._dx)
+		tBCs = None if instance.param.BCs is None else instance.BCs.to_numpy()
+		scb.flow.priority_flood(fsurf, in_place = True,BCs = tBCs)
+		scb.filters.gaussian_fourier(fsurf, in_place = True, magnitude = 50,BCs = tBCs)				 
+		scb.flow.priority_flood(fsurf, in_place = True,BCs = tBCs)
+		instance.fsurf.from_numpy(fsurf.Z.astype(np.float32))
 
 	return instance
 

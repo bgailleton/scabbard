@@ -10,15 +10,7 @@
 
 
 
-Python package for topographic analysis, landscape evolution modelling and hydro-morphodynamics modelling
-
-Includes:
-
-- Python interface to (`DAGGER`)[https://github.com/bgailleton/DAGGER], my `c++` sets of tools for topographic analysis, landscape evolution modelling 
-- CHONK (refactoring in progress, so far), see (GMD)[https://egusphere.copernicus.org/preprints/2023/egusphere-2022-1394]
-- Graphflood as published in (esurf)[https://egusphere.copernicus.org/preprints/2024/egusphere-2024-1239]
-- Some general `python` routines to process a DEM (e.g, io operations with `rasterio`)
-- `riverdale`: a GPU sets of tools for large-scale hydrodynamics (paper in progress)
+Python package for topographic analysis, landscape evolution modelling and hydro/morphodynamics simulations
 
 
 * Free software: MIT license
@@ -30,7 +22,7 @@ I need to clean/properly set the dependencies. So far:
 
 ```
 mamba install numpy scipy matplotlib ipympl jupyterlab rasterio numba cmcrameri plotly nicegui daggerpy
-pip install taichi
+pip install taichi pyscabbard
 ```
 
 
@@ -45,8 +37,7 @@ TODO
 
 ## Experimental
 
-Among the experimental features is a tentative link to Blender to make nice 3D plots. The latter will only get activated if called from blender and will happily be ignored by most.
-
+Among the experimental features is a tentative link to Blender to make nice 3D plots. The latter will only get activated if called from blender.
 Only tested on Ubuntu, it requires the following steps:
 
 1. identify the `python` version of your blender version

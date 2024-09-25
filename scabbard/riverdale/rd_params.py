@@ -735,18 +735,11 @@ def param_from_grid(grid):
 	TODo
 	'''
 	param = RDParams()
-	param.set_initial_conditions(grid.nx, grid.ny, grid.dx, grid.dx, grid.Z2D)
-
-	# TO MOVE IN STANDALONE FUNCTION
-	# if(initial_fill):
-	# 	if(param._boundaries == rdgd.BoundaryConditions.normal):
-	# 		ftopo = param.initial_Z + param.initial_hw
-	# 		dag._PriorityFlood_D4_normal_f32(ftopo)
-	# 		param.initial_hw += ftopo - (param.initial_Z + param.initial_hw)
-	# 	else:
-	# 		print("filling with PFD4 not implemented for boundary type")
-
+	if(isinstance(grid,scb.raster.RegularRasterGrid)):
+		param.set_initial_conditions(grid.geo.nx, grid.geo.ny, grid.geo.dx, grid.geo.dx, grid.Z)
+	else:
+		param.set_initial_conditions(grid.nx, grid.ny, grid.dx, grid.dx, grid.Z2D)
 	return param
 
 def param_from_dem(dem, initial_fill = True):
-	return param_from_grid(scb.grid.raster2RGrid(dem))
+	return param_from_grid(scb.io.load_raster(dem))
