@@ -26,12 +26,13 @@ from .local_file_picker import *
 
 
 # New module-type import system
+from . import _utils as ut
 from . import raster
 from . import riverdale
 from . import steenbok
 from . import riverdale as rvd
 from . import steenbok as ste
-from . import _utils as ut
+from . import filters
 from . import flow
 from . import visu
 from . import io
