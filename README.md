@@ -15,7 +15,7 @@ Python package to design, use or visualise topographic analysis, landscape evolu
 
 ### Built on the shoulder of giants
 
-`scabbard` started as a personal codebase and evolved toward a fully-fledge numerical Framework. It uses the robust and battle-tested scientific `python` stack (e.g. `numpy, scipy, numba, ...`) and geospatial `python` (e.g. `rasterio`, `geopandas`, `libgdal`, ...). It also rely on multiple domain-specific library to built a future-proof and community-compatible backend: [`libtopotoolbox` and `pytopotoolbox`](https://github.com/TopoToolbox), [`fastscapelib`](https://fastscapelib.readthedocs.io/en/latest/), [`LSDTopoTool`](https://lsdtopotools.github.io/) as well as my own collection of `c++` and `numba` routines. All the GPU backends use [`taichi`](https://docs.taichi-lang.org/) to ensure cross-platform/hardware compatibility and user-friendly code.
+`scabbard` started as a personal codebase and evolved toward a fully-fledge numerical Framework. It uses the robust and battle-tested scientific `python` stack (e.g. `numpy, scipy, numba, ...`) and geospatial `python` (e.g. `rasterio`, `geopandas`, `libgdal`, ...). It also relies on multiple domain-specific libraries to built a future-proof and community-compatible backend: [`libtopotoolbox` and `pytopotoolbox`](https://github.com/TopoToolbox), [`fastscapelib`](https://fastscapelib.readthedocs.io/en/latest/), [`LSDTopoTool`](https://lsdtopotools.github.io/) as well as my own collection of `c++` and `numba` routines. All the GPU backends use [`taichi`](https://docs.taichi-lang.org/) to ensure cross-platform/hardware compatibility and user-friendly code.
 
 
 * Free software: MIT license
