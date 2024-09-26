@@ -1,9 +1,8 @@
-'''
+"""
 Describes a raster-like regular grid.
 Will replace the Rgrid object at some points
 WIP
-'''
-
+"""
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -15,114 +14,111 @@ from scipy.ndimage import gaussian_filter
 import random
 from copy import deepcopy
 
+
 class RegularRasterGrid(object):
+    """
+    Manages a regular grid with helper functions
+    """
 
-	"""
-	Manages a regular grid with helper functions
-	"""
-	
+    def __init__(self, value, geometry, dtype=np.float32):
+        """ """
 
-	def __init__(self, value, geometry, dtype = np.float32):
+        super().__init__()
 
-		'''
-			
-		'''
+        # Check compiance with geometry:
+        if isinstance(geometry, geo.RegularGeometry) == False:
+            raise AttributeError(
+                "a RegularRasterGrid object must be created with a geometry of type RegularGeometry"
+            )
+            # Checking if the geometry correspond to the shape of the array
+            if Z.shape != geometry.shape:
+                raise AttributeError(
+                    "Matrix not the size indicated in geometry when trying to instanciate RegularRasterGrid"
+                )
 
-		super().__init__()
+        # All good then I can instanciate the values
+        self.Z = value
+        self.geo = geometry
 
-		# Check compiance with geometry:
-		if(isinstance(geometry, geo.RegularGeometry) == False):
-			raise AttributeError("a RegularRasterGrid object must be created with a geometry of type RegularGeometry")
-			# Checking if the geometry correspond to the shape of the array
-			if(Z.shape != geometry.shape):
-				raise AttributeError("Matrix not the size indicated in geometry when trying to instanciate RegularRasterGrid")
+        # Converting type if needed
+        if self.Z.dtype != dtype:
+            self.Z = self.Z.astype(dtype)
 
-		# All good then I can instanciate the values
-		self.Z = value
-		self.geo = geometry
+    def duplicate_with_other_data(self, value):
+        """
+        Returns a copy of this raster with different data
+        Useful to create another array with the same geometry and all
 
-		# Converting type if needed
-		if(self.Z.dtype != dtype):
-			self.Z = self.Z.astype(dtype)
+        Arguments:
+                - value: the 2D numpy array replacing the value
 
-		
-	def duplicate_with_other_data(self, value):
-		'''
-		Returns a copy of this raster with different data
-		Useful to create another array with the same geometry and all
+        Returns:
+                - A copy of the current raster with the new value field
+        Authors:
+                - B.G (last modifications 09/2024)
+        """
 
-		Arguments:
-			- value: the 2D numpy array replacing the value
+        co = deepcopy(self)
+        co.Z = value
 
-		Returns:
-			- A copy of the current raster with the new value field
-		Authors:
-			- B.G (last modifications 09/2024)
-		'''
+        return co
 
-		co =  deepcopy(self)
-		co.Z = value
+    @property
+    def dims(self):
+        """
+        topotoolbox-friendly dim parameter
+        """
+        return np.array([self.geo.ny, self.geo.nx], dtype=np.uint64)
 
-		return co
+    @property
+    def rshp(self):
+        """
+        Arg to feed to np.reshape for 1D->2D
+        """
+        return np.array([self.geo.ny, self.geo.nx], dtype=np.uint64)
 
-	@property
-	def dims(self):
-		'''
-		topotoolbox-friendly dim parameter
-		'''
-		return np.array([self.geo.ny, self.geo.nx], dtype = np.uint64)
+    # Common operator overload
+    def __add__(self, other):
+        if isinstance(other, RegularRasterGrid):
+            return RegularRasterGrid(self.Z + other.Z, self.geo)
+        else:
+            return RegularRasterGrid(self.Z + other, self.geo)
 
-	@property
-	def rshp(self):
-		'''
-		Arg to feed to np.reshape for 1D->2D
-		'''
-		return np.array([self.geo.ny, self.geo.nx], dtype = np.uint64)
-	
+    def __sub__(self, other):
+        if isinstance(other, RegularRasterGrid):
+            return RegularRasterGrid(self.Z - other.Z, self.geo)
+        else:
+            return RegularRasterGrid(self.Z - other, self.geo)
 
-		
+    def __mul__(self, other):
+        if isinstance(other, RegularRasterGrid):
+            return RegularRasterGrid(self.Z * other.Z, self.geo)
+        else:
+            return RegularRasterGrid(self.Z * other, self.geo)
 
-	# Common operator overload
-	def __add__(self, other):
-		if isinstance(other, RegularRasterGrid):
-			return RegularRasterGrid(self.Z + other.Z, self.geo)
-		else:
-			return RegularRasterGrid(self.Z + other, self.geo)
+    def __truediv__(self, other):
+        if isinstance(other, RegularRasterGrid):
+            return RegularRasterGrid(self.Z / other.Z, self.geo)
+        else:
+            return RegularRasterGrid(self.Z / other, self.geo)
 
-	def __sub__(self, other):
-		if isinstance(other, RegularRasterGrid):
-			return RegularRasterGrid(self.Z - other.Z, self.geo)
-		else:
-			return RegularRasterGrid(self.Z - other, self.geo)
 
-	def __mul__(self, other):
-		if isinstance(other, RegularRasterGrid):
-			return RegularRasterGrid(self.Z * other.Z, self.geo)
-		else:
-			return RegularRasterGrid(self.Z * other, self.geo)
+def raster_from_array(Z, dx=1.0, xmin=0.0, ymin=0.0, dtype=np.float32):
+    """
+    Helper function to get a RegularRasterGrid from a 2D array
 
-	def __truediv__(self, other):
-		if isinstance(other, RegularRasterGrid):
-			return RegularRasterGrid(self.Z / other.Z, self.geo)
-		else:
-			return RegularRasterGrid(self.Z / other, self.geo)
+    Arguments:
+            - Z: the 2D value
+            - dx: the spatial step
+            - xmin: left coordinate bound
+            - ymin: bottom coordinate bound
+            - dtype: numpy data type of Z
 
-def raster_from_array(Z, dx = 1., xmin = 0., ymin = 0., dtype = np.float32):
-	'''
-	Helper function to get a RegularRasterGrid from a 2D array
-	
-	Arguments:
-		- Z: the 2D value
-		- dx: the spatial step
-		- xmin: left coordinate bound
-		- ymin: bottom coordinate bound
-		- dtype: numpy data type of Z
+    Returns:
+            - a RegularRasterGrid object
 
-	Returns:
-		- a RegularRasterGrid object
-
-	Authors:
-		- B.G. (last modification 09/2024)
-	'''
-	geometry = scb.geometry.RegularGeometry(Z.shape[1], Z.shape[0], dx, xmin, ymin)
-	return RegularRasterGrid(Z, geometry, dtype = dtype)
+    Authors:
+            - B.G. (last modification 09/2024)
+    """
+    geometry = scb.geometry.RegularGeometry(Z.shape[1], Z.shape[0], dx, xmin, ymin)
+    return RegularRasterGrid(Z, geometry, dtype=dtype)
