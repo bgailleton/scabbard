@@ -10,7 +10,12 @@
 
 
 
-Python package for topographic analysis, landscape evolution modelling and hydro/morphodynamics simulations
+Python package to design, use or visualise topographic analysis, landscape evolution models and hydro/morphodynamics simulations. Among other, home of [GraphFlood](https://egusphere.copernicus.org/preprints/2024/egusphere-2024-1239/) (`CPU` and `GPU`) and [`CHONK`](https://gmd.copernicus.org/articles/17/71/2024/).
+
+
+### Built on the shoulder of giants
+
+`scabbard` started as a personal codebase and evolved toward a fully-fledge numerical Framework. It uses the robust and battle-tested scientific `python` stack (e.g. `numpy, scipy, numba, ...`) and geospatial `python` (e.g. `rasterio`, `geopandas`, `libgdal`, ...). It also rely on multiple domain-specific library to built a future-proof and community-compatible backend: [`libtopotoolbox` and `pytopotoolbox`](https://github.com/TopoToolbox), [`fastscapelib`](https://fastscapelib.readthedocs.io/en/latest/), [`LSDTopoTool`](https://lsdtopotools.github.io/) as well as my own collection of `c++` and `numba` routines. All the GPU backends use [`taichi`](https://docs.taichi-lang.org/) to ensure cross-platform/hardware compatibility and user-friendly code.
 
 
 * Free software: MIT license
@@ -18,12 +23,14 @@ Python package for topographic analysis, landscape evolution modelling and hydro
 
 ## How to install
 
-I need to clean/properly set the dependencies. So far:
+I am currently working on an easier installation process. In the meantime, using a `conda` environment:
 
 ```
-mamba install numpy scipy matplotlib ipympl jupyterlab rasterio numba cmcrameri plotly nicegui daggerpy
+mamba install numpy scipy matplotlib ipympl jupyterlab rasterio numba cmcrameri plotly nicegui daggerpy pip geopandas
 pip install taichi pyscabbard
 ```
+
+You also need to follow the installation procedure of [`pytopotoolbox`](https://github.com/TopoToolbox/pytopotoolbox).  
 
 
 ## Usage
@@ -33,21 +40,6 @@ TODO
 ## Features
 
 * TODO
-
-
-## Experimental
-
-Among the experimental features is a tentative link to Blender to make nice 3D plots. The latter will only get activated if called from blender.
-Only tested on Ubuntu, it requires the following steps:
-
-1. identify the `python` version of your blender version
-2. create a new env with this python version
-3. install all the packages you need either with conda or pip.
-4. AFTER EVERY NEW ADDITIONS (of one or multiple packages at once) YOU'LL NEED TO LINK THE PACKAGES TO BLENDER:
-
-`ln -s /path/to/your/environment/site-packages/* ~/.config/blender/3.X/scripts/addons/modules/`
-
-Where you need to adapts the paths and version number
 
 ## Credits
 

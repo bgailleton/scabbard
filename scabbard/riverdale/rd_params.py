@@ -569,14 +569,14 @@ class RDParams:
 		else:
 			return False
 
-	def preflood_lakes(self):
+	def preflood_lakes(self, fill_coeff = 0.75):
 
 		tZ = self.initial_Z.copy()
 		if(not (self.initial_hw is None)):
 			tZ += self.initial_hw
 		diff = np.copy(tZ)
 		scb.flow.priority_flood(tZ, BCs = scb.flow.get_normal_BCs(tZ) if self.BCs is None else self.BCs, D4 = True, in_place = True, dx = 1., step_fill = 1e-3)
-		diff = tZ - diff
+		diff = (tZ - diff) * fill_coeff
 
 		self.initial_Z += diff
 
