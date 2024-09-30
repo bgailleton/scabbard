@@ -144,6 +144,9 @@ class RDParams:
 
 		self._precompute_Qw = False
 
+
+		self._stationary = True
+
 		#TODO once I find a stable method
 		# # Stability criterion
 		# self._
@@ -609,6 +612,20 @@ class RDParams:
 			self._use_fdir_D8 = val
 		else:
 			warnings.warn('Cannot update static use_fdir_D8 param after model initialisation')
+
+	@property
+	def stationary(self):
+		'''
+		if True, model runs in stationary mode, i.e. it does not propagate flood wave but fous on the equillibirum solution
+		If False, propagate transient flow through time (warning, this is much slower)
+		'''
+		return self._stationary
+
+	@stationary.setter
+	def stationary(self,val:bool):
+		self._stationary = val
+
+
 
 
 	@property

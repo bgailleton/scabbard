@@ -10,7 +10,7 @@
 
 
 
-Python package to design, use or visualise topographic analysis, landscape evolution models and hydro/morphodynamics simulations. Among other, home of [GraphFlood](https://egusphere.copernicus.org/preprints/2024/egusphere-2024-1239/) (`CPU` and `GPU`) and [`CHONK`](https://gmd.copernicus.org/articles/17/71/2024/).
+Python package to design, use or visualise topographic analysis, landscape evolution models and hydro/morphodynamics simulations. Among other, home of [GraphFlood](https://egusphere.copernicus.org/preprints/2024/egusphere-2024-1239/) (`CPU` and `GPU`) and [`CHONK`](https://gmd.copernicus.org/articles/17/71/2024/). This framework is also building a `GPU` backend for general purpose landscape modeling.
 
 
 ### Built on the shoulder of giants

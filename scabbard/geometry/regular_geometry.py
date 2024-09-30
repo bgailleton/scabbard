@@ -44,6 +44,8 @@ class RegularGeometry(BaseGeometry):
 		self._ny = ny
 		self._nxy = nx * ny
 		self._dx = dx
+		self._lx = dx * (nx+1)
+		self._ly = dx * (ny+1)
 		self._dxy = 2**0.5 * dx
 		self._xmin = xmin
 		self._ymin = ymin
@@ -100,6 +102,27 @@ class RegularGeometry(BaseGeometry):
 		- B.G. (last modifications: 08/2024)
 		'''
 		return self._ny
+
+	@property
+	def lx(self):
+		'''
+		return the length in the x directions
+
+		Authors:
+		- B.G. (last modifications: 08/2024)
+		'''
+		return self._lx
+
+
+	@property
+	def ly(self):
+		'''
+		return the length in the y directions
+
+		Authors:
+		- B.G. (last modifications: 08/2024)
+		'''
+		return self._ly
 
 	def shape(self):
 		'''
@@ -211,6 +234,44 @@ class RegularGeometry(BaseGeometry):
 		'''
 		row,col = self.X_Y_to_row_col(X,Y)
 		return self.row_col_to_flatID(row,col)
+
+	@property
+	def xl_centered(self):
+		return self.xmin+self.dx/2.
+
+	@property
+	def xr_centered(self):
+		return self.xmax-self.dx/2.
+
+	@property
+	def yt_centered(self):
+		return self.ymin+self.dx/2.
+
+	@property
+	def yb_centered(self):
+		return self.ymay-self.dx/2.
+
+	@property
+	def X(self):
+		'''
+		array of X indices at the center of nodes
+		'''
+		return np.linspace(self.xl_centered,self.xmax, self.nx)
+
+	@property
+	def Y(self):
+		'''
+		array of Y indices at the center of nodes
+		'''
+		return np.linspace(self.yt_centered, self.ymax, self.ny)
+
+	@property
+	def XY(self):
+		'''
+		return a mesh grid of X and Y coorditates
+		i.e. 2 2d arrays of Xs and Ys for each nodes
+		'''
+		return np.meshgrid(self.X, self.Y)
 
 	@property
 	def dxnxny(self):

@@ -161,15 +161,21 @@ class Riverdale:
 			return
 
 		if(self.param.use_fdir_D8):
-			rdhy._compute_Qw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs, self.fdir) #if rdhy.FlowMode.static_drape != self.param._hydro_compute_mode else rdhy.compute_Qw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.constraints, self.BCs)
+			if(self.param.stationary):
+				rdhy._compute_Qw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs, self.fdir) #if rdhy.FlowMode.static_drape != self.param._hydro_compute_mode else rdhy.compute_Qw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.constraints, self.BCs)
+			else:
+				rdhy._compute_Qw_dynamic(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs) #if rdhy.FlowMode.static_drape != self.param._hydro_compute_mode else rdhy.compute_Qw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.constraints, self.BCs)
 		else:
 			rdhy._compute_Qw_surfrec(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs, self.fsurf) #if rdhy.FlowMode.static_drape != self.param._hydro_compute_mode else rdhy.compute_Qw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.constraints, self.BCs)
 		
 		if(expe_CFL_variable):
 			rdhy._compute_hw_CFL(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs, 1e-4, 0.001 )
-		else:			
-			rdhy.compute_hw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs) if rdhy.FlowMode.static_drape != self.param.hydro_compute_mode else rdhy.compute_hw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.constraints, self.BCs)
-
+		else:	
+			if(self.param.stationary):		
+				rdhy.compute_hw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs) if rdhy.FlowMode.static_drape != self.param.hydro_compute_mode else rdhy.compute_hw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.constraints, self.BCs)
+			else:
+				rdhy.compute_hw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs) if rdhy.FlowMode.static_drape != self.param.hydro_compute_mode else rdhy.compute_hw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.constraints, self.BCs)
+				
 	def raise_analytical_hw(self):
 		'''
 		This function uses the current fields of hw and Qwin (QwA) to calculate an analytical hw.
