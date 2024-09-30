@@ -37,7 +37,7 @@ def slope2D_S(
 
 	XX,YY = grid.geo.XY
 	
-	Z = (Y * slope)[::-1]
+	Z = (YY * slope)[::-1]
 	grid.Z[:,:] = Z[:,:]
 
 	BCs = np.ones((ny,nx),dtype = np.uint8)

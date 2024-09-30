@@ -52,7 +52,7 @@ def _legacy_hillshaded_basemap(dem, sea_level = None, fig = None, ax = None, **k
 
 
 
-def hillshaded_basemap(dem, sea_level = None, fig = None, ax = None, **kwargs):
+def hillshaded_basemap(dem, sea_level = None, fig = None, ax = None, use_gpu = False, **kwargs):
 	'''
 	Return a fig,ax with a hillshaded relief to the right extent. Ready to be used as base map to plot something on the top
 
@@ -81,7 +81,7 @@ def hillshaded_basemap(dem, sea_level = None, fig = None, ax = None, **kwargs):
 	tp = scb.rvd.std_hillshading(dem.Z, 
 		direction = 40., inclinaison = 55., exaggeration = 1.2, 
 		use_gpu = True, D4 = True, dx = dem.geo.dx) + scb.rvd.std_hillshading(dem.Z, 
-		direction = 85., inclinaison = 55., exaggeration = 1.2, use_gpu = True,
+		direction = 85., inclinaison = 55., exaggeration = 1.2, use_gpu = use_gpu,
 		 D4 = True, dx = dem.geo.dx)
 	
 	tp /= 2
