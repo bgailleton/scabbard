@@ -80,7 +80,7 @@ def hillshaded_basemap(dem, sea_level = None, fig = None, ax = None, use_gpu = F
 	# array to plot
 	tp = scb.rvd.std_hillshading(dem.Z, 
 		direction = 40., inclinaison = 55., exaggeration = 1.2, 
-		use_gpu = True, D4 = True, dx = dem.geo.dx) + scb.rvd.std_hillshading(dem.Z, 
+		use_gpu = use_gpu, D4 = True, dx = dem.geo.dx) + scb.rvd.std_hillshading(dem.Z, 
 		direction = 85., inclinaison = 55., exaggeration = 1.2, use_gpu = use_gpu,
 		 D4 = True, dx = dem.geo.dx)
 	
