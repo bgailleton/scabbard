@@ -64,6 +64,10 @@ class GridParams:
 		self.nxy = 1.
 		self.boundaries = BoundaryConditions.normal
 
+
+
+
+
 # Class Holder
 GRID = GridParams()
 

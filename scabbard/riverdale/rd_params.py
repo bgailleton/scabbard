@@ -19,6 +19,30 @@ import scabbard as scb
 import dagger as dag
 import warnings
 import taichi as ti
+import sys, os
+
+
+# Disable
+def blockPrint():
+	sys.stdout = open(os.devnull, 'w')
+
+# Restore
+def enablePrint():
+	sys.stdout = sys.__stdout__
+
+def reinit_ti(rd, params):
+	blockPrint()
+	QwA = rd.QwA.to_numpy()
+	hw = rd.hw.to_numpy()
+	# params = rd.param
+	ti.init(ti.gpu)
+	# print(params)
+	params.rd = None
+	rd = scb.rvd.create_from_params(params)
+	rd.QwA.from_numpy(QwA)
+	rd.hw.from_numpy(hw)
+	enablePrint()
+	return rd
 
 
 class RDParams:
@@ -422,6 +446,9 @@ class RDParams:
 
 		self._dt_hydro = value
 
+		if not (self._RD is None):
+			raise ValueError("cannot change dt_hydro after initialisation (static variable). You need to call the dedicated function that reboot the model")
+
 	@property
 	def precipitations(self):
 		'''
@@ -463,7 +490,7 @@ class RDParams:
 
 		# Cannot change the type of input if the runtime is already initiated
 		if(self._2D_precipitations != input2D and self._RD is not None):
-			raise Exception("You cannot change precipitations from 1D to 2D (or the other way) once the model is instantiated (working on that).")
+			raise Exception("You cannot change precipitations from 1D to 2D (or the other way) once the model is instantiated (working on that). (scb.rvd.change_hydro_dt)")
 
 		# if I reach here I can set the parameters
 		self._precipitations = value
@@ -760,3 +787,23 @@ def param_from_grid(grid):
 
 def param_from_dem(dem, initial_fill = True):
 	return param_from_grid(scb.io.load_raster(dem))
+
+
+
+def change_dt_hydro(rd,param, new_dt):
+	'''
+	Recompile the model with a new dt_hydro. Required as this parameter is a compile-time constant
+
+	Arguments:
+		- rd: the riverdale model
+		- param: the param object
+		- new_dt: the new time step for the hydro model
+
+	Returns:
+		- a new rd object, edits param in place
+
+	Authors: 
+		- B.G. (last modification: 09/2024)
+	'''
+	param._dt_hydro = new_dt
+	return reinit_ti(rd, param)
