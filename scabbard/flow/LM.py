@@ -76,7 +76,7 @@ def priority_flood(Z, BCs = None, D4 = True, in_place = True, dx = 1., gridcpp =
 
 	
 
-def break_bridges(grid, in_place = False, BCs = None, step_fill = 1e-3):
+def legacy_break_bridges(grid, in_place = False, BCs = None, step_fill = 1e-3):
 	'''
 	Experimental function to break bridges and local minimas in a general way
 	
@@ -105,9 +105,28 @@ def break_bridges(grid, in_place = False, BCs = None, step_fill = 1e-3):
 	
 
 
+def break_bridges(grid, in_place = False, BCs = None, step_fill = 1e-3):
+
+	if(isinstance(grid,scb.raster.RegularRasterGrid) == False):
+		return legacy_break_bridges(grid, in_place = False, BCs = None, step_fill = 1e-3)
 
 
+	Z = grid.Z.copy() if not in_place else grid.Z
 
+	if(BCs is None):
+		BCs = ut.normal_BCs_from_shape(grid.nx,grid.ny)
+
+
+	# first filling the topo
+	filled_Z = priority_flood(Z, BCs = BCs, in_place = False, dx = grid.geo.dx, step_fill = step_fill)
+
+	# COmputing a first graph
+	sgf = gr.SFGraph(filled_Z, BCs = None, D4 = True, dx = grid.geo.dx)
+
+	lmn.impose_downstream_minimum_elevation_decrease(Z.ravel(), sgf.Stack, sgf.Sreceivers.ravel(), delta = step_fill)
+
+	if(in_place == False):
+		return Z
 
 
 

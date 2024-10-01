@@ -52,7 +52,7 @@ def _legacy_hillshaded_basemap(dem, sea_level = None, fig = None, ax = None, **k
 
 
 
-def hillshaded_basemap(dem, sea_level = None, fig = None, ax = None, use_gpu = False, **kwargs):
+def hillshaded_basemap(dem, sea_level = None, fig = None, ax = None, use_gpu = False, mask = None, **kwargs):
 	'''
 	Return a fig,ax with a hillshaded relief to the right extent. Ready to be used as base map to plot something on the top
 
@@ -89,6 +89,9 @@ def hillshaded_basemap(dem, sea_level = None, fig = None, ax = None, use_gpu = F
 	if not (sea_level is None):
 		tp[dem.Z<sea_level] = np.nan
 
+	if not (mask is None):
+		tp[mask] = np.nan
+
 	ax.imshow(
 		tp,
 		cmap = 'gray',
@@ -104,7 +107,7 @@ def hillshaded_basemap(dem, sea_level = None, fig = None, ax = None, use_gpu = F
 
 def hs_drape(dem, arr2D, cmap = 'cividis', label = 'Metrics', alpha = 0.6, 
 	cut_off_min = None, cut_off_max = None, sea_level = None, vmin = None,
-	vmax = None, res = None, fig = None, ax = None, kwargs_imshow = None, **kwargs):
+	vmax = None, res = None, fig = None, ax = None, mask = None, kwargs_imshow = None, **kwargs):
 	'''
 	Quick visualisation of a DEM as a hillshade + an imshow-like data on the top of it with the same extent
 
@@ -117,6 +120,7 @@ def hs_drape(dem, arr2D, cmap = 'cividis', label = 'Metrics', alpha = 0.6,
 		- cut_off_min/max: any data on arr2D below or above this value will be ignored
 		- sea_level: any data on topo and arr2D where topo < that value will be ignored
 		- vmin/vmax: the extents of the colors for the cmap of arr2D
+		- mask: a binary mask to set additional nodata sections manually
 		- **kwargs: anything that goes into fig, ax = plt.subplots(...)
 	Returns:
 		- fig,ax  with everything plotted on it
@@ -126,9 +130,9 @@ def hs_drape(dem, arr2D, cmap = 'cividis', label = 'Metrics', alpha = 0.6,
 	'''
 
 	if(fig is None):
-		fig, ax = hillshaded_basemap(dem, sea_level = sea_level, **kwargs)
+		fig, ax = hillshaded_basemap(dem, sea_level = sea_level, mask = mask, **kwargs)
 	else:
-		hillshaded_basemap(dem, sea_level = sea_level, fig = fig, ax = ax, **kwargs)
+		hillshaded_basemap(dem, sea_level = sea_level, fig = fig, ax = ax, mask = mask, **kwargs)
 
 	if(isinstance(dem, scb.RGrid)):
 		legacy = True
@@ -143,6 +147,9 @@ def hs_drape(dem, arr2D, cmap = 'cividis', label = 'Metrics', alpha = 0.6,
 
 	if not (sea_level is None ):
 		tp[(dem.Z2D <= sea_level) if legacy else (dem.Z <= sea_level) ] = np.nan
+
+	if not (mask is None ):
+		tp[mask] = np.nan
 	
 
 	if(kwargs_imshow is None):

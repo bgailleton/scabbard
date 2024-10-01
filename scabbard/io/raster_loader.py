@@ -39,7 +39,8 @@ def load_raster(fname, dtype = np.float32):
 	# Getting the actual data
 	Z = this_raster.read(1).astype(dtype)
 	
-	Z[Z == this_raster.nodatavals] = np.nan
+	# NO no data handling so far
+	# Z[Z == this_raster.nodatavals] = np.nan
 
 	# Checks if the DEM has a crs or not
 	try:
