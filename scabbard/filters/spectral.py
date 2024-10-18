@@ -9,7 +9,7 @@ def gaussian_fourier(
 	BCs = None, magnitude = 5):
 	
 	# masking
-	mask = np.ones_like(topography).astype(np.uint8) if BCs is None else np.where(BCs == 0, 0, 1).astype(np.uint8)
+	mask = np.ones_like(grid.Z).astype(np.uint8) if (BCs is None) else (np.where(BCs == 0, 0, 1).astype(np.uint8))
 	
 	# Value to filter
 	topography = grid.Z.copy()

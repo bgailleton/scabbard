@@ -49,6 +49,8 @@ class HydroParams:
 		self.clamp_div_hw = True
 		self.clamp_div_hw_val = 1e-3
 
+		self.checkboard_checker = False
+
 		self.CA_redis = 0.1
 
 PARAMHYDRO = HydroParams()
@@ -164,6 +166,9 @@ def _compute_Qw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 		if(gridfuncs.can_give(i,j,BCs) == False and gridfuncs.can_out(i,j,BCs) == False):
 			continue
 
+		if(QwA[i,j] == 0 and hw[i,j] == 0):
+			continue
+
 		# I'll store the hydraulic slope in this vector
 		Sws = ti.math.vec4(0.,0.,0.,0.)
 
@@ -173,6 +178,9 @@ def _compute_Qw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 		# Keeping in mind the steepest slope in the x and y direction to calculate the norm of the vector
 		SSx = 0.
 		SSy = 0.
+
+		# allmore = True
+		# allless = True
 
 		# None boundary case
 		if(gridfuncs.can_out(i,j,BCs) == False):
@@ -210,11 +218,16 @@ def _compute_Qw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 				# Summing it to global
 				sumSw += tS
 
+				# if(QwA[ir,jr] < QwA[i,j]):
+				# 	allmore = False
+				# elif(QwA[ir,jr] > QwA[i,j]):
+				# 	allless = False
+
 				# Done with processing this particular neighbour
 
 			# Local minima management (cheap but works)
 			## If I have no downward slope, I increase the elevation by a bit
-			if(sumSw == 0.):
+			if(sumSw == 0.): # or ((allmore or allless) and PARAMHYDRO.checkboard_checker)):
 				# I am in a local minima
 				# this option ensures the drainage of LM through the original rail
 				# Flow dir == 5 is no flow
@@ -225,7 +238,9 @@ def _compute_Qw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 					ir,jr = i,j
 					first = 0
 					# Receivers are poped out at least once, and then has a probability of 0.5 to continue
-					while(flowdir[ir,jr] != 5 and (first<=PARAMHYDRO.LM_pathforcer)):
+					while(flowdir[ir,jr] != 5):
+						if((first>PARAMHYDRO.LM_pathforcer) and ti.random() < 0.5):
+							break
 						ii,jj = ir,jr
 						first += 1
 						ir,jr = gridfuncs.neighbours(ii, jj, flowdir[ii,jj], BCs)

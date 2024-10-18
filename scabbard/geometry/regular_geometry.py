@@ -249,21 +249,21 @@ class RegularGeometry(BaseGeometry):
 
 	@property
 	def yb_centered(self):
-		return self.ymay-self.dx/2.
+		return self.ymax-self.dx/2.
 
 	@property
 	def X(self):
 		'''
 		array of X indices at the center of nodes
 		'''
-		return np.linspace(self.xl_centered,self.xmax, self.nx)
+		return np.linspace(self.xl_centered,self.xr_centered, self.nx)
 
 	@property
 	def Y(self):
 		'''
 		array of Y indices at the center of nodes
 		'''
-		return np.linspace(self.yt_centered, self.ymax, self.ny)
+		return np.linspace(self.yt_centered, self.yb_centered, self.ny)
 
 	@property
 	def XY(self):
