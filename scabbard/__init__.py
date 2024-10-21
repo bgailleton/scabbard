@@ -4,6 +4,7 @@ __author__ = """Boris Gailleton"""
 __email__ = 'boris.gailleton@univ-rennes.fr'
 __version__ = '0.0.6'
 
+TTB_AVAILABLE = False
 
 # Legacy imports
 from .config import *
@@ -38,5 +39,9 @@ from . import visu
 from . import io
 
 
-# Common import centralised
-import topotoolbox as ttb
+try:
+	# Common import centralised
+	import topotoolbox as ttb
+	TTB_AVAILABLE = True
+except:
+	pass

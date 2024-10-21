@@ -52,13 +52,13 @@ setup(
 				'scb-debugger=scabbard.phineas:_debug_1' ,
 				'scb-reset-config=scabbard.config:defaultConfig' ,
 				'scb-visu2D=scabbard.phineas:visu2Dnpy' ,
-				'scb-archive-haguid=scabbard.phineas:haguid' ,
-				'scb-haguid=scabbard.phineas:run_nice_haguid' ,
+				# 'scb-archive-haguid=scabbard.phineas:haguid' ,
+				# 'scb-haguid=scabbard.phineas:run_nice_haguid' ,
 				'scb-quick-hydro=scabbard.phineas:GPUgraphflood' ,
 		],
 	},
 	
-	scripts = ['scabbard/nice_haguid.py'],
+	# scripts = ['scabbard/nice_haguid.py'],
 
 	install_requires=requirements,
 	license="MIT license",
@@ -69,7 +69,7 @@ setup(
 	packages=find_packages(),
 	package_data={
 		'scabbard': ['data/*.json'],  # Include your config.json file
-		'scabbard': ['steenbok/*.cu'],  # Include your config.json file
+		# 'scabbard': ['steenbok/*.cu'],  # Include your config.json file
 	},
 	cmdclass={
 		'install': PostInstallCommand,
