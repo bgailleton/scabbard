@@ -74,10 +74,8 @@ jobs:
     - name: Set up Miniforge on Windows
       if: runner.os == 'Windows'
       run: |
-        # Download Miniforge installer
-        curl -L -o miniforge.exe https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Windows-x86_64.exe
-        # Install Miniforge silently using PowerShell
-        Start-Process -FilePath "miniforge.exe" -ArgumentList '/InstallationType=JustMe', '/AddToPath=1', '/RegisterPython=0', '/S', "/D=$env:USERPROFILE\miniforge3" -Wait
+        curl -L -o miniforge.exe "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Windows-x86_64.exe"
+        start /wait miniforge.exe /InstallationType=JustMe /AddToPath=1 /RegisterPython=0 /S /D=%UserProfile%\miniforge3
 
 
     # Install the correct Python environment based on matrix
@@ -97,8 +95,10 @@ jobs:
     - name: Install Python environment with Miniforge on Windows
       if: runner.os == 'Windows'
       run: |
-        cmd /c "C:\miniforge3\Scripts\activate && mamba create -n build_env python=${{ matrix.python-version }} -y"
-        cmd /c "C:\miniforge3\Scripts\activate && mamba run -n build_env mamba install -c conda-forge xtensor-python -y"
+        set "CONDA=%UserProfile%\miniforge3"  # Set the correct path for Miniforge
+        cmd /c "%CONDA%\Scripts\activate.bat && mamba create -n build_env python=${{ matrix.python-version }} -y"
+        cmd /c "%CONDA%\Scripts\activate.bat && mamba run -n build_env mamba install -c conda-forge xtensor-python -y"
+
 
 
     # Install pip build tools (build, wheel) and create wheels
@@ -116,7 +116,7 @@ jobs:
     - name: Install pip build tools on Windows
       if: runner.os == 'Windows'
       run: |
-        cmd /c "C:\miniforge3\Scripts\activate && mamba run -n build_env pip install build wheel"
+        cmd /c "%CONDA%\Scripts\activate.bat && mamba run -n build_env pip install build wheel"
 
 
     # Build wheels for pytopotoolbox
@@ -133,7 +133,7 @@ jobs:
     - name: Build pytopotoolbox Wheels on Windows
       if: runner.os == 'Windows'
       run: |
-        C:/Miniforge3/Scripts/activate && mamba run -n build_env pip wheel ./pytopotoolbox -w wheelhouse/pytopotoolbox --no-deps
+       cmd /c "%CONDA%\Scripts\activate.bat &&mamba run -n build_env pip wheel ./pytopotoolbox -w wheelhouse/pytopotoolbox --no-deps"
 
     # Build wheels for DAGGER
     - name: Build DAGGER Wheels on Linux
@@ -149,7 +149,7 @@ jobs:
     - name: Build DAGGER Wheels on Windows
       if: runner.os == 'Windows'
       run: |
-        C:/Miniforge3/Scripts/activate && mamba run -n build_env pip wheel ./DAGGER/wrappers/python -w wheelhouse/dagger --no-deps
+        cmd /c "%CONDA%\Scripts\activate.bat && mamba run -n build_env pip wheel ./DAGGER/wrappers/python -w wheelhouse/dagger --no-deps"
 
     # Build wheels for scabbard, ONLY ONCE so arbitrary choosing one run (i.e. one python version and one OS)
     - name: Build scabbard Wheel
