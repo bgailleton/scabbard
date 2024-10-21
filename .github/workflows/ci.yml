@@ -1,0 +1,106 @@
+name: Build Wheels
+
+on:
+  workflow_dispatch:
+    inputs:
+      python_version:
+        description: 'Python version'
+        required: true
+        default: '3.9'
+      build_for:
+        description: 'Target OS'
+        required: true
+        default: 'all'
+        options:
+          - 'linux'
+          - 'windows'
+          - 'macos'
+          - 'all'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: [3.8, 3.9, 3.10, 3.11, 3.12]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Clone DAGGER
+      run: |
+        git clone https://github.com/bgailleton/DAGGER.git
+        cd DAGGER
+        git checkout main
+
+    - name: Clone pytopotoolbox (and libtopotoolbox)
+      run: |
+        git clone https://github.com/TopoToolbox/pytopotoolbox.git
+        cd pytopotoolbox
+        git checkout main
+
+    - name: Install build dependencies
+      run: |
+        if [[ "$RUNNER_OS" == "Linux" ]]; then
+          sudo apt-get update
+          sudo apt-get install build-essential -y
+        elif [[ "$RUNNER_OS" == "macOS" ]]; then
+          brew install gcc
+        elif [[ "$RUNNER_OS" == "Windows" ]]; then
+          choco install visualstudio2022buildtools -y
+        fi
+
+    - name: Set up Mamba
+      run: |
+        if [[ "$RUNNER_OS" == "Linux" ]]; then
+          sudo apt-get update
+          sudo apt-get install wget -y
+          wget "https://github.com/mamba-org/mamba/releases/download/latest/micromamba-linux-64" -O mamba
+          chmod +x mamba
+          ./mamba shell init -s bash
+          source ~/.bashrc
+          mamba init
+        elif [[ "$RUNNER_OS" == "macOS" ]]; then
+          brew install mamba
+        elif [[ "$RUNNER_OS" == "Windows" ]]; then
+          choco install mamba
+        fi
+
+    - name: Install Python environment with Mamba
+      run: |
+        mamba create -n build-env python=${{ matrix.python-version }} -y
+
+    - name: Install package dependencies (with Mamba)
+      run: |
+        mamba run -n build-env mamba install -c conda-forge xtensor-python -y
+
+    - name: Setting up cibuildwheel
+      run: |
+        pip install cibuildwheel
+        mkdir -p wheels/pytopotoolbox wheels/dagger wheels/scabbard
+
+    - name: Build pytopotoolbox Wheels
+      run: |
+        mamba run -n build-env cibuildwheel --output-dir wheelhouse/pytopotoolbox
+
+    - name: Build DAGGER Wheels
+      run: |
+        mamba run -n build-env cibuildwheel --output-dir wheelhouse/dagger
+
+    - name: Commit wheels to repository
+      run: |
+        mkdir -p wheels
+        mv wheelhouse/pytopotoolbox/*.whl wheels/pytopotoolbox/
+        mv wheelhouse/dagger/*.whl wheels/dagger/
+        mv wheelhouse/scabbard/*.whl wheels/scabbard/
+
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+        git pull --rebase origin ${{ github.ref }}
+        git add wheels/**/*.whl
+        git commit -m "Add built wheels to repository [skip ci]"
+        git push origin ${{ github.ref }}
