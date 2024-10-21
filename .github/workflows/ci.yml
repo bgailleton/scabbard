@@ -77,35 +77,66 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         source $HOME/miniforge/bin/activate && mamba create -n build-env python=${{ matrix.python-version }} -y
+        source $HOME/miniforge/bin/activate && mamba run -n build-env mamba install -c conda-forge xtensor-python -y
 
     - name: Install Python environment with Miniforge on macOS
       if: runner.os == 'macOS'
       run: |
         source /opt/homebrew/Caskroom/miniforge/base/bin/activate && mamba create -n build-env python=${{ matrix.python-version }} -y
+        source /opt/homebrew/Caskroom/miniforge/base/bin/activate && mamba run -n build-env mamba install -c conda-forge xtensor-python -y
 
     - name: Install Python environment with Miniforge on Windows
       if: runner.os == 'Windows'
       run: |
         C:/Miniforge3/Scripts/activate && mamba create -n build-env python=${{ matrix.python-version }} -y
+        C:/Miniforge3/Scripts/activate && mamba run -n build-env mamba install -c conda-forge xtensor-python -y
 
-    # Install package dependencies
-    - name: Install package dependencies (xtensor-python)
-      run: |
-        mamba run -n build-env mamba install -c conda-forge xtensor-python -y
 
     # Set up cibuildwheel and build wheels
-    - name: Setting up cibuildwheel
+    - name: Setting up cibuildwheel on Linux
       run: |
-        pip install cibuildwheel
+        source $HOME/miniforge/bin/activate && pip install cibuildwheel
         mkdir -p wheels/pytopotoolbox wheels/dagger wheels/scabbard
 
-    - name: Build pytopotoolbox Wheels
+    # Set up cibuildwheel and build wheels
+    - name: Setting up cibuildwheel on MacOS
       run: |
-        mamba run -n build-env cibuildwheel --output-dir wheelhouse/pytopotoolbox
+        source /opt/homebrew/Caskroom/miniforge/base/bin/activate && pip install cibuildwheel
+        mkdir -p wheels/pytopotoolbox wheels/dagger wheels/scabbard
 
-    - name: Build DAGGER Wheels
+    # Set up cibuildwheel and build wheels
+    - name: Setting up cibuildwheel on Windows
       run: |
-        mamba run -n build-env cibuildwheel --output-dir wheelhouse/dagger
+        C:/Miniforge3/Scripts/activate && pip install cibuildwheel
+        mkdir -p wheels/pytopotoolbox wheels/dagger wheels/scabbard
+
+    - name: Build pytopotoolbox Wheels on Linux
+      run: |
+        source $HOME/miniforge/bin/activate && mamba run -n build-env cibuildwheel --output-dir wheelhouse/pytopotoolbox
+
+    - name: Build pytopotoolbox Wheels on MacOS
+      run: |
+        source /opt/homebrew/Caskroom/miniforge/base/bin/activate && mamba run -n build-env cibuildwheel --output-dir wheelhouse/pytopotoolbox
+
+    - name: Build pytopotoolbox Wheels on Windows
+      run: |
+        C:/Miniforge3/Scripts/activate && mamba run -n build-env cibuildwheel --output-dir wheelhouse/pytopotoolbox
+
+
+
+    - name: Build DAGGER Wheels on linux
+      run: |
+        source $HOME/miniforge/bin/activate && mamba run -n build-env cibuildwheel --output-dir wheelhouse/dagger
+    
+    - name: Build DAGGER Wheels on MacOS
+      run: |
+        source /opt/homebrew/Caskroom/miniforge/base/bin/activate && mamba run -n build-env cibuildwheel --output-dir wheelhouse/dagger
+
+    - name: Build DAGGER Wheels on Windows
+      run: |
+        C:/Miniforge3/Scripts/activate && mamba run -n build-env cibuildwheel --output-dir wheelhouse/dagger
+
+    
 
     # Commit and push the built wheels
     - name: Commit wheels to repository
