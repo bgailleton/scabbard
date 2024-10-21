@@ -111,40 +111,60 @@ jobs:
     - name: Build pytopotoolbox Wheels on Linux
       if: runner.os == 'Linux'
       run: |
-        source $HOME/miniforge/bin/activate && mamba run -n build_env pip wheel . -w wheelhouse/pytopotoolbox
+        source $HOME/miniforge/bin/activate && mamba run -n build_env pip wheel ./pytopotoolbox -w wheelhouse/pytopotoolbox
 
     - name: Build pytopotoolbox Wheels on macOS
       if: runner.os == 'macOS'
       run: |
-        source /opt/homebrew/Caskroom/miniforge/base/bin/activate && mamba run -n build_env pip wheel . -w wheelhouse/pytopotoolbox
+        source /opt/homebrew/Caskroom/miniforge/base/bin/activate && mamba run -n build_env pip wheel ./pytopotoolbox -w wheelhouse/pytopotoolbox
 
     - name: Build pytopotoolbox Wheels on Windows
       if: runner.os == 'Windows'
       run: |
-        C:/Miniforge3/Scripts/activate && mamba run -n build_env pip wheel . -w wheelhouse/pytopotoolbox
+        C:/Miniforge3/Scripts/activate && mamba run -n build_env pip wheel ./pytopotoolbox -w wheelhouse/pytopotoolbox
 
     # Build wheels for DAGGER
     - name: Build DAGGER Wheels on Linux
       if: runner.os == 'Linux'
       run: |
-        source $HOME/miniforge/bin/activate && mamba run -n build_env pip wheel . -w wheelhouse/dagger
+        source $HOME/miniforge/bin/activate && mamba run -n build_env pip wheel ./DAGGER/wrappers/python -w wheelhouse/dagger
 
     - name: Build DAGGER Wheels on macOS
       if: runner.os == 'macOS'
       run: |
-        source /opt/homebrew/Caskroom/miniforge/base/bin/activate && mamba run -n build_env pip wheel . -w wheelhouse/dagger
+        source /opt/homebrew/Caskroom/miniforge/base/bin/activate && mamba run -n build_env pip wheel ./DAGGER/wrappers/python -w wheelhouse/dagger
 
     - name: Build DAGGER Wheels on Windows
       if: runner.os == 'Windows'
       run: |
-        C:/Miniforge3/Scripts/activate && mamba run -n build_env pip wheel . -w wheelhouse/dagger
+        C:/Miniforge3/Scripts/activate && mamba run -n build_env pip wheel ./DAGGER/wrappers/python -w wheelhouse/dagger
+
+    # Build wheels for scabbard
+    - name: Build scabbard Wheels on Linux
+      if: runner.os == 'Linux'
+      run: |
+        source $HOME/miniforge/bin/activate && mamba run -n build_env pip wheel . -w wheelhouse/scabbard
+
+    - name: Build scabbard Wheels on macOS
+      if: runner.os == 'macOS'
+      run: |
+        source /opt/homebrew/Caskroom/miniforge/base/bin/activate && mamba run -n build_env pip wheel . -w wheelhouse/scabbard
+
+    - name: Build scabbard Wheels on Windows
+      if: runner.os == 'Windows'
+      run: |
+        C:/Miniforge3/Scripts/activate && mamba run -n build_env pip wheel . -w wheelhouse/scabbard
+
+
 
     # Commit and push the built wheels
     - name: Commit wheels to repository
       run: |
         mkdir -p wheels
+        mkdir -p wheels/pytopotoolbox wheels/dagger wheels/scabbard
         mv wheelhouse/pytopotoolbox/*.whl wheels/pytopotoolbox/
         mv wheelhouse/dagger/*.whl wheels/dagger/
+        mv wheelhouse/scabbard/*.whl wheels/scabbard/
 
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
