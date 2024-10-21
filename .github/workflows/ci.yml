@@ -70,10 +70,15 @@ jobs:
       run: |
         brew install --cask miniforge
 
+    # Set up Miniforge on Windows
     - name: Set up Miniforge on Windows
       if: runner.os == 'Windows'
       run: |
-        choco install miniforge
+        # Download Miniforge installer
+        curl -L -o miniforge.exe https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Windows-x86_64.exe
+        # Install Miniforge silently
+        start /wait miniforge.exe /InstallationType=JustMe /AddToPath=1 /RegisterPython=0 /S /D=%UserProfile%\miniforge3
+
 
     # Install the correct Python environment based on matrix
     - name: Install Python environment with Miniforge on Linux
@@ -88,11 +93,13 @@ jobs:
         source /opt/homebrew/Caskroom/miniforge/base/bin/activate && mamba create -n build_env python=${{ matrix.python-version }} -y
         source /opt/homebrew/Caskroom/miniforge/base/bin/activate && mamba run -n build_env mamba install -c conda-forge xtensor-python -y
 
+    # Install the correct Python environment based on matrix
     - name: Install Python environment with Miniforge on Windows
       if: runner.os == 'Windows'
       run: |
-        C:/Miniforge3/Scripts/activate && mamba create -n build_env python=${{ matrix.python-version }} -y
-        C:/Miniforge3/Scripts/activate && mamba run -n build_env mamba install -c conda-forge xtensor-python -y
+        C:\miniforge3\Scripts\activate && mamba create -n build_env python=${{ matrix.python-version }} -y
+        C:\miniforge3\Scripts\activate && mamba run -n build_env mamba install -c conda-forge xtensor-python -y
+
 
     # Install pip build tools (build, wheel) and create wheels
     - name: Install pip build tools on Linux
@@ -105,10 +112,12 @@ jobs:
       run: |
         source /opt/homebrew/Caskroom/miniforge/base/bin/activate && mamba run -n build_env pip install build wheel
 
+    # Install pip build tools on Windows
     - name: Install pip build tools on Windows
       if: runner.os == 'Windows'
       run: |
-        C:/Miniforge3/Scripts/activate && mamba run -n build_env pip install build wheel
+        C:\miniforge3\Scripts\activate && mamba run -n build_env pip install build wheel
+
 
     # Build wheels for pytopotoolbox
     - name: Build pytopotoolbox Wheels on Linux
