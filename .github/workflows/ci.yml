@@ -91,7 +91,7 @@ jobs:
     # Install package dependencies
     - name: Install package dependencies (xtensor-python)
       run: |
-        source $HOME/miniforge/bin/activate && mamba run -n build-env mamba install -c conda-forge xtensor-python -y
+        mamba run -n build-env mamba install -c conda-forge xtensor-python -y
 
     # Set up cibuildwheel and build wheels
     - name: Setting up cibuildwheel
@@ -101,11 +101,11 @@ jobs:
 
     - name: Build pytopotoolbox Wheels
       run: |
-        source $HOME/miniforge/bin/activate && mamba run -n build-env cibuildwheel --output-dir wheelhouse/pytopotoolbox
+        mamba run -n build-env cibuildwheel --output-dir wheelhouse/pytopotoolbox
 
     - name: Build DAGGER Wheels
       run: |
-        source $HOME/miniforge/bin/activate && mamba run -n build-env cibuildwheel --output-dir wheelhouse/dagger
+        mamba run -n build-env cibuildwheel --output-dir wheelhouse/dagger
 
     # Commit and push the built wheels
     - name: Commit wheels to repository
