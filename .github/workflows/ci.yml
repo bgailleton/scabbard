@@ -60,7 +60,7 @@ jobs:
           source ~/.bashrc
           mamba init
         elif [[ "$RUNNER_OS" == "macOS" ]]; then
-          brew install mamba
+          brew install micromamba
         elif [[ "$RUNNER_OS" == "Windows" ]]; then
           choco install mamba
         fi
