@@ -61,31 +61,32 @@ jobs:
       run: |
         wget "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh" -O miniforge.sh
         bash miniforge.sh -b -p $HOME/miniforge
-        echo "source $HOME/miniforge/bin/activate" >> $GITHUB_ENV
 
     - name: Set up Miniforge on macOS
       if: runner.os == 'macOS'
       run: |
         brew install --cask miniforge
-        echo "source /opt/homebrew/Caskroom/miniforge/base/bin/activate" >> $GITHUB_ENV
 
     - name: Set up Miniforge on Windows
       if: runner.os == 'Windows'
       run: |
         choco install miniforge
-        echo "C:/Miniforge3/Scripts/activate" >> $GITHUB_ENV
 
     # Install the correct Python environment based on matrix
-    - name: Install Python environment with Miniforge
+    - name: Install Python environment with Miniforge on Linux/macOS
+      if: runner.os != 'Windows'
       run: |
-        source ${{ env.GITHUB_ENV }}
-        mamba create -n build-env python=${{ matrix.python-version }} -y
+        source $HOME/miniforge/bin/activate && mamba create -n build-env python=${{ matrix.python-version }} -y
+
+    - name: Install Python environment with Miniforge on Windows
+      if: runner.os == 'Windows'
+      run: |
+        C:\Miniforge3\Scripts\activate && mamba create -n build-env python=${{ matrix.python-version }} -y
 
     # Install package dependencies
     - name: Install package dependencies (xtensor-python)
       run: |
-        source ${{ env.GITHUB_ENV }}
-        mamba run -n build-env mamba install -c conda-forge xtensor-python -y
+        source $HOME/miniforge/bin/activate && mamba run -n build-env mamba install -c conda-forge xtensor-python -y
 
     # Set up cibuildwheel and build wheels
     - name: Setting up cibuildwheel
@@ -95,13 +96,11 @@ jobs:
 
     - name: Build pytopotoolbox Wheels
       run: |
-        source ${{ env.GITHUB_ENV }}
-        mamba run -n build-env cibuildwheel --output-dir wheelhouse/pytopotoolbox
+        source $HOME/miniforge/bin/activate && mamba run -n build-env cibuildwheel --output-dir wheelhouse/pytopotoolbox
 
     - name: Build DAGGER Wheels
       run: |
-        source ${{ env.GITHUB_ENV }}
-        mamba run -n build-env cibuildwheel --output-dir wheelhouse/dagger
+        source $HOME/miniforge/bin/activate && mamba run -n build-env cibuildwheel --output-dir wheelhouse/dagger
 
     # Commit and push the built wheels
     - name: Commit wheels to repository
