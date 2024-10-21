@@ -161,40 +161,30 @@ jobs:
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-        # Stash the changes before pulling to avoid conflicts
-        git stash
-        
-        # Pull and rebase to get the latest changes
-        git pull --rebase origin ${{ github.ref }}
-
-        # Apply stashed changes
-        git stash pop
+        # Pull latest changes and rebase
+        git fetch origin
+        git rebase origin/main || git rebase --abort
 
         # Add and commit changes
         git add wheels/**/*.whl
         git commit -m "Add built wheels to repository [skip ci]"
 
         # Push changes to the repository
-        git push origin ${{ github.ref }}
+        git push origin refs/heads/main
 
     # Commit and push the built wheels
     - name: Commit wheels to repository
-      if: runner.os == 'Linux' && matrix.python-version == '3.12'
       run: |
+
         mv wheelhouse/scabbard/*.whl wheels/scabbard/
 
-        # Stash the changes before pulling to avoid conflicts
-        git stash
-        
-        # Pull and rebase to get the latest changes
-        git pull --rebase origin ${{ github.ref }}
-
-        # Apply stashed changes
-        git stash pop
+        # Pull latest changes and rebase
+        git fetch origin
+        git rebase origin/main || git rebase --abort
 
         # Add and commit changes
         git add wheels/**/*.whl
         git commit -m "Add built wheels to repository [skip ci]"
 
         # Push changes to the repository
-        git push origin ${{ github.ref }}
+        git push origin refs/heads/main
