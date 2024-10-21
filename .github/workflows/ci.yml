@@ -188,7 +188,7 @@ jobs:
         git commit -m "Add built wheels to repository [skip ci]"
 
         # Try to push with error handling
-        RETRIES=3
+        RETRIES=20
         for i in $(seq 1 $RETRIES); do
           git push origin refs/heads/main && break || {
             echo "Push failed, retrying $i/$RETRIES..."
@@ -230,7 +230,7 @@ jobs:
         git commit -m "Add scabbard wheel to repository [skip ci]"
 
         # Try to push with error handling
-        RETRIES=3
+        RETRIES=20
         for i in $(seq 1 $RETRIES); do
           git push origin refs/heads/main && break || {
             echo "Push failed, retrying $i/$RETRIES..."
