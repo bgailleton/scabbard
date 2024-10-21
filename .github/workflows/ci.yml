@@ -171,11 +171,7 @@ jobs:
       if: runner.os == 'Linux' && matrix.python-version == '3.12'
       run: |
         mv wheelhouse/scabbard/*.whl wheels/scabbard/
-
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-        git pull --rebase origin ${{ github.ref }}
+        
         git add wheels/**/*.whl
         git commit -m "Add built wheels to repository [skip ci]"
         git push origin ${{ github.ref }}
