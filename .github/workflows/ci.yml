@@ -97,8 +97,8 @@ jobs:
     - name: Install Python environment with Miniforge on Windows
       if: runner.os == 'Windows'
       run: |
-        C:\miniforge3\Scripts\activate && mamba create -n build_env python=${{ matrix.python-version }} -y
-        C:\miniforge3\Scripts\activate && mamba run -n build_env mamba install -c conda-forge xtensor-python -y
+        cmd /c "C:\miniforge3\Scripts\activate && mamba create -n build_env python=${{ matrix.python-version }} -y"
+        cmd /c "C:\miniforge3\Scripts\activate && mamba run -n build_env mamba install -c conda-forge xtensor-python -y"
 
 
     # Install pip build tools (build, wheel) and create wheels
@@ -116,7 +116,7 @@ jobs:
     - name: Install pip build tools on Windows
       if: runner.os == 'Windows'
       run: |
-        C:\miniforge3\Scripts\activate && mamba run -n build_env pip install build wheel
+        cmd /c "C:\miniforge3\Scripts\activate && mamba run -n build_env pip install build wheel"
 
 
     # Build wheels for pytopotoolbox
