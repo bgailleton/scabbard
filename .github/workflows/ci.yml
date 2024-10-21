@@ -3,10 +3,6 @@ name: Build Wheels
 on:
   workflow_dispatch:
     inputs:
-      python_version:
-        description: 'Python version'
-        required: true
-        default: '3.9'
       build_for:
         description: 'Target OS'
         required: true
