@@ -150,7 +150,7 @@ jobs:
 
 
 
-    # Commit and push the built wheels
+        # Commit and push the built wheels
     - name: Commit wheels to repository
       run: |
         mkdir -p wheels
@@ -172,14 +172,27 @@ jobs:
         git rebase origin/main || git rebase --abort
 
         # Apply stashed changes
-        git stash pop
+        git stash pop || echo "No local changes to apply"
 
         # Add and commit changes again
         git add wheels/**/*.whl
         git commit -m "Add built wheels to repository [skip ci]"
 
-        # Push changes to the repository
-        git push origin refs/heads/main
+        # Try to push with error handling
+        RETRIES=3
+        for i in $(seq 1 $RETRIES); do
+          git push origin refs/heads/main && break || {
+            echo "Push failed, retrying $i/$RETRIES..."
+            git fetch origin
+            git rebase origin/main || git rebase --abort
+            sleep 5
+          }
+        done
+
+        if [ $i -eq $RETRIES ]; then
+          echo "Push failed after $RETRIES attempts, aborting."
+          exit 1
+        fi
 
     # Commit and push the built wheels for scabbard (done once)
     - name: Commit scabbard wheel to repository
@@ -200,11 +213,24 @@ jobs:
         git rebase origin/main || git rebase --abort
 
         # Apply stashed changes
-        git stash pop
+        git stash pop || echo "No local changes to apply"
 
         # Add and commit changes again
         git add wheels/scabbard/*.whl
         git commit -m "Add scabbard wheel to repository [skip ci]"
 
-        # Push changes to the repository
-        git push origin refs/heads/main
+        # Try to push with error handling
+        RETRIES=3
+        for i in $(seq 1 $RETRIES); do
+          git push origin refs/heads/main && break || {
+            echo "Push failed, retrying $i/$RETRIES..."
+            git fetch origin
+            git rebase origin/main || git rebase --abort
+            sleep 5
+          }
+        done
+
+        if [ $i -eq $RETRIES ]; then
+          echo "Push failed after $RETRIES attempts, aborting."
+          exit 1
+        fi
