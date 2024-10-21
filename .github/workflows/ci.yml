@@ -75,7 +75,8 @@ jobs:
       if: runner.os == 'Windows'
       run: |
         curl -L -o miniforge.exe "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Windows-x86_64.exe"
-        start /wait miniforge.exe /InstallationType=JustMe /AddToPath=1 /RegisterPython=0 /S /D=%UserProfile%\miniforge3
+        Start-Process -FilePath "miniforge.exe" -ArgumentList '/InstallationType=JustMe', '/AddToPath=1', '/RegisterPython=0', '/S', "/D=$env:USERPROFILE\miniforge3" -NoNewWindow -Wait
+
 
 
     # Install the correct Python environment based on matrix
