@@ -26,10 +26,17 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Clone repositories
+    - name: Clone DAGGER
       run: |
         git clone https://github.com/bgailleton/DAGGER.git
+        cd DAGGER
+        git checkout main
+
+    - name: Clone pytopotoolbox (and libtopotoolbox)
+      run: |
         git clone https://github.com/TopoToolbox/pytopotoolbox.git
+        cd pytopotoolbox
+        git checkout main
 
     # Install dependencies per OS
     - name: Install build dependencies on Linux
@@ -65,45 +72,80 @@ jobs:
       run: |
         choco install miniforge
 
-    # Install the correct Python environment based on matrix and install cibuildwheel
-    - name: Set up Python environment and install cibuildwheel on Linux
+    # Install the correct Python environment based on matrix
+    - name: Install Python environment with Miniforge on Linux
       if: runner.os == 'Linux'
       run: |
-        source $HOME/miniforge/bin/activate && \
-        mamba create -n build_env python=${{ matrix.python-version }} -y
-        source $HOME/miniforge/envs/build_env/bin/activate && \
-        mamba install -c conda-forge xtensor-python -y && \
-        pip install cibuildwheel
+        source $HOME/miniforge/bin/activate && mamba create -n build_env python=${{ matrix.python-version }} -y
+        source $HOME/miniforge/bin/activate && mamba run -n build_env mamba install -c conda-forge xtensor-python -y
 
-    - name: Set up Python environment and install cibuildwheel on macOS
+    - name: Install Python environment with Miniforge on macOS
       if: runner.os == 'macOS'
       run: |
-        source /opt/homebrew/Caskroom/miniforge/base/bin/activate && \
-        mamba create -n build_env python=${{ matrix.python-version }} -y
-        source /opt/homebrew/Caskroom/miniforge/base/envs/build_env/bin/activate && \
-        mamba install -c conda-forge xtensor-python -y && \
-        pip install cibuildwheel
+        source /opt/homebrew/Caskroom/miniforge/base/bin/activate && mamba create -n build_env python=${{ matrix.python-version }} -y
+        source /opt/homebrew/Caskroom/miniforge/base/bin/activate && mamba run -n build_env mamba install -c conda-forge xtensor-python -y
 
-    - name: Set up Python environment and install cibuildwheel on Windows
+    - name: Install Python environment with Miniforge on Windows
       if: runner.os == 'Windows'
       run: |
-        C:/Miniforge3/Scripts/activate && \
-        mamba create -n build_env python=${{ matrix.python-version }} -y
-        C:/Miniforge3/envs/build_env/Scripts/activate && \
-        mamba install -c conda-forge xtensor-python -y && \
-        pip install cibuildwheel
+        C:/Miniforge3/Scripts/activate && mamba create -n build_env python=${{ matrix.python-version }} -y
+        C:/Miniforge3/Scripts/activate && mamba run -n build_env mamba install -c conda-forge xtensor-python -y
 
-    # Build pytopotoolbox Wheels
-    - name: Build pytopotoolbox Wheels
-      run: |
-        source ${{ runner.os == 'Windows' && 'C:/Miniforge3/envs/build_env/Scripts/activate' || runner.os == 'macOS' && '/opt/homebrew/Caskroom/miniforge/base/envs/build_env/bin/activate' || '$HOME/miniforge/envs/build_env/bin/activate' }} && \
-        cibuildwheel --output-dir wheelhouse/pytopotoolbox
 
-    # Build DAGGER Wheels
-    - name: Build DAGGER Wheels
+    # Set up cibuildwheel and build wheels
+    - name: Setting up cibuildwheel on Linux
+      if: runner.os == 'Linux'
       run: |
-        source ${{ runner.os == 'Windows' && 'C:/Miniforge3/envs/build_env/Scripts/activate' || runner.os == 'macOS' && '/opt/homebrew/Caskroom/miniforge/base/envs/build_env/bin/activate' || '$HOME/miniforge/envs/build_env/bin/activate' }} && \
-        cibuildwheel --output-dir wheelhouse/dagger
+        source $HOME/miniforge/bin/activate && mamba run -n build_env pip install cibuildwheel
+        mkdir -p wheels/pytopotoolbox wheels/dagger wheels/scabbard
+
+    # Set up cibuildwheel and build wheels
+    - name: Setting up cibuildwheel on MacOS
+      if: runner.os == 'macOS'
+      run: |
+        source /opt/homebrew/Caskroom/miniforge/base/bin/activate && mamba run -n build_env pip install cibuildwheel
+        mkdir -p wheels/pytopotoolbox wheels/dagger wheels/scabbard
+
+    # Set up cibuildwheel and build wheels
+    - name: Setting up cibuildwheel on Windows
+      if: runner.os == 'Windows'
+      run: |
+        C:/Miniforge3/Scripts/activate && mamba run -n build_env pip install cibuildwheel
+        mkdir -p wheels/pytopotoolbox wheels/dagger wheels/scabbard
+
+    - name: Build pytopotoolbox Wheels on Linux
+      if: runner.os == 'Linux'
+      run: |
+        source $HOME/miniforge/bin/activate && mamba run -n build_env cibuildwheel --output-dir wheelhouse/pytopotoolbox
+
+    - name: Build pytopotoolbox Wheels on MacOS
+      if: runner.os == 'macOS'
+      run: |
+        source /opt/homebrew/Caskroom/miniforge/base/bin/activate && mamba run -n build_env cibuildwheel --output-dir wheelhouse/pytopotoolbox
+
+    - name: Build pytopotoolbox Wheels on Windows
+      if: runner.os == 'Windows'
+      run: |
+        C:/Miniforge3/Scripts/activate && mamba run -n build_env cibuildwheel --output-dir wheelhouse/pytopotoolbox
+
+
+
+    - name: Build DAGGER Wheels on linux
+      if: runner.os == 'Linux'
+      run: |
+        source $HOME/miniforge/bin/activate && mamba run -n build_env cibuildwheel --output-dir wheelhouse/dagger
+    
+    - name: Build DAGGER Wheels on MacOS
+      if: runner.os == 'macOS'
+      run: |
+        source /opt/homebrew/Caskroom/miniforge/base/bin/activate && mamba run -n build_env cibuildwheel --output-dir wheelhouse/dagger
+
+    - name: Build DAGGER Wheels on Windows
+      if: runner.os == 'Windows'
+      run: |
+        C:/Miniforge3/Scripts/activate && mamba run -n build_env cibuildwheel --output-dir wheelhouse/dagger
+
+    
 
     # Commit and push the built wheels
     - name: Commit wheels to repository
@@ -111,6 +153,7 @@ jobs:
         mkdir -p wheels
         mv wheelhouse/pytopotoolbox/*.whl wheels/pytopotoolbox/
         mv wheelhouse/dagger/*.whl wheels/dagger/
+        mv wheelhouse/scabbard/*.whl wheels/scabbard/
 
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
