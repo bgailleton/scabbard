@@ -54,22 +54,24 @@ jobs:
       run: |
         choco install visualstudio2022buildtools -y
 
-    - name: Set up Mambaforge on Linux
+    - name: Set up Miniforge on Linux
       if: runner.os == 'Linux'
       run: |
-        wget "https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Linux-x86_64.sh" -O mambaforge.sh
-        bash mambaforge.sh -b
-        source ~/mambaforge/bin/activate
+        wget "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh" -O miniforge.sh
+        bash miniforge.sh -b -p $HOME/miniforge
+        source $HOME/miniforge/bin/activate
 
-    - name: Set up Mambaforge on macOS
+    - name: Set up Miniforge on macOS
       if: runner.os == 'macOS'
       run: |
-        brew install --cask mambaforge
-        source /usr/local/Caskroom/mambaforge/latest/bin/activate
+        brew install --cask miniforge
+        source /opt/homebrew/Caskroom/miniforge/base/bin/activate
 
-    - name: Set up Mambaforge on Windows
+    - name: Set up Miniforge on Windows
       if: runner.os == 'Windows'
-      run: choco install mambaforge
+      run: |
+        choco install miniforge
+
 
     - name: Install Python environment with Mamba
       run: |
