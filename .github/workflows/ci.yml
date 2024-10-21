@@ -73,15 +73,20 @@ jobs:
         choco install miniforge
 
     # Install the correct Python environment based on matrix
-    - name: Install Python environment with Miniforge on Linux/macOS
-      if: runner.os != 'Windows'
+    - name: Install Python environment with Miniforge on Linux
+      if: runner.os == 'Linux'
       run: |
         source $HOME/miniforge/bin/activate && mamba create -n build-env python=${{ matrix.python-version }} -y
+
+    - name: Install Python environment with Miniforge on macOS
+      if: runner.os == 'macOS'
+      run: |
+        source /opt/homebrew/Caskroom/miniforge/base/bin/activate && mamba create -n build-env python=${{ matrix.python-version }} -y
 
     - name: Install Python environment with Miniforge on Windows
       if: runner.os == 'Windows'
       run: |
-        C:\Miniforge3\Scripts\activate && mamba create -n build-env python=${{ matrix.python-version }} -y
+        C:/Miniforge3/Scripts/activate && mamba create -n build-env python=${{ matrix.python-version }} -y
 
     # Install package dependencies
     - name: Install package dependencies (xtensor-python)
