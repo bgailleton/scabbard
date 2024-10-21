@@ -38,33 +38,38 @@ jobs:
         cd pytopotoolbox
         git checkout main
 
-    - name: Install build dependencies
+    - name: Install build dependencies on Linux
+      if: runner.os == 'Linux'
       run: |
-        if [[ "$RUNNER_OS" == "Linux" ]]; then
-          sudo apt-get update
-          sudo apt-get install build-essential -y
-        elif [[ "$RUNNER_OS" == "macOS" ]]; then
-          brew install gcc
-        elif [[ "$RUNNER_OS" == "Windows" ]]; then
-          choco install visualstudio2022buildtools -y
-        fi
+        sudo apt-get update
+        sudo apt-get install build-essential -y
 
-    - name: Set up Mambaforge
+    - name: Install build dependencies on macOS
+      if: runner.os == 'macOS'
       run: |
-        if [[ "$RUNNER_OS" == "Linux" ]]; then
-          # Install Mambaforge on Linux
-          wget "https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Linux-x86_64.sh" -O mambaforge.sh
-          bash mambaforge.sh -b
-          source ~/mambaforge/bin/activate
-        elif [[ "$RUNNER_OS" == "macOS" ]]; then
-          # Install Mambaforge on macOS
-          brew install --cask mambaforge
-          source /usr/local/Caskroom/mambaforge/latest/bin/activate
-        elif [[ "$RUNNER_OS" == "Windows" ]]; then
-          # Install Mambaforge on Windows
-          choco install mambaforge
-        fi
+        brew install gcc
 
+    - name: Install build dependencies on Windows
+      if: runner.os == 'Windows'
+      run: |
+        choco install visualstudio2022buildtools -y
+
+    - name: Set up Mambaforge on Linux
+      if: runner.os == 'Linux'
+      run: |
+        wget "https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Linux-x86_64.sh" -O mambaforge.sh
+        bash mambaforge.sh -b
+        source ~/mambaforge/bin/activate
+
+    - name: Set up Mambaforge on macOS
+      if: runner.os == 'macOS'
+      run: |
+        brew install --cask mambaforge
+        source /usr/local/Caskroom/mambaforge/latest/bin/activate
+
+    - name: Set up Mambaforge on Windows
+      if: runner.os == 'Windows'
+      run: choco install mambaforge
 
     - name: Install Python environment with Mamba
       run: |
