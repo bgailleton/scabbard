@@ -38,6 +38,7 @@ jobs:
         cd pytopotoolbox
         git checkout main
 
+    # Install dependencies per OS
     - name: Install build dependencies on Linux
       if: runner.os == 'Linux'
       run: |
@@ -54,42 +55,39 @@ jobs:
       run: |
         choco install visualstudio2022buildtools -y
 
+    # Set up Miniforge per OS
     - name: Set up Miniforge on Linux
       if: runner.os == 'Linux'
       run: |
         wget "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh" -O miniforge.sh
         bash miniforge.sh -b -p $HOME/miniforge
-        source $HOME/miniforge/bin/activate
+        echo "source $HOME/miniforge/bin/activate" >> $GITHUB_ENV
 
     - name: Set up Miniforge on macOS
       if: runner.os == 'macOS'
       run: |
         brew install --cask miniforge
-        source /opt/homebrew/Caskroom/miniforge/base/bin/activate
+        echo "source /opt/homebrew/Caskroom/miniforge/base/bin/activate" >> $GITHUB_ENV
 
     - name: Set up Miniforge on Windows
       if: runner.os == 'Windows'
       run: |
         choco install miniforge
+        echo "C:/Miniforge3/Scripts/activate" >> $GITHUB_ENV
 
-    - name: Install Python environment with Miniforge (Linux/macOS)
-      if: runner.os != 'Windows'
+    # Install the correct Python environment based on matrix
+    - name: Install Python environment with Miniforge
       run: |
-        source $HOME/miniforge/bin/activate  # For Linux
-        mamba create -n build-env python=3.12 -y
+        source ${{ env.GITHUB_ENV }}
+        mamba create -n build-env python=${{ matrix.python-version }} -y
 
-    - name: Install Python environment with Miniforge on macOS
-      if: runner.os == 'macOS'
+    # Install package dependencies
+    - name: Install package dependencies (xtensor-python)
       run: |
-        source /opt/homebrew/Caskroom/miniforge/base/bin/activate
-        mamba create -n build-env python=3.12 -y
+        source ${{ env.GITHUB_ENV }}
+        mamba run -n build-env mamba install -c conda-forge xtensor-python -y
 
-    - name: Install Python environment with Miniforge on Windows
-      if: runner.os == 'Windows'
-      run: |
-        C:\Miniforge3\Scripts\activate
-
-
+    # Set up cibuildwheel and build wheels
     - name: Setting up cibuildwheel
       run: |
         pip install cibuildwheel
@@ -97,12 +95,15 @@ jobs:
 
     - name: Build pytopotoolbox Wheels
       run: |
+        source ${{ env.GITHUB_ENV }}
         mamba run -n build-env cibuildwheel --output-dir wheelhouse/pytopotoolbox
 
     - name: Build DAGGER Wheels
       run: |
+        source ${{ env.GITHUB_ENV }}
         mamba run -n build-env cibuildwheel --output-dir wheelhouse/dagger
 
+    # Commit and push the built wheels
     - name: Commit wheels to repository
       run: |
         mkdir -p wheels
