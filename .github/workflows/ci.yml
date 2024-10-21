@@ -161,30 +161,50 @@ jobs:
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
+        # Stage local changes
+        git add wheels/**/*.whl
+
+        # Stash changes to prevent rebase conflicts
+        git stash
+
         # Pull latest changes and rebase
         git fetch origin
         git rebase origin/main || git rebase --abort
 
-        # Add and commit changes
+        # Apply stashed changes
+        git stash pop
+
+        # Add and commit changes again
         git add wheels/**/*.whl
         git commit -m "Add built wheels to repository [skip ci]"
 
         # Push changes to the repository
         git push origin refs/heads/main
 
-    # Commit and push the built wheels
-    - name: Commit wheels to repository
+    # Commit and push the built wheels for scabbard (done once)
+    - name: Commit scabbard wheel to repository
       run: |
-
         mv wheelhouse/scabbard/*.whl wheels/scabbard/
+
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+        # Stage local changes
+        git add wheels/scabbard/*.whl
+
+        # Stash changes to prevent rebase conflicts
+        git stash
 
         # Pull latest changes and rebase
         git fetch origin
         git rebase origin/main || git rebase --abort
 
-        # Add and commit changes
-        git add wheels/**/*.whl
-        git commit -m "Add built wheels to repository [skip ci]"
+        # Apply stashed changes
+        git stash pop
+
+        # Add and commit changes again
+        git add wheels/scabbard/*.whl
+        git commit -m "Add scabbard wheel to repository [skip ci]"
 
         # Push changes to the repository
         git push origin refs/heads/main
