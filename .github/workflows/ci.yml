@@ -49,21 +49,22 @@ jobs:
           choco install visualstudio2022buildtools -y
         fi
 
-    - name: Set up Mamba
+    - name: Set up Mambaforge
       run: |
         if [[ "$RUNNER_OS" == "Linux" ]]; then
-          sudo apt-get update
-          sudo apt-get install wget -y
-          wget "https://github.com/mamba-org/mamba/releases/download/latest/micromamba-linux-64" -O mamba
-          chmod +x mamba
-          ./mamba shell init -s bash
-          source ~/.bashrc
-          mamba init
+          # Install Mambaforge on Linux
+          wget "https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Linux-x86_64.sh" -O mambaforge.sh
+          bash mambaforge.sh -b
+          source ~/mambaforge/bin/activate
         elif [[ "$RUNNER_OS" == "macOS" ]]; then
-          brew install micromamba
+          # Install Mambaforge on macOS
+          brew install --cask mambaforge
+          source /usr/local/Caskroom/mambaforge/latest/bin/activate
         elif [[ "$RUNNER_OS" == "Windows" ]]; then
-          choco install mamba
+          # Install Mambaforge on Windows
+          choco install mambaforge
         fi
+
 
     - name: Install Python environment with Mamba
       run: |
