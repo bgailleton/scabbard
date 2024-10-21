@@ -76,8 +76,8 @@ jobs:
       run: |
         # Download Miniforge installer
         curl -L -o miniforge.exe https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Windows-x86_64.exe
-        # Install Miniforge silently
-        start /wait miniforge.exe /InstallationType=JustMe /AddToPath=1 /RegisterPython=0 /S /D=%UserProfile%\miniforge3
+        # Install Miniforge silently using PowerShell
+        Start-Process -FilePath "miniforge.exe" -ArgumentList '/InstallationType=JustMe', '/AddToPath=1', '/RegisterPython=0', '/S', "/D=$env:USERPROFILE\miniforge3" -Wait
 
 
     # Install the correct Python environment based on matrix
