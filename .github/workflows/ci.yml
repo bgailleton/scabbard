@@ -173,7 +173,7 @@ jobs:
         source $HOME/miniforge/bin/activate && mamba run -n build_env pip wheel . -w wheelhouse/scabbard --no-deps
 
 
-    # Commit and push the built wheels
+        # Commit and push the built wheels
     - name: Commit wheels to repository
       run: |
         if [ "${{ runner.os }}" == "Linux" ] || [ "${{ runner.os }}" == "macOS" ]; then
@@ -222,7 +222,7 @@ jobs:
             New-Item -ItemType Directory -Path wheels\pytopotoolbox -Force
             New-Item -ItemType Directory -Path wheels\dagger -Force
 
-            # Move files (separate lines)
+            # Move files, separated into distinct lines to avoid multiple bindings
             Move-Item -Path wheelhouse\pytopotoolbox\*.whl -Destination wheels\pytopotoolbox\
             Move-Item -Path wheelhouse\dagger\*.whl -Destination wheels\dagger\
 
@@ -250,7 +250,7 @@ jobs:
             git add wheels/**/*.whl
             git commit -m 'Add built wheels to repository [skip ci]'
 
-            # Try to push with error handling
+            # Initialize retry logic properly
             $RETRIES = 20
             $i = 1
             while ($i -le $RETRIES) {
@@ -274,6 +274,7 @@ jobs:
           "
         fi
       shell: bash
+
 
 
 
