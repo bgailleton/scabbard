@@ -263,7 +263,7 @@ jobs:
                   git rebase --abort
                 }
                 Start-Sleep -Seconds 5
-                $i++
+                $i = $i + 1
               }
             }
 
