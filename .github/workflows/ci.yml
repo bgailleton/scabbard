@@ -221,6 +221,8 @@ jobs:
           powershell -Command "
             New-Item -ItemType Directory -Path wheels\pytopotoolbox -Force
             New-Item -ItemType Directory -Path wheels\dagger -Force
+
+            # Move files (separate lines)
             Move-Item -Path wheelhouse\pytopotoolbox\*.whl -Destination wheels\pytopotoolbox\
             Move-Item -Path wheelhouse\dagger\*.whl -Destination wheels\dagger\
 
@@ -261,7 +263,7 @@ jobs:
                   git rebase --abort
                 }
                 Start-Sleep -Seconds 5
-                $i += 1
+                $i = $i + 1
               }
             }
 
@@ -272,9 +274,6 @@ jobs:
           "
         fi
       shell: bash
-
-
-
 
 
 
