@@ -218,6 +218,7 @@ jobs:
           fi
 
         elif [ "${{ runner.os }}" == "Windows" ]; then
+          @'
           powershell -Command "
             New-Item -ItemType Directory -Path wheels\pytopotoolbox -Force;
             New-Item -ItemType Directory -Path wheels\dagger -Force;
@@ -272,6 +273,7 @@ jobs:
               exit 1;
             }
           "
+          '@
         fi
       shell: bash
 
