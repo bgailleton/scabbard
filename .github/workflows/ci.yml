@@ -217,60 +217,52 @@ jobs:
           fi
 
         elif [ "${{ runner.os }}" == "Windows" ]; then
-          powershell -Command @'
-            New-Item -ItemType Directory -Path wheels\pytopotoolbox -Force;
-            New-Item -ItemType Directory -Path wheels\dagger -Force;
+          # Write PowerShell script to a file
+          echo "New-Item -ItemType Directory -Path wheels\pytopotoolbox -Force;" > script.ps1
+          echo "New-Item -ItemType Directory -Path wheels\dagger -Force;" >> script.ps1
 
-            # Move files separately
-            Move-Item -Path wheelhouse\pytopotoolbox\*.whl -Destination wheels\pytopotoolbox;
-            Move-Item -Path wheelhouse\dagger\*.whl -Destination wheels\dagger;
+          echo "# Move files" >> script.ps1
+          echo "Move-Item -Path wheelhouse\pytopotoolbox\*.whl -Destination wheels\pytopotoolbox;" >> script.ps1
+          echo "Move-Item -Path wheelhouse\dagger\*.whl -Destination wheels\dagger;" >> script.ps1
 
-            git config --global user.name 'github-actions[bot]';
-            git config --global user.email 'github-actions[bot]@users.noreply.github.com';
+          echo "git config --global user.name 'github-actions[bot]';" >> script.ps1
+          echo "git config --global user.email 'github-actions[bot]@users.noreply.github.com';" >> script.ps1
 
-            # Stage local changes
-            git add wheels/**/*.whl;
+          echo "# Stage local changes" >> script.ps1
+          echo "git add wheels/**/*.whl;" >> script.ps1
 
-            # Stash changes to prevent rebase conflicts
-            git stash;
+          echo "# Stash changes" >> script.ps1
+          echo "git stash;" >> script.ps1
 
-            # Pull latest changes and rebase
-            git fetch origin;
-            if (!(git rebase origin/main)) {
-              git rebase --abort;
-            }
+          echo "# Pull latest changes and rebase" >> script.ps1
+          echo "git fetch origin;" >> script.ps1
+          echo "if (!(git rebase origin/main)) { git rebase --abort; }" >> script.ps1
 
-            # Apply stashed changes
-            if (!(git stash pop)) {
-              Write-Host 'No local changes to apply';
-            }
+          echo "# Apply stashed changes" >> script.ps1
+          echo "if (!(git stash pop)) { Write-Host 'No local changes to apply'; }" >> script.ps1
 
-            # Add and commit changes again
-            git add wheels/**/*.whl;
-            git commit -m 'Add built wheels to repository [skip ci]';
+          echo "# Add and commit changes" >> script.ps1
+          echo "git add wheels/**/*.whl;" >> script.ps1
+          echo "git commit -m 'Add built wheels to repository [skip ci]';" >> script.ps1
 
-            # Retry logic
-            $RETRIES = 20;
-            $i = 1;
-            while ($i -le $RETRIES) {
-              if (git push origin refs/heads/main) {
-                break;
-              } else {
-                Write-Host 'Push failed, retrying $i/$RETRIES...';
-                git fetch origin;
-                if (!(git rebase origin/main)) {
-                  git rebase --abort;
-                }
-                Start-Sleep -Seconds 5;
-                $i = $i + 1;
-              }
-            }
+          echo "# Retry logic" >> script.ps1
+          echo "\$RETRIES = 20;" >> script.ps1
+          echo "\$i = 1;" >> script.ps1
+          echo "while (\$i -le \$RETRIES) {" >> script.ps1
+          echo "  if (git push origin refs/heads/main) { break; }" >> script.ps1
+          echo "  else {" >> script.ps1
+          echo "    Write-Host 'Push failed, retrying \$i/\$RETRIES...';" >> script.ps1
+          echo "    git fetch origin;" >> script.ps1
+          echo "    if (!(git rebase origin/main)) { git rebase --abort; }" >> script.ps1
+          echo "    Start-Sleep -Seconds 5;" >> script.ps1
+          echo "    \$i = \$i + 1;" >> script.ps1
+          echo "  }" >> script.ps1
+          echo "}" >> script.ps1
 
-            if ($i -eq $RETRIES) {
-              Write-Host 'Push failed after $RETRIES attempts, aborting.';
-              exit 1;
-            }
-          '@
+          echo "if (\$i -eq \$RETRIES) { Write-Host 'Push failed after \$RETRIES attempts, aborting.'; exit 1; }" >> script.ps1
+
+          # Execute the PowerShell script
+          powershell -File script.ps1
         fi
       shell: bash
 
