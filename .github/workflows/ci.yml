@@ -174,13 +174,19 @@ jobs:
 
 
 
-        # Commit and push the built wheels
+          # Commit and push the built wheels
     - name: Commit wheels to repository
       run: |
-        mkdir -p wheels
-        mkdir -p wheels/pytopotoolbox wheels/dagger wheels/scabbard
-        mv wheelhouse/pytopotoolbox/*.whl wheels/pytopotoolbox/
-        mv wheelhouse/dagger/*.whl wheels/dagger/
+        if [ "${{ runner.os }}" == "Linux" ] || [ "${{ runner.os }}" == "macOS" ]; then
+          mkdir -p wheels/pytopotoolbox wheels/dagger wheels/scabbard
+          mv wheelhouse/pytopotoolbox/*.whl wheels/pytopotoolbox/
+          mv wheelhouse/dagger/*.whl wheels/dagger/
+        elif [ "${{ runner.os }}" == "Windows" ]; then
+          powershell -Command "New-Item -ItemType Directory -Path wheels\pytopotoolbox -Force"
+          powershell -Command "New-Item -ItemType Directory -Path wheels\dagger -Force"
+          powershell -Command "Move-Item -Path wheelhouse\pytopotoolbox\*.whl -Destination wheels\pytopotoolbox\"
+          powershell -Command "Move-Item -Path wheelhouse\dagger\*.whl -Destination wheels\dagger\"
+        fi
 
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
