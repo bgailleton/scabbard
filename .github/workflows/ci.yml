@@ -172,7 +172,6 @@ jobs:
       run: |
         source $HOME/miniforge/bin/activate && mamba run -n build_env pip wheel . -w wheelhouse/scabbard --no-deps
 
-
     # Commit and push the built wheels
     - name: Commit wheels to repository
       run: |
@@ -218,8 +217,7 @@ jobs:
           fi
 
         elif [ "${{ runner.os }}" == "Windows" ]; then
-          @'
-          powershell -Command "
+          powershell -Command @'
             New-Item -ItemType Directory -Path wheels\pytopotoolbox -Force;
             New-Item -ItemType Directory -Path wheels\dagger -Force;
 
@@ -272,11 +270,9 @@ jobs:
               Write-Host 'Push failed after $RETRIES attempts, aborting.';
               exit 1;
             }
-          "
           '@
         fi
       shell: bash
-
 
 
     # Commit and push the built wheels for scabbard (done once)
