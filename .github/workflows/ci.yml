@@ -147,13 +147,12 @@ jobs:
       run: |
         source /opt/homebrew/Caskroom/miniforge/base/bin/activate && mamba run -n build_env pip wheel ./DAGGER/wrappers/python -w wheelhouse/dagger --no-deps
 
-    # Build DAGGER Wheels on Windows
     - name: Build DAGGER Wheels on Windows
       if: runner.os == 'Windows'
       run: |
-        set "CONDA=%UserProfile%\miniforge3"  # Set the correct path for Miniforge
-        set "XTENSOR_INCLUDE_PATH=%CONDA%\envs\build_env\Library\include"  # Path to xtensor headers
-        set INCLUDE=%XTENSOR_INCLUDE_PATH%;%INCLUDE%  # Add xtensor to the INCLUDE path for the compiler
+        $env:CONDA = "$env:USERPROFILE\miniforge3"  # Set the correct path for Miniforge
+        $env:XTENSOR_INCLUDE_PATH = "$env:CONDA\envs\build_env\Library\include"  # Path to xtensor headers
+        $env:INCLUDE = "$env:XTENSOR_INCLUDE_PATH;$env:INCLUDE"  # Add xtensor to the INCLUDE path for the compiler
         cmd /c "%CONDA%\Scripts\activate.bat && conda run -n build_env pip wheel ./DAGGER/wrappers/python -w wheelhouse/dagger --no-deps"
 
 
