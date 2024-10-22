@@ -236,10 +236,14 @@ jobs:
 
             # Pull latest changes and rebase
             git fetch origin
-            git rebase origin/main || git rebase --abort
+            if (!(git rebase origin/main)) {
+              git rebase --abort
+            }
 
             # Apply stashed changes
-            git stash pop || echo 'No local changes to apply'
+            if (!(git stash pop)) {
+              Write-Host 'No local changes to apply'
+            }
 
             # Add and commit changes again
             git add wheels/**/*.whl
@@ -247,12 +251,19 @@ jobs:
 
             # Try to push with error handling
             $RETRIES = 20
-            for ($i = 1; $i -le $RETRIES; $i++) {
-              git push origin refs/heads/main && break
-              Write-Host 'Push failed, retrying $i/$RETRIES...'
-              git fetch origin
-              git rebase origin/main || git rebase --abort
-              Start-Sleep -Seconds 5
+            $i = 1
+            while ($i -le $RETRIES) {
+              if (git push origin refs/heads/main) {
+                break
+              } else {
+                Write-Host 'Push failed, retrying $i/$RETRIES...'
+                git fetch origin
+                if (!(git rebase origin/main)) {
+                  git rebase --abort
+                }
+                Start-Sleep -Seconds 5
+                $i++
+              }
             }
 
             if ($i -eq $RETRIES) {
@@ -262,6 +273,7 @@ jobs:
           "
         fi
       shell: bash
+
 
 
     # Commit and push the built wheels for scabbard (done once)
