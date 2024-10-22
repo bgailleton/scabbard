@@ -153,7 +153,7 @@ jobs:
       run: |
         set "CONDA=%UserProfile%\miniforge3"  # Set the correct path for Miniforge
         set "XTENSOR_INCLUDE_PATH=%CONDA%\envs\build_env\Library\include"  # Path to xtensor headers
-        set "CXXFLAGS=-I%XTENSOR_INCLUDE_PATH%"  # Set CXXFLAGS to include the xtensor header path
+        set INCLUDE=%XTENSOR_INCLUDE_PATH%;%INCLUDE%  # Add xtensor to the INCLUDE path for the compiler
         cmd /c "%CONDA%\Scripts\activate.bat && conda run -n build_env pip wheel ./DAGGER/wrappers/python -w wheelhouse/dagger --no-deps"
 
 
