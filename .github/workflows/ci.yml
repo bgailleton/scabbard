@@ -174,55 +174,95 @@ jobs:
 
 
 
-          # Commit and push the built wheels
+    # Commit and push the built wheels
     - name: Commit wheels to repository
       run: |
         if [ "${{ runner.os }}" == "Linux" ] || [ "${{ runner.os }}" == "macOS" ]; then
           mkdir -p wheels/pytopotoolbox wheels/dagger wheels/scabbard
           mv wheelhouse/pytopotoolbox/*.whl wheels/pytopotoolbox/
           mv wheelhouse/dagger/*.whl wheels/dagger/
+          
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Stage local changes
+          git add wheels/**/*.whl
+
+          # Stash changes to prevent rebase conflicts
+          git stash
+
+          # Pull latest changes and rebase
+          git fetch origin
+          git rebase origin/main || git rebase --abort
+
+          # Apply stashed changes
+          git stash pop || echo "No local changes to apply"
+
+          # Add and commit changes again
+          git add wheels/**/*.whl
+          git commit -m "Add built wheels to repository [skip ci]"
+
+          # Try to push with error handling
+          RETRIES=20
+          for i in $(seq 1 $RETRIES); do
+            git push origin refs/heads/main && break || {
+              echo "Push failed, retrying $i/$RETRIES..."
+              git fetch origin
+              git rebase origin/main || git rebase --abort
+              sleep 5
+            }
+          done
+
+          if [ $i -eq $RETRIES ]; then
+            echo "Push failed after $RETRIES attempts, aborting."
+            exit 1
+          fi
+
         elif [ "${{ runner.os }}" == "Windows" ]; then
-          powershell -Command "New-Item -ItemType Directory -Path wheels\pytopotoolbox -Force"
-          powershell -Command "New-Item -ItemType Directory -Path wheels\dagger -Force"
-          powershell -Command "Move-Item -Path wheelhouse\pytopotoolbox\*.whl -Destination wheels\pytopotoolbox\"
-          powershell -Command "Move-Item -Path wheelhouse\dagger\*.whl -Destination wheels\dagger\"
-        fi
+          powershell -Command "
+            New-Item -ItemType Directory -Path wheels\pytopotoolbox -Force
+            New-Item -ItemType Directory -Path wheels\dagger -Force
+            Move-Item -Path wheelhouse\pytopotoolbox\*.whl -Destination wheels\pytopotoolbox\
+            Move-Item -Path wheelhouse\dagger\*.whl -Destination wheels\dagger\
 
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+            git config --global user.name 'github-actions[bot]'
+            git config --global user.email 'github-actions[bot]@users.noreply.github.com'
 
-        # Stage local changes
-        git add wheels/**/*.whl
+            # Stage local changes
+            git add wheels/**/*.whl
 
-        # Stash changes to prevent rebase conflicts
-        git stash
+            # Stash changes to prevent rebase conflicts
+            git stash
 
-        # Pull latest changes and rebase
-        git fetch origin
-        git rebase origin/main || git rebase --abort
-
-        # Apply stashed changes
-        git stash pop || echo "No local changes to apply"
-
-        # Add and commit changes again
-        git add wheels/**/*.whl
-        git commit -m "Add built wheels to repository [skip ci]"
-
-        # Try to push with error handling
-        RETRIES=20
-        for i in $(seq 1 $RETRIES); do
-          git push origin refs/heads/main && break || {
-            echo "Push failed, retrying $i/$RETRIES..."
+            # Pull latest changes and rebase
             git fetch origin
             git rebase origin/main || git rebase --abort
-            sleep 5
-          }
-        done
 
-        if [ $i -eq $RETRIES ]; then
-          echo "Push failed after $RETRIES attempts, aborting."
-          exit 1
+            # Apply stashed changes
+            git stash pop || echo 'No local changes to apply'
+
+            # Add and commit changes again
+            git add wheels/**/*.whl
+            git commit -m 'Add built wheels to repository [skip ci]'
+
+            # Try to push with error handling
+            $RETRIES = 20
+            for ($i = 1; $i -le $RETRIES; $i++) {
+              git push origin refs/heads/main && break
+              Write-Host 'Push failed, retrying $i/$RETRIES...'
+              git fetch origin
+              git rebase origin/main || git rebase --abort
+              Start-Sleep -Seconds 5
+            }
+
+            if ($i -eq $RETRIES) {
+              Write-Host 'Push failed after $RETRIES attempts, aborting.'
+              exit 1
+            }
+          "
         fi
+      shell: bash
+
 
     # Commit and push the built wheels for scabbard (done once)
     - name: Commit scabbard wheel to repository
