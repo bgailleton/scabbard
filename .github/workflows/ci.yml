@@ -156,7 +156,7 @@ jobs:
         $env:INCLUDE = "$env:XTENSOR_INCLUDE_PATH;$env:INCLUDE"
         
         # Ensure the environment is created
-        cmd /c "%CONDA%\Scripts\activate.bat && conda create -n build_env_dagger python=3.12 -y"
+        cmd /c "%CONDA%\Scripts\activate.bat && conda create -n build_env_dagger python=${{ matrix.python-version }} -y"
 
         # Install xtensor-python to the environment
         cmd /c "%CONDA%\Scripts\activate.bat && conda run -n build_env_dagger conda install -c conda-forge xtensor-python -y"
