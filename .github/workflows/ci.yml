@@ -219,63 +219,61 @@ jobs:
 
         elif [ "${{ runner.os }}" == "Windows" ]; then
           powershell -Command "
-            New-Item -ItemType Directory -Path wheels\pytopotoolbox -Force
-            New-Item -ItemType Directory -Path wheels\dagger -Force
+            New-Item -ItemType Directory -Path wheels\pytopotoolbox -Force;
+            New-Item -ItemType Directory -Path wheels\dagger -Force;
 
-            # Move files on **separate** lines
-            Move-Item -Path wheelhouse\pytopotoolbox\*.whl -Destination wheels\pytopotoolbox\
-            Move-Item -Path wheelhouse\dagger\*.whl -Destination wheels\dagger\
+            # Move files separately
+            Move-Item -Path wheelhouse\pytopotoolbox\*.whl -Destination wheels\pytopotoolbox;
+            Move-Item -Path wheelhouse\dagger\*.whl -Destination wheels\dagger;
 
-            git config --global user.name 'github-actions[bot]'
-            git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+            git config --global user.name 'github-actions[bot]';
+            git config --global user.email 'github-actions[bot]@users.noreply.github.com';
 
             # Stage local changes
-            git add wheels/**/*.whl
+            git add wheels/**/*.whl;
 
             # Stash changes to prevent rebase conflicts
-            git stash
+            git stash;
 
             # Pull latest changes and rebase
-            git fetch origin
+            git fetch origin;
             if (!(git rebase origin/main)) {
-              git rebase --abort
+              git rebase --abort;
             }
 
             # Apply stashed changes
             if (!(git stash pop)) {
-              Write-Host 'No local changes to apply'
+              Write-Host 'No local changes to apply';
             }
 
             # Add and commit changes again
-            git add wheels/**/*.whl
-            git commit -m 'Add built wheels to repository [skip ci]'
+            git add wheels/**/*.whl;
+            git commit -m 'Add built wheels to repository [skip ci]';
 
-            # Initialize retry logic **properly**
-            $RETRIES = 20
-            $i = 1
+            # Retry logic
+            $RETRIES = 20;
+            $i = 1;
             while ($i -le $RETRIES) {
               if (git push origin refs/heads/main) {
-                break
+                break;
               } else {
-                Write-Host 'Push failed, retrying $i/$RETRIES...'
-                git fetch origin
+                Write-Host 'Push failed, retrying $i/$RETRIES...';
+                git fetch origin;
                 if (!(git rebase origin/main)) {
-                  git rebase --abort
+                  git rebase --abort;
                 }
-                Start-Sleep -Seconds 5
-                $i = $i + 1
+                Start-Sleep -Seconds 5;
+                $i = $i + 1;
               }
             }
 
             if ($i -eq $RETRIES) {
-              Write-Host 'Push failed after $RETRIES attempts, aborting.'
-              exit 1
+              Write-Host 'Push failed after $RETRIES attempts, aborting.';
+              exit 1;
             }
           "
         fi
       shell: bash
-
-
 
 
 
