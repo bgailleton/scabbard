@@ -173,7 +173,6 @@ jobs:
         source $HOME/miniforge/bin/activate && mamba run -n build_env pip wheel . -w wheelhouse/scabbard --no-deps
 
 
-
     # Commit and push the built wheels
     - name: Commit wheels to repository
       run: |
@@ -262,7 +261,7 @@ jobs:
                   git rebase --abort
                 }
                 Start-Sleep -Seconds 5
-                $i = $i + 1
+                $i += 1
               }
             }
 
