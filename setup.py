@@ -4,6 +4,7 @@
 
 from setuptools import setup, find_packages
 from setuptools.command.install import install
+import os
 
 
 class PostInstallCommand(install):
@@ -63,6 +64,7 @@ setup(
 	install_requires=requirements,
 	license="MIT license",
 	long_description=readme + '\n\n' + history,
+    long_description_content_type='text/markdown',  # For Markdown
 	include_package_data=True,
 	keywords='scabbard',
 	name='pyscabbard',
@@ -77,6 +79,6 @@ setup(
 	test_suite='tests',
 	tests_require=test_requirements,
 	url='https://github.com/bgailleton/scabbard',
-	version='0.0.6',
+	version='0.0.7',
 	zip_safe=False,
 )

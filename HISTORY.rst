@@ -2,6 +2,16 @@
 History
 =======
 
+
+0.0.5 - 0.0.7 (2024-10-15)
+--------------------------
+
+* Total refactoring. As Simple as that
+* `scabbard` is the main tool now, it uses multiple backends `DAGGER`, `pytopotoolbox`, `fastscapelib`, `numba` and `taichi`
+
+
+
+
 0.0.3 - 0.0.4 (2023-10-23)
 --------------------------
 
