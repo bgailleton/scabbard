@@ -71,8 +71,21 @@ jobs:
         # Dealing with case where for macos-12 conda is somehow already there
         rm -rf /usr/local/bin/conda
         rm -rf $HOME/miniforge
-        curl -L "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-arm64.sh" -o miniforge.sh
+
+        ARCH=$(uname -m)
+        if [ "$ARCH" = "x86_64" ]; then
+          echo "Installing Miniforge for Intel (x86_64)"
+          curl -L "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-x86_64.sh" -o miniforge.sh
+        elif [ "$ARCH" = "arm64" ]; then
+          echo "Installing Miniforge for ARM (arm64)"
+          curl -L "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-arm64.sh" -o miniforge.sh
+        else
+          echo "Unsupported architecture: $ARCH"
+          exit 1
+        fi
+
         bash miniforge.sh -b -p $HOME/miniforge
+        source $HOME/miniforge/bin/activate
 
     # Set up Miniforge on Windows
     - name: Set up Miniforge on Windows
