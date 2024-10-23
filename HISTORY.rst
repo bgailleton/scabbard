@@ -3,13 +3,19 @@ History
 =======
 
 
+0.0.8 (2024-10-15)
+--------------------------
+
+* Cleaning the install process
+* Removing problematic legacy imports
+* Trimming requirements
+* Deprecating older tools relying on packages I do not use anymore
+
 0.0.5 - 0.0.7 (2024-10-15)
 --------------------------
 
 * Total refactoring. As Simple as that
 * `scabbard` is the main tool now, it uses multiple backends `DAGGER`, `pytopotoolbox`, `fastscapelib`, `numba` and `taichi`
-
-
 
 
 0.0.3 - 0.0.4 (2023-10-23)

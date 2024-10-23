@@ -23,14 +23,7 @@ Python package to design, use or visualise topographic analysis, landscape evolu
 
 ## How to install
 
-I am currently working on an easier installation process. In the meantime, using a `conda` environment:
 
-```
-mamba install numpy scipy matplotlib ipympl jupyterlab rasterio numba cmcrameri plotly nicegui daggerpy pip geopandas
-pip install taichi pyscabbard
-```
-
-You also need to follow the installation procedure of [`pytopotoolbox`](https://github.com/TopoToolbox/pytopotoolbox).  
 
 
 ## Usage

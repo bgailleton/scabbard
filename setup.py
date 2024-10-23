@@ -25,36 +25,30 @@ with open('README.md') as readme_file:
 with open('HISTORY.rst') as history_file:
 		history = history_file.read()
 
-requirements = ['Click>=7.0', ]
+requirements = ['Click>=7.0', 'numpy', 'numba', 'daggerpy>=0.0.14', 'matplotlib', 'taichi', 'rasterio', 'scipy', 'cmcrameri']
 
 test_requirements = [ ]
 
 setup(
 	author="Boris Gailleton",
-	author_email='boris.gailleton@univ-rennes1.fr',
-	python_requires='>=3.6',
+	author_email='boris.gailleton@univ-rennes.fr',
+	python_requires='>=3.10',
 	classifiers=[
-			'Development Status :: 2 - Pre-Alpha',
-			'Intended Audience :: Developers',
+			'Development Status :: Beta version',
+			'Intended Audience :: Geomorphologists, developers, hydrodynamicist',
 			'License :: OSI Approved :: MIT License',
 			'Natural Language :: English',
-			'Programming Language :: Python :: 3',
-			'Programming Language :: Python :: 3.6',
-			'Programming Language :: Python :: 3.7',
-			'Programming Language :: Python :: 3.8',
+			'Programming Language :: Python :: 3.10+',
 	],
-	description="high-level python package for the DAGGER suite",
+	description="Suite of Hydrodynamic, topographic analysis, Landscape Evolution model and visualisation tools",
 	entry_points={
 
 		'console_scripts': [
 				'scb-baseplot=scabbard.visu.nice_terrain:cli_nice_terrain' ,
 				'scb-crop=scabbard.raster.std_raster_cropper:std_crop_raster' ,
 				'scb-graphflood=scabbard.phineas:graphflood_basic' ,
-				# 'scb-debugger=scabbard.phineas:_debug_1' ,
 				'scb-reset-config=scabbard.config:defaultConfig' ,
 				'scb-visu2D=scabbard.phineas:visu2Dnpy' ,
-				# 'scb-archive-haguid=scabbard.phin eas:haguid' ,
-				# 'scb-haguid=scabbard.phineas:run_nice_haguid' ,
 				'scb-quick-hydro=scabbard.phineas:GPUgraphflood' ,
 		],
 	},
@@ -79,6 +73,6 @@ setup(
 	test_suite='tests',
 	tests_require=test_requirements,
 	url='https://github.com/bgailleton/scabbard',
-	version='0.0.7',
+	version='0.0.8',
 	zip_safe=False,
 )
