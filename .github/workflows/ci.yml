@@ -68,6 +68,9 @@ jobs:
     - name: Set up Miniforge on macOS
       if: runner.os == 'macOS'
       run: |
+        # Dealing with case where for macos-12 conda is somehow already there
+        rm -rf /usr/local/bin/conda
+        rm -rf $HOME/miniforge
         brew install --cask miniforge
 
     # Set up Miniforge on Windows
