@@ -1,7 +1,9 @@
 # Wheels
 
-These folders contains the "compiled" python binaries by my CI workflow. 
+These directories contain the precompiled Python binaries from my CI workflow.
 
-- `DAGGER`: While you can use them, `pip install daggerpy` should be up-to-date
-- `pytopotoolbox`: [Check the official website](https://topotoolbox.github.io/pytopotoolbox/) if the installation has been sorted. As of the time of writing, it involves manually compiling the C code, as `scabbard` relies on `pytopotoolbox` I provide precompiled binaries for `Linux`, `Windows` and `MacOS`.
-- `scabbard`: Does not contain any compiled binaries, can be installed through `pip install pyscabbard` or with these local wheels (same things).
+- **DAGGER**: Although the binaries are available here, it’s recommended to use `pip install daggerpy` for the latest version.
+  
+- **pytopotoolbox**: [Check the official website](https://topotoolbox.github.io/pytopotoolbox/) for installation updates. Currently, manual compilation of the C code is required. Since `scabbard` depends on `pytopotoolbox`, I provide precompiled binaries for `Linux`, `Windows`, and `MacOS`.
+
+- **scabbard**: This package doesn’t include compiled binaries. You can install it either through `pip install pyscabbard` or use the provided local wheels (both options are equivalent).
