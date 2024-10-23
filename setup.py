@@ -34,11 +34,13 @@ setup(
 	author_email='boris.gailleton@univ-rennes.fr',
 	python_requires='>=3.10',
 	classifiers=[
-			'Development Status :: Beta version',
-			'Intended Audience :: Geomorphologists, developers, hydrodynamicist',
+			'Development Status :: 4 - Beta',
 			'License :: OSI Approved :: MIT License',
 			'Natural Language :: English',
-			'Programming Language :: Python :: 3.10+',
+			'Programming Language :: Python :: 3',
+			'Programming Language :: Python :: 3.10',
+			'Programming Language :: Python :: 3.11',
+			'Programming Language :: Python :: 3.12',
 	],
 	description="Suite of Hydrodynamic, topographic analysis, Landscape Evolution model and visualisation tools",
 	entry_points={
