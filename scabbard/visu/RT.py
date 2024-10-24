@@ -42,7 +42,8 @@ def interpolate_ZZ(
 	YY:ti.template(), 
 	ZZ:ti.template()
 	):
-
+	
+	nx,ny = XX.shape[1],XX.shape[0]
 	# Ensure x and y are within the bounds
 	z = -9999.
 	if x < XX[0, 0] or x > XX[0, nx-1] or y < YY[0, 0] or y > YY[ny-1, 0]:
@@ -60,8 +61,8 @@ def interpolate_ZZ(
 		j0 = int(ti.math.floor(j))
 
 		# Ensure indices are within bounds
-		i0 = max(0, min(i0, M - 2))
-		j0 = max(0, min(j0, N - 2))
+		i0 = max(0, min(i0, nx - 2))
+		j0 = max(0, min(j0, ny - 2))
 
 		i1 = i0 + 1
 		j1 = j0 + 1
@@ -125,6 +126,7 @@ def ray_surface_intersection(
 	intersection_point = ti.math.vec3(-9999.)
 	normal = ti.math.vec3(-9999.)
 	dz = 10.
+	nx,ny = XX.shape[1],XX.shape[0]
 
 	while t < max_t:
 		# Compute current point along the ray
@@ -133,7 +135,7 @@ def ray_surface_intersection(
 
 		# Get surface Z at (x, y) if within domain
 		if x >= XX[0,0] and x <= XX[0,nx-1] and y >= YY[0,0] and y <= YY[ny-1,0]:
-			surface_z = interpolate_ZZ(x, y)
+			surface_z = interpolate_ZZ(x, y,XX,YY,ZZ)
 			if surface_z != -9999.0 and z != -9999.0:
 				# Compute difference between ray's z and surface z
 				dz = z - surface_z
@@ -147,12 +149,12 @@ def ray_surface_intersection(
 						intersection_point = ray_origin + t_intersect * ray_direction
 						x_int, y_int, z_int = intersection_point
 						# Compute normal at intersection point
-						normal = compute_normal((x_int), (y_int))
+						normal = compute_normal((x_int), (y_int),XX,YY,ZZ)
 						break
 					elif dz == 0.0:
 						# Ray is exactly on the surface
 						intersection_point = point
-						normal = compute_normal(x, y)
+						normal = compute_normal(x, y,XX,YY,ZZ)
 						break
 
 				prev_dz = dz
@@ -234,7 +236,9 @@ def compute_image(
 def rotate(
 	tp:ti.template(),
 	image:ti.template(),
+	PX:ti.template()
 	):
+
 	for i,j in PX:
 		tp[j,i,0] = image[i,j,0] 
 		tp[j,i,1] = image[i,j,1] 
@@ -261,6 +265,8 @@ def gray_RT(
 	# ==========================================
 	# Step 1: Data Preparation
 	# ==========================================
+
+	Z = grid.Z[1:-1,1:-1]
 
 	# Normalize Z to range from 0 to 1, then apply exaggeration factor
 	Z_min, Z_max = Z.min(), Z.max()
@@ -344,7 +350,7 @@ def gray_RT(
 	image = ti.field(ti.f32, shape = (image_height, image_width, 3) )
 	image.fill(0.)
 	
-	tp = ti.field(ti.f32, shape = (image_height, image_width, 3) )
+	out = ti.field(ti.f32, shape = (image_height, image_width, 3) )
 
 	XX = ti.field(ti.f32, shape = _XX.shape)
 	XX.from_numpy(_XX.astype(np.float32))
@@ -360,10 +366,10 @@ def gray_RT(
 
 	compute_image(XX,YY,ZZ,image,PX,PY,camera_position,camera_direction,camera_up,camera_right,focal_length,image_height,image_width)
 	
-	rotate(out, image)
+	# rotate(out, image, PX)
 
 
-	return image
+	return image.to_numpy()[::-1]
 
 
 

@@ -24,15 +24,26 @@ Python package to design, use or visualise topographic analysis, landscape evolu
 ## How to install
 
 
+`pip install pyscabbard`
+
+As simple as that. Thanks to github actions allowing smooth CI, you do not have to compile anything yourself.
+
+**NOTE**: `pytopotoolbox` official installation procedure is still WIP. I provide binary wheels within this project ([./wheels/pytopotoolbox](https://github.com/bgailleton/scabbard/tree/main/wheels/pytopotoolbox) ). At first import, `scabbard` will provide instruction (i.e. a single command line to run).
+
+
+## Features
+
+* General geomorphic routines
+
+* `Graphflood`: Efficient hydrodynamic modelling, tailored for large scale. CPU and GPU version.
+
+* `CHONK/trackscape/popscape`: Long term Landscape Evolution Models.
 
 
 ## Usage
 
-TODO
+Documentation is WIP and will be online soon
 
-## Features
-
-* TODO
 
 ## Credits
 

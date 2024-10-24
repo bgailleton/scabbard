@@ -25,7 +25,7 @@ with open('README.md') as readme_file:
 with open('HISTORY.rst') as history_file:
 		history = history_file.read()
 
-requirements = ['Click>=7.0', 'numpy', 'numba', 'daggerpy>=0.0.14', 'matplotlib', 'taichi', 'rasterio', 'scipy', 'cmcrameri']
+requirements = ['Click>=7.0', 'numpy>=2', 'numba', 'daggerpy>=0.0.14', 'matplotlib', 'taichi', 'rasterio', 'scipy', 'cmcrameri']
 
 test_requirements = [ ]
 
