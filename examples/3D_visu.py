@@ -7,19 +7,30 @@ import scabbard as scb
 import matplotlib.pyplot as plt
 
 grid = scb.io.load_raster('dem.tif')
-grid.Z[grid.Z<50] = 50
+# grid = scb.filters.gaussian_fourier(grid, magnitude = 100)
 
-plt.imshow(grid.Z)
-plt.show()
+image = scb.visu.std_gray_RT(grid, exaggeration_factor = 0.3, N_AA = 10, tone_mapping = False, toon = 0)
 
-image = scb.visu.gray_RT(grid, exaggeration_factor = 0.2)
-# print(image.shape)
+# fig,ax = plt.subplots(dpi=150)
+
+# # Display the image without axis and padding
+# im = ax.imshow(image)
+# ax.axis('off')  # Hide axis
+# ax.set_position([0, 0, 1, 1])  # Remove padding and fill figure with image
+# plt.show()
+
+res = scb.graphflood.std_run(grid, N_dt = 20000, P = 1e-5)
+
+# plt.imshow(res['hw'])
+# plt.show()
 # quit()
-# Assuming `image_array` is your NumPy array with shape (height, width, 4) for RGBA
-fig,ax = plt.subplots(figsize=(image.shape[1]/100, image.shape[0]/100), dpi=100)
+
+image = scb.visu.std_water_RT(grid, res['hw'], exaggeration_factor = 0.3, N_AA = 10, tone_mapping = False, toon = 0)
+
+fig,ax = plt.subplots(dpi=150)
 
 # Display the image without axis and padding
-ax.imshow(image)
+im = ax.imshow(image)
 ax.axis('off')  # Hide axis
 ax.set_position([0, 0, 1, 1])  # Remove padding and fill figure with image
 plt.show()

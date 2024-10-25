@@ -31,7 +31,7 @@ def gaussian_fourier(
 	crow, ccol = rows // 2, cols // 2  # Center of the frequency domain
 
 	# Create a Gaussian filter
-	sigma = 50  # Adjust this value to control the level of smoothing (higher = more smoothing)
+	sigma = magnitude  # Adjust this value to control the level of smoothing (higher = more smoothing)
 	y, x = np.ogrid[:rows, :cols]
 	distance = np.sqrt((x - ccol)**2 + (y - crow)**2)
 	gaussian_filter = np.exp(-(distance**2) / (2 * sigma**2))
