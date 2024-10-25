@@ -3,6 +3,13 @@ History
 =======
 
 
+0.0.9 (2024-10-25)
+--------------------------
+
+* More fixes on the setup process
+* Added a simple GPU ray tracing engine for 3D plots
+* Started a unified interface for graphflood 
+
 0.0.8 (2024-10-15)
 --------------------------
 
@@ -14,7 +21,7 @@ History
 0.0.5 - 0.0.7 (2024-10-15)
 --------------------------
 
-* Total refactoring. As Simple as that
+* Total refactoring. As Simple as that.
 * `scabbard` is the main tool now, it uses multiple backends `DAGGER`, `pytopotoolbox`, `fastscapelib`, `numba` and `taichi`
 
 
