@@ -6,7 +6,7 @@ from setuptools import setup, find_packages
 from setuptools.command.install import install
 import os
 
-VERSION = 0.0.10
+VERSION = '0.0.10'
 
 
 class PostInstallCommand(install):
