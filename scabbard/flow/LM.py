@@ -26,8 +26,8 @@ def _priority_flood_from_Z(Z, BCs, D4, in_place, dx, gridcpp, backend, step_fill
 
 	if(backend == 'ttb'):
 		dims = np.array( [Z.shape[0], Z.shape[1]],dtype = np.uint64)
-		# ttb.compute_priority_flood(Z.ravel(), BCs.ravel(), dims, not D4)
-		ttb.compute_priority_flood_plus_topological_ordering(Z.ravel(), np.zeros_like(Z, dtype = np.uint64), BCs.ravel(), dims, not D4, step_fill)
+		# ttb.graphflood.funcdict['priority_flood'](Z.ravel(), BCs.ravel(), dims, not D4)
+		ttb.graphflood.funcdict['priority_flood_TO'](Z.ravel(), np.zeros_like(Z, dtype = np.uint64), BCs.ravel(), dims, not D4, step_fill)
 
 	elif backend == 'dagger':
 		if(gridcpp is None):
@@ -50,8 +50,8 @@ def _priority_flood_from_dem(dem, BCs, D4, in_place, dx, gridcpp, backend, step_
 
 	if(backend == 'ttb'):
 		dims = np.array( [tZ.shape[0], tZ.shape[1]],dtype = np.uint64)
-		ttb.compute_priority_flood(tZ.ravel(), BCs.ravel(), dem.dims, not D4, step_fill)
-		# ttb.compute_priority_flood_plus_topological_ordering(tZ.ravel(), np.zeros_like(tZ, dtype = np.uint64), BCs.ravel(), dims, not D4, step_fill)
+		ttb.graphflood.funcdict['priority_flood'](tZ.ravel(), BCs.ravel(), dem.dims, not D4, step_fill)
+		# ttb.graphflood.funcdict['priority_flood_TO'](tZ.ravel(), np.zeros_like(tZ, dtype = np.uint64), BCs.ravel(), dims, not D4, step_fill)
 
 	elif backend == 'dagger':
 		if(gridcpp is None):

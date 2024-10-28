@@ -25,7 +25,7 @@ def compute_flow_distance_from_outlet(
         if Stack is None:
             if fill_LM:
                 Stack = np.zeros_like(grid.Z.ravel(), dtype=np.uint64)
-                scb.ttb.compute_priority_flood_plus_topological_ordering(
+                scb.ttb.graphflood.funcdict['priority_flood_TO'](
                     grid.Z.ravel(), Stack, BCs.ravel(), grid.dims, D8, step_fill
                 )
             else:
@@ -52,7 +52,7 @@ def compute_flow_distance_from_outlet(
         if Stack is None:
             if fill_LM:
                 Stack = np.zeros_like(grid.Z.ravel(), dtype=np.uint64)
-                scb.ttb.compute_priority_flood_plus_topological_ordering(
+                scb.ttb.graphflood.funcdict['priority_flood_TO'](
                     grid.Z.ravel(), Stack, BCs.ravel(), grid.dims, D8, step_fill
                 )
             else:
@@ -79,7 +79,7 @@ def compute_flow_distance_from_outlet(
         if Stack is None:
             if fill_LM:
                 Stack = np.zeros_like(grid.Z.ravel(), dtype=np.uint64)
-                scb.ttb.compute_priority_flood_plus_topological_ordering(
+                scb.ttb.graphflood.funcdict['priority_flood_TO'](
                     grid.Z.ravel(), Stack, BCs.ravel(), grid.dims, D8, step_fill
                 )
             else:

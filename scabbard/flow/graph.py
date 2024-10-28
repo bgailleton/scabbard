@@ -83,9 +83,9 @@ class SFGraph(object):
 			self.Ndonors.fill(0)
 			#Theer is a bug in my implementation in ttb, I need to sort it but the vanilla fill LM does not fill the flats
 			if(fill_LM):
-				scb.ttb.compute_priority_flood_plus_topological_ordering(Z.ravel(), self.Stack, BCs.ravel(), self.dim, not self.D4, step_fill)
+				scb.ttb.graphflood.funcdict['priority_flood_TO'](Z.ravel(), self.Stack, BCs.ravel(), self.dim, not self.D4, step_fill)
 				
-			ttb.graphflood_sfgraph(Z.ravel(), self.Sreceivers, self.Sdx, self.donors, self.Ndonors, self.Stack, BCs.ravel(), self.dim, self.dx * self.dx, not self.D4, False, step_fill) # False cause I fill lm above
+			ttb.graphflood.funcdict['sfgraph'](Z.ravel(), self.Sreceivers, self.Sdx, self.donors, self.Ndonors, self.Stack, BCs.ravel(), self.dim, self.dx * self.dx, not self.D4, False, step_fill) # False cause I fill lm above
 
 
 	@property

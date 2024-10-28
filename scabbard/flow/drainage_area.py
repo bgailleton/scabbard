@@ -135,7 +135,7 @@ def propagate(input_data, input_values, method = 'sfd', BCs = None, D4 = True, f
 
 		if(fill_LM):
 			Stack = np.zeros_like(input_data.Z.ravel(), dtype = np.uint64)
-			scb.ttb.compute_priority_flood_plus_topological_ordering( input_data.Z.ravel(), Stack, BCs.ravel(), input_data.dims, not D4, step_fill)
+			scb.ttb.graphflood.funcdict['priority_flood_TO']( input_data.Z.ravel(), Stack, BCs.ravel(), input_data.dims, not D4, step_fill)
 
 		else:
 			Stack = np.argsort(input_data.Z.ravel()).astype(np.uint64)

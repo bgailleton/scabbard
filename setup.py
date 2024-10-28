@@ -6,6 +6,8 @@ from setuptools import setup, find_packages
 from setuptools.command.install import install
 import os
 
+VERSION = 0.0.10
+
 
 class PostInstallCommand(install):
 	"""Post-installation for installation mode."""
@@ -75,6 +77,6 @@ setup(
 	test_suite='tests',
 	tests_require=test_requirements,
 	url='https://github.com/bgailleton/scabbard',
-	version='0.0.9',
+	version=VERSION,
 	zip_safe=False,
 )
