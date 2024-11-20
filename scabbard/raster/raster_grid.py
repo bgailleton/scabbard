@@ -77,6 +77,22 @@ class RegularRasterGrid(object):
         """
         return np.array([self.geo.ny, self.geo.nx], dtype=np.uint64)
 
+    def grid2ttb(self):
+        '''
+        Returns a libtopotoolbox-compatible grid
+        '''
+        import topotoolbox as ttb
+        ttbgrid = ttb.GridObject()
+        ttbgrid.z = self.Z
+        ttbgrid.rows = self.geo.ny
+        ttbgrid.columns = self.geo.nx
+        ttbgrid.shape = self.Z.shape
+        ttbgrid.cellsize = self.geo.dx
+        ttbgrid.bounds = self.geo.extent
+        ttbgrid.name = "from_scabbard"
+
+        return ttbgrid
+
     # Common operator overload
     def __add__(self, other):
         if isinstance(other, RegularRasterGrid):
@@ -103,6 +119,8 @@ class RegularRasterGrid(object):
             return RegularRasterGrid(self.Z / other, self.geo)
 
 
+
+
 def raster_from_array(Z, dx=1.0, xmin=0.0, ymin=0.0, dtype=np.float32):
     """
     Helper function to get a RegularRasterGrid from a 2D array
@@ -122,3 +140,23 @@ def raster_from_array(Z, dx=1.0, xmin=0.0, ymin=0.0, dtype=np.float32):
     """
     geometry = scb.geometry.RegularGeometry(Z.shape[1], Z.shape[0], dx, xmin, ymin)
     return RegularRasterGrid(Z, geometry, dtype=dtype)
+
+def raster_from_ttb(ttbgrid):
+    '''
+    Converts a libtopotoolbox gridObjg to scabbard grid object
+    
+    Arguments:
+        - ttbgrid: the GRidObj from topotoolbox
+
+    Returns:
+        - A regularGridObject
+
+    Authors:
+        - B.G. (last modification: 11/2024)
+
+    '''
+
+    geometry = scb.geometry.RegularGeometry(ttbgrid.columns, ttbgrid.rows, ttbgrid.cellsize, ttbgrid.bounds[0], ttbgrid.bounds[1])
+    return RegularRasterGrid(ttbgrid.z, geometry, dtype=ttbgrid.z.dtype)
+
+

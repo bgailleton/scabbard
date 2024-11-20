@@ -7,9 +7,35 @@ import scabbard as scb
 import taichi as ti
 from taichi.ui import Window, Canvas, GUI
 
+###################
+#### CONSTANTS ####
+###################
 
-# World up vector (Z-axis), constant
+## World up vector (Z-axis), constant
 WORLD_UP = np.array([0, 0, 1])
+## Background color in RGB 0-1
+BGCOL_r = 0.
+BGCOL_g = 0.
+BGCOL_b = 0.
+
+## shadow color in RGB 0-1
+SHADOW_BLEND = 0.
+
+## Render modes
+'''
+RENDER_COL is the mode of render coloration:
+0: grayscale linked to normals (classic 3D mesh)
+1: Water related
+'''
+RENDER_COL = 0
+
+## Precision
+RAY_STEP = 0.01      # Step size (smaller for higher accuracy)
+
+## thresholds for plotting water
+MIN_WATER = 0.01
+## Therhold weight for water: minimum water height starts at MINWACOL * water col
+MINWACOL = 0.5
 
 
 @ti.func
@@ -17,23 +43,23 @@ def generate_realistic_water_colors():
 	# Randomly generate blue and green dominant colors
 	r = ti.random(ti.f32) * 50./255               # Low red to keep the color cool
 	g = ti.random(ti.f32) * (80./255 )+ 100./255   # Mid-range green for teal/aqua tones
-	b = ti.random(ti.f32) * (105./255) + 150./255  # High blue for a watery effect
+	b = ti.random(ti.f32) * (50./255) + 155./255  # High blue for a watery effect
 	
 	return ti.math.vec3(r,g,b)
 
 @ti.func
 def generic_water_colors():
 	# Randomly generate blue and green dominant colors
-	r = 50./255               # Low red to keep the color cool
-	g = 100./255   # Mid-range green for teal/aqua tones
-	b = 240./255  # High blue for a watery effect
+	r = 30./255   # Low red to keep the color cool
+	g = 80./255   # Mid-range green for teal/aqua tones
+	b = 230./255  # High blue for a watery effect
 	
 	return ti.math.vec3(r,g,b)
 
 @ti.func
 def mix_rgb(color1:ti.math.vec3, color2:ti.math.vec3, weight:ti.f32 = 0.5):
-    # Mix the two colors by weighted averaging each channel
-    return color1 * weight + color2 * (1 - weight)
+	# Mix the two colors by weighted averaging each channel
+	return color1 * weight + color2 * (1 - weight)
 
 
 @ti.kernel
@@ -144,6 +170,43 @@ def compute_ray_direction(
 	ray_direction /= norm
 	return ray_direction
 
+
+@ti.func
+def is_in_shadow(
+	point: ti.math.vec3,
+	light_direction: ti.math.vec3,
+	XX: ti.template(),
+	YY: ti.template(),
+	ZZ: ti.template(),
+) -> ti.u1:
+	# Offset the point slightly to prevent self-intersection (shadow acne)
+	bias = 1e-4
+	shadow_origin = point + bias * light_direction
+	# Cast a ray towards the light source
+	t = 0.0
+	max_t = 10.0  # Adjust based on scene size
+	nx, ny = XX.shape[1], XX.shape[0]
+
+	ret = 0
+	while t < max_t:
+		current_point = shadow_origin + t * light_direction
+		x, y, z = current_point
+
+		# Check if the point is within the scene bounds
+		if x < XX[0, 0] or x > XX[0, nx - 1] or y < YY[0, 0] or y > YY[ny - 1, 0]:
+			break  # Light is not obstructed within the scene
+
+		# Get surface Z at (x, y)
+		surface_z = interpolate_AA(x, y, XX, YY, ZZ)
+		if surface_z != -9999.0 and z <= surface_z:
+			ret = 1  # Point is in shadow
+			break
+
+		t += RAY_STEP
+
+	return ret  # Point is not in shadow
+
+
 # Function to interpolate ZZ at (x, y) using bilinear interpolation
 @ti.func
 def interpolate_AA(
@@ -179,10 +242,13 @@ def interpolate_AA(
 		z01 = ZZ[i0, j1]
 		z11 = ZZ[i1, j1]
 
-		# Perform bilinear interpolation
-		z0 = z00 * (1 - s) + z10 * s
-		z1 = z01 * (1 - s) + z11 * s
-		z  = z0  * (1 - t) + z1  * t
+		if(z00 == -9999.0 or z01 == -9999.0 or z10 == -9999.0 or z11 == -9999.0):
+			z = -9999.0
+		else:
+			# Perform bilinear interpolation
+			z0 = z00 * (1 - s) + z10 * s
+			z1 = z01 * (1 - s) + z11 * s
+			z  = z0  * (1 - t) + z1  * t
 
 	return z
 
@@ -222,8 +288,6 @@ def ray_surface_intersection(
 	# Initialize t (ray parameter)
 	t = 0.0   # Start from t = 0.0
 	max_t = 10.0  # Maximum distance to march
-	dt = 0.01      # Step size (smaller for higher accuracy)
-
 	prev_dz = -9999.0
 	intersection_point = ti.math.vec3(-9999.)
 	normal = ti.math.vec3(-9999.)
@@ -247,7 +311,7 @@ def ray_surface_intersection(
 					if dz * prev_dz < 0:
 						# The sign of dz changed, indicating a crossing
 						# Perform linear interpolation to find intersection t
-						t_intersect = t - dt * dz / (dz - prev_dz)
+						t_intersect = t - RAY_STEP * dz / (dz - prev_dz)
 						# Compute intersection point
 						intersection_point = ray_origin + t_intersect * ray_direction
 						x_int, y_int, z_int = intersection_point
@@ -269,85 +333,70 @@ def ray_surface_intersection(
 			if prev_dz != -9999.0 and dz > 0:
 				break  # Ray is above the surface and moving upwards
 
-		t += dt
+		t += RAY_STEP
 
 	# No intersection found
 	return intersection_point, normal
 
+@ti.func
+def compute_ray_ortho(
+	px: ti.template(),
+	py: ti.template(),
+	camera_position: ti.template(),
+	camera_direction: ti.template(),
+	camera_up: ti.template(),
+	camera_right: ti.template(),
+):
+	# Ray direction is constant in orthographic projection
+	ray_direction = camera_direction
 
+	# Ray origin varies across the image plane
+	ray_origin = (camera_position +
+				  camera_right * px +
+				  camera_up * py)
+	return ray_origin, ray_direction
 
-@ti.kernel
-def render_gray( 
-	XX:ti.template(),
-	YY:ti.template(),
-	ZZ:ti.template(),
-	image:ti.template(),
-	PX:ti.template(),
-	PY:ti.template(),
-	camera_position:ti.template(),
-	camera_direction:ti.template(),
-	camera_up:ti.template(),
-	camera_right:ti.template(),
-	focal_length:ti.f32, 
-	image_height:ti.i32, 
-	image_plane_height:ti.f32, 
-	image_width:ti.i32,
-	image_plane_width:ti.f32,
-	N_AA:ti.i32,
+@ti.func
+def compute_ray_ortho(
+	px: ti.template(),
+	py: ti.template(),
+	camera_position: ti.template(),
+	camera_direction: ti.template(),
+	camera_up: ti.template(),
+	camera_right: ti.template(),
+	dx:ti.f32,
+	dy:ti.f32
+):
+	# Ray direction is constant in orthographic projection
+	ray_direction = ti.math.vec3(camera_direction)
 
-	):
+	# Ray origin varies across the image plane
+	ray_origin = ti.math.vec3(camera_position +
+				  camera_right * (px + dx) +
+				  camera_up * (py + dy))
+	return ray_origin, ray_direction
+
+@ti.func
+def compute_ray_persp(
+	px: ti.template(),
+	py: ti.template(),
+	camera_position: ti.template(),
+	camera_direction: ti.template(),
+	camera_up: ti.template(),
+	camera_right: ti.template(),
+	focal_length:ti.f32,
+	dx:ti.f32,
+	dy:ti.f32
+):
+	ray_origin = ti.math.vec3(camera_position[0],camera_position[1],camera_position[2])
+	# Compute ray direction
+	ray_direction = compute_ray_direction(px+dx, py+dy, camera_position,camera_direction,camera_up,camera_right,focal_length)
+	return ray_origin, ray_direction
+
 	
-	pixel_width = (image_plane_width / image_width)
-	pixel_height = (image_plane_height / image_height)
-	nx,ny = XX.shape[1],XX.shape[0]
-
-	# Loop over each pixel in the image
-	for i,j in ti.ndrange((0,image_height),(0,image_width)):
-		# Compute pixel coordinates in image plane
-		px = PX[i, j]
-		py = PY[i, j]
-		
-
-		# Ray origin is the camera position
-		ray_origin = ti.math.vec3(camera_position[0],camera_position[1],camera_position[2])
-
-		color = ti.math.vec3(0.)
-		nav = 0
-
-		for kk in range(N_AA):
-
-			# Generate random offsets within the pixel
-			dx = (ti.random(ti.f32) - 0.5) * pixel_width
-			dy = (ti.random(ti.f32) - 0.5) * pixel_height
-
-			# Compute ray direction
-			ray_direction = compute_ray_direction(px+dx, py+dy, camera_position,camera_direction,camera_up,camera_right,focal_length)
-
-			# Perform ray-surface intersection
-			intersection_point, normal = ray_surface_intersection(ray_origin, ray_direction, XX, YY, ZZ)
-			
-			if intersection_point[0] != -9999.0:
-				# Simple shading using Lambertian reflection
-				# Define light direction (e.g., from above)
-				light_direction = ti.math.vec3(1.0, 1.0, 1.0)  # Light coming from (1,1,1)
-				light_direction /= ti.math.length(light_direction)
-
-				# Compute intensity
-				intensity = ti.math.dot(normal, light_direction)
-				intensity = max(0.0, min(intensity, 1.0))
-
-				# Assign color based on intensity
-				color += intensity * ti.math.vec3(1.0, 1.0, 1.0)  # White color scaled by intensity
-				nav += 1
-
-		color /= ti.max(1,nav)
-
-		image[i, j, 0] = color[0]
-		image[i, j, 1] = color[1]
-		image[i, j, 2] = color[2]
 
 @ti.kernel
-def render_with_water( 
+def render_gpu( 
 	XX:ti.template(),
 	YY:ti.template(),
 	ZZ:ti.template(),
@@ -365,13 +414,18 @@ def render_with_water(
 	image_width:ti.i32,
 	image_plane_width:ti.f32,
 	N_AA:ti.i32,
+	ortho:ti.u1,
 
 	):
 	
-	nx,ny = XX.shape[1], XX.shape[0]
-	XX[0,1] - XX[0,0], YY[0,1] - YY[0,0]
 	pixel_width = (image_plane_width / image_width)
 	pixel_height = (image_plane_height / image_height)
+	nx,ny = XX.shape[1],XX.shape[0]
+
+	# Simple shading using Lambertian reflection
+	# Define light direction (e.g., from above)
+	light_direction = ti.math.vec3(1.0, 1.0, 0.75)  # Light coming from (1,1,1)
+	light_direction /= ti.math.length(light_direction)
 
 	# Loop over each pixel in the image
 	for i,j in ti.ndrange((0,image_height),(0,image_width)):
@@ -379,12 +433,13 @@ def render_with_water(
 		px = PX[i, j]
 		py = PY[i, j]
 		
-
-		# Ray origin is the camera position
-		ray_origin = ti.math.vec3(camera_position[0],camera_position[1],camera_position[2])
-
 		color = ti.math.vec3(0.)
 		nav = 0
+		ray_origin = ti.math.vec3(0.) 
+		ray_direction = ti.math.vec3(0.)
+
+		save_intersection_point = ti.math.vec3(0.)
+		has_intersection = False
 
 		for kk in range(N_AA):
 
@@ -392,51 +447,59 @@ def render_with_water(
 			dx = (ti.random(ti.f32) - 0.5) * pixel_width
 			dy = (ti.random(ti.f32) - 0.5) * pixel_height
 
-			# Compute ray direction
-			ray_direction = compute_ray_direction(px+dx, py+dy, camera_position,camera_direction,camera_up,camera_right,focal_length)
+
+			# Ray origin is the camera position
+			if(ortho == False):
+				ray_origin, ray_direction = compute_ray_persp(px,py,camera_position,camera_direction,camera_up,camera_right,focal_length,dx,dy)	
+			else:
+				ray_origin, ray_direction = compute_ray_ortho(px,py,camera_position,camera_direction,camera_up,camera_right,dx,dy)	
 
 			# Perform ray-surface intersection
 			intersection_point, normal = ray_surface_intersection(ray_origin, ray_direction, XX, YY, ZZ)
 			
 			if intersection_point[0] != -9999.0:
-
-				# Simple shading using Lambertian reflection
-				# Define light direction (e.g., from above)
-				light_direction = ti.math.vec3(1.0, 1.0, 1.0)  # Light coming from (1,1,1)
-				light_direction /= ti.math.length(light_direction)
+				has_intersection = True
+				save_intersection_point = intersection_point
 
 				# Compute intensity
 				intensity = ti.math.dot(normal, light_direction)
-				intensity = max(0.0, min(intensity, 1.0))
-				x,y = intersection_point[0], intersection_point[1]
+				intensity = max(0.01, min(intensity, 1.0))
 
-				tcolor = ti.math.vec3(0.,0.,0.)
-				if x >= XX[0,0] and x <= XX[0,nx-1] and y >= YY[0,0] and y <= YY[ny-1,0]:
+				tcolor = ti.math.vec3(0.)
+				# Assign color based on intensity
+				if RENDER_COL == 0:
+					tcolor += intensity * ti.math.vec3(1.0, 1.0, 1.0)  # White color scaled by intensity
+
+				elif RENDER_COL == 1:
+					x,y = intersection_point[0], intersection_point[1]
 					tti, ttj, i0, j0 = xy_to_ij(x, y, XX, YY, dx, dy, nx, ny)
-					# print(i0,j0)
-
-					tcolor = intensity * ti.math.vec3(1.0, 1.0, 1.0)
-
-					weight = 1. if HH[i0,j0] > 0.05 else 0.
-
-					tz = interpolate_AA(x,y, XX, YY, ZZ)
+					tcolor += intensity * ti.math.vec3(1.0, 1.0, 1.0)
 					th = interpolate_AA(x,y, XX, YY, HH)
-					# if(HH[i0,j0]> 1.):
-					# 	print(i0,j0,HH[i0,j0])
-					weight = min(1., th/2.)
+					
+					if(th > MIN_WATER):
+						weight = max(MINWACOL, min(1., th/2.))
+						tcolor = mix_rgb(tcolor, generic_water_colors(), (1. - weight))
 
-					tcolor = mix_rgb(tcolor, generate_realistic_water_colors(), (1. - weight))
-					# tcolor = generic_water_colors() if th > 0.05 else tcolor
-					# tcolor = ti.math.vec3(1.0, 1.0, 1.0) * interpolate_AA(x,y,XX,YY,ZZ)
-
-					# Assign color based on intensity
-					color += tcolor # White color scaled by intensity
-					nav += 1
+				
+				color += tcolor
+				nav += 1
 
 		color /= ti.max(1,nav)
-		image[i, j, 0] = color[0]
-		image[i, j, 1] = color[1]
-		image[i, j, 2] = color[2]
+
+		if(has_intersection and  SHADOW_BLEND > 0):
+			if(is_in_shadow(save_intersection_point, light_direction, XX, YY, ZZ)):
+				color = mix_rgb(color, ti.math.vec3(0.), SHADOW_BLEND)
+
+		if(color[0] > 0 or color[1] > 0 or color[2] > 0):
+			image[i, j, 0] = color[0]
+			image[i, j, 1] = color[1]
+			image[i, j, 2] = color[2]
+		else:
+			image[i, j, 0] = BGCOL_r
+			image[i, j, 1] = BGCOL_g
+			image[i, j, 2] = BGCOL_b
+
+
 
 
 
@@ -477,21 +540,25 @@ class RT_data:
 
 		self._exaggeration_factor = exaggeration_factor
 
+		mask = Z!=-9999
+
 		# Normalize Z to range from 0 to 1, then apply exaggeration factor
-		Z_min, Z_max = Z.min(), Z.max()
-		Z_normalized = (Z - Z_min) / (Z_max - Z_min) * self._exaggeration_factor
+		Z_min, Z_max = Z[mask].min(), Z[mask].max()
+		Z_normalized = np.copy(Z)
+		Z_normalized[mask] = (Z[mask] - Z_min) / (Z_max - Z_min) * self._exaggeration_factor
 
 
 		self.ny, self.nx = Z.shape
 		self.x = np.linspace(-1, 1, self.nx)
-		self.y = np.linspace(-1, 1, self.ny)
+		rat = self.ny/self.nx
+		self.y = np.linspace(-1*rat, 1*rat, self.ny)
 		_XX, _YY = np.meshgrid(self.x, self.y)
 
 		# Set ZZ to the normalized Z values
 		_ZZ = Z_normalized
 
 		# Compute the center point (0, 0, median ZZ)
-		self.center_Z = np.median(_ZZ)
+		self.center_Z = np.median(_ZZ[mask])
 		self.center_point = np.array([0.0, 0.0, self.center_Z])
 
 		self.XX = ti.field(ti.f32, shape = _XX.shape)
@@ -506,7 +573,9 @@ class RT_data:
 			self.HH.from_numpy(hwater[1:-1,1:-1].astype(np.float32))
 			self.ZZ.from_numpy(_ZZ.astype(np.float32) + th.astype(np.float32))
 		else:
-			self.HH = None
+			# Dummy array. Needed.
+			self.HH = ti.field(ti.f32, shape = (4,4))
+			self.HH.fill(0.)
 			self.ZZ.from_numpy(_ZZ.astype(np.float32))
 
 
@@ -582,6 +651,9 @@ class RT_image:
 		image_height = 900,
 		focal_length = 1.0,         # Adjust as needed
 		fov_deg = 60,               # Field of view in degrees (reduced to minimize distortion)
+		
+		ortho = False,
+		ortho_height = 5.
 		):
 
 		self.image_width = image_width
@@ -591,10 +663,18 @@ class RT_image:
 		# Set up the image plane dimensions based on field of view and aspect ratio
 		self.aspect_ratio = image_width / image_height
 		self.fov_rad = np.deg2rad(fov_deg)  # Convert to radians
+
+
+		self.ortho = ortho
+		self.ortho_height = ortho_height
 		
 		# Compute image plane dimensions
-		self.image_plane_height = 2 * self.focal_length * np.tan(self.fov_rad / 2)
-		self.image_plane_width = self.image_plane_height * self.aspect_ratio
+		if(self.ortho):
+			self.image_plane_height = self.ortho_height
+			self.image_plane_width = self.image_plane_height * self.aspect_ratio
+		else:
+			self.image_plane_height = 2 * self.focal_length * np.tan(self.fov_rad / 2)
+			self.image_plane_width = self.image_plane_height * self.aspect_ratio
 
 		# Generate pixel coordinates in the image plane
 		self.px = np.linspace(-0.5 * self.image_plane_width, 0.5 * self.image_plane_width, self.image_width)
@@ -626,20 +706,14 @@ def _render_RT(
 	'''
 	Internal wrapper for the gray renderer operating from the RT objects
 	'''
-	if(which == 'gray'):
-		render_gray(
-			rtdata.XX,rtdata.YY,rtdata.ZZ,
-			image.image,image.PX,image.PY,
-			camera.camera_position,camera.camera_direction,camera.camera_up,camera.camera_right,
-			image.focal_length,image.image_height,image.image_plane_height,image.image_width,image.image_plane_width, 
-			renderer.N_AA)
-	elif(which == 'water1'):
-		render_with_water(
-			rtdata.XX,rtdata.YY,rtdata.ZZ,rtdata.HH,
-			image.image,image.PX,image.PY,
-			camera.camera_position,camera.camera_direction,camera.camera_up,camera.camera_right,
-			image.focal_length,image.image_height,image.image_plane_height,image.image_width,image.image_plane_width, 
-			renderer.N_AA)
+	render_gpu(
+		rtdata.XX,rtdata.YY,rtdata.ZZ,rtdata.HH,
+		image.image,image.PX,image.PY,
+		camera.camera_position,camera.camera_direction,camera.camera_up,camera.camera_right,
+		image.focal_length,image.image_height,image.image_plane_height,image.image_width,image.image_plane_width, 
+		renderer.N_AA, image.ortho
+	)
+
 
 
 def std_gray_RT(
@@ -654,15 +728,19 @@ def std_gray_RT(
 	fov_deg = 60,               # Field of view in degrees (reduced to minimize distortion)
 	N_AA = 5,
 	tone_mapping = False,
-	toon = 0
+	toon = 0,
+	ortho = False,
+	ortho_height = 5.,
+	hw = None
 
 	):
 
 	ti.init(ti.gpu)
 
-	rtdata = RT_data(grid, exaggeration_factor = exaggeration_factor)
+	rtdata = RT_data(grid, exaggeration_factor = exaggeration_factor) if (hw is None) else RT_data(grid, exaggeration_factor = exaggeration_factor, hwater = hw)
+
 	camera = RT_camera(rtdata, camera_distance = camera_distance, camera_azimuth_deg = camera_azimuth_deg, camera_elevation_deg = camera_elevation_deg)
-	image = RT_image(image_width = image_width, image_height = image_height, focal_length = focal_length, fov_deg = fov_deg )
+	image = RT_image(image_width = image_width, image_height = image_height, focal_length = focal_length, fov_deg = fov_deg, ortho = ortho,ortho_height = ortho_height)
 	renderer = RT_renderer(N_AA = N_AA)
 
 	_render_RT(rtdata, camera, image, renderer)
@@ -710,6 +788,87 @@ def std_water_RT(
 		toon_shader(image.image, image.PX, toon)
 
 	return image.image.to_numpy()[::-1]
+
+
+
+
+
+
+def set_bg_constants(r,g,b):
+	'''
+	To be called before any RT operation
+	Sets the constants for the background color in the RT visu
+	'''
+	global BGCOL_r, BGCOL_g, BGCOL_b
+	BGCOL_r = r
+	BGCOL_g = g
+	BGCOL_b = b
+
+
+
+
+
+
+def set_render_mode(which = 'gray'):
+	global RENDER_COL
+	if(which.lower() == 'gray'):
+		RENDER_COL = 0
+	elif(which.lower() == 'water'):
+		RENDER_COL = 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#########################################################
+#########################################################
+#########################################################
+################# LEGACY ################################
+#########################################################
+#########################################################
+#########################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -765,11 +924,6 @@ def yolo(
 
 		# Show the frame
 		window.show()
-
-
-
-
-
 
 
 
@@ -900,3 +1054,168 @@ def legacy_gray_RT(
 
 
 	return image.to_numpy()[::-1]
+
+
+
+
+@ti.kernel
+def render_gray( 
+	XX:ti.template(),
+	YY:ti.template(),
+	ZZ:ti.template(),
+	image:ti.template(),
+	PX:ti.template(),
+	PY:ti.template(),
+	camera_position:ti.template(),
+	camera_direction:ti.template(),
+	camera_up:ti.template(),
+	camera_right:ti.template(),
+	focal_length:ti.f32, 
+	image_height:ti.i32, 
+	image_plane_height:ti.f32, 
+	image_width:ti.i32,
+	image_plane_width:ti.f32,
+	N_AA:ti.i32,
+
+	):
+	
+	pixel_width = (image_plane_width / image_width)
+	pixel_height = (image_plane_height / image_height)
+	nx,ny = XX.shape[1],XX.shape[0]
+
+	# Loop over each pixel in the image
+	for i,j in ti.ndrange((0,image_height),(0,image_width)):
+		# Compute pixel coordinates in image plane
+		px = PX[i, j]
+		py = PY[i, j]
+		
+
+		# Ray origin is the camera position
+		ray_origin = ti.math.vec3(camera_position[0],camera_position[1],camera_position[2])
+
+		color = ti.math.vec3(0.)
+		nav = 0
+
+		for kk in range(N_AA):
+
+			# Generate random offsets within the pixel
+			dx = (ti.random(ti.f32) - 0.5) * pixel_width
+			dy = (ti.random(ti.f32) - 0.5) * pixel_height
+
+			# Compute ray direction
+			ray_direction = compute_ray_direction(px+dx, py+dy, camera_position,camera_direction,camera_up,camera_right,focal_length)
+
+			# Perform ray-surface intersection
+			intersection_point, normal = ray_surface_intersection(ray_origin, ray_direction, XX, YY, ZZ)
+			
+			if intersection_point[0] != -9999.0:
+				# Simple shading using Lambertian reflection
+				# Define light direction (e.g., from above)
+				light_direction = ti.math.vec3(1.0, 1.0, 1.0)  # Light coming from (1,1,1)
+				light_direction /= ti.math.length(light_direction)
+
+				# Compute intensity
+				intensity = ti.math.dot(normal, light_direction)
+				intensity = max(0.0, min(intensity, 1.0))
+
+				# Assign color based on intensity
+				color += intensity * ti.math.vec3(1.0, 1.0, 1.0)  # White color scaled by intensity
+				nav += 1
+
+		color /= ti.max(1,nav)
+
+		image[i, j, 0] = color[0]
+		image[i, j, 1] = color[1]
+		image[i, j, 2] = color[2]
+
+@ti.kernel
+def render_with_water( 
+	XX:ti.template(),
+	YY:ti.template(),
+	ZZ:ti.template(),
+	HH:ti.template(),
+	image:ti.template(),
+	PX:ti.template(),
+	PY:ti.template(),
+	camera_position:ti.template(),
+	camera_direction:ti.template(),
+	camera_up:ti.template(),
+	camera_right:ti.template(),
+	focal_length:ti.f32, 
+	image_height:ti.i32, 
+	image_plane_height:ti.f32, 
+	image_width:ti.i32,
+	image_plane_width:ti.f32,
+	N_AA:ti.i32,
+
+	):
+	
+	nx,ny = XX.shape[1], XX.shape[0]
+	XX[0,1] - XX[0,0], YY[0,1] - YY[0,0]
+	pixel_width = (image_plane_width / image_width)
+	pixel_height = (image_plane_height / image_height)
+
+	# Loop over each pixel in the image
+	for i,j in ti.ndrange((0,image_height),(0,image_width)):
+		# Compute pixel coordinates in image plane
+		px = PX[i, j]
+		py = PY[i, j]
+		
+
+		# Ray origin is the camera position
+		ray_origin = ti.math.vec3(camera_position[0],camera_position[1],camera_position[2])
+
+		color = ti.math.vec3(0.)
+		nav = 0
+
+		for kk in range(N_AA):
+
+			# Generate random offsets within the pixel
+			dx = (ti.random(ti.f32) - 0.5) * pixel_width
+			dy = (ti.random(ti.f32) - 0.5) * pixel_height
+
+			# Compute ray direction
+			ray_direction = compute_ray_direction(px+dx, py+dy, camera_position,camera_direction,camera_up,camera_right,focal_length)
+
+			# Perform ray-surface intersection
+			intersection_point, normal = ray_surface_intersection(ray_origin, ray_direction, XX, YY, ZZ)
+			
+			if intersection_point[2] != -9999.0:
+
+				# Simple shading using Lambertian reflection
+				# Define light direction (e.g., from above)
+				light_direction = ti.math.vec3(1.0, 1.0, 1.0)  # Light coming from (1,1,1)
+				light_direction /= ti.math.length(light_direction)
+
+				# Compute intensity
+				intensity = ti.math.dot(normal, light_direction)
+				intensity = max(0.0, min(intensity, 1.0))
+				x,y = intersection_point[0], intersection_point[1]
+
+				tcolor = ti.math.vec3(0.,0.,0.)
+				if x >= XX[0,0] and x <= XX[0,nx-1] and y >= YY[0,0] and y <= YY[ny-1,0]:
+					tti, ttj, i0, j0 = xy_to_ij(x, y, XX, YY, dx, dy, nx, ny)
+					# print(i0,j0)
+
+					tcolor = intensity * ti.math.vec3(1.0, 1.0, 1.0)
+
+					weight = 1. if HH[i0,j0] > 0.05 else 0.
+
+					tz = interpolate_AA(x,y, XX, YY, ZZ)
+					th = interpolate_AA(x,y, XX, YY, HH)
+					# if(HH[i0,j0]> 1.):
+					# 	print(i0,j0,HH[i0,j0])
+					weight = min(1., th/2.)
+
+					tcolor = mix_rgb(tcolor, generate_realistic_water_colors(), (1. - weight))
+					# tcolor = generic_water_colors() if th > 0.05 else tcolor
+					# tcolor = ti.math.vec3(1.0, 1.0, 1.0) * interpolate_AA(x,y,XX,YY,ZZ)
+
+					# Assign color based on intensity
+					color += tcolor # White color scaled by intensity
+					nav += 1
+
+		color /= ti.max(1,nav)
+		image[i, j, 0] = color[0]
+		image[i, j, 1] = color[1]
+		image[i, j, 2] = color[2]

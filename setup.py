@@ -6,7 +6,7 @@ from setuptools import setup, find_packages
 from setuptools.command.install import install
 import os
 
-VERSION = '0.0.10'
+VERSION = '0.0.12'
 
 
 class PostInstallCommand(install):
@@ -27,7 +27,7 @@ with open('README.md') as readme_file:
 with open('HISTORY.rst') as history_file:
 		history = history_file.read()
 
-requirements = ['Click>=7.0', 'numpy>=2', 'numba>=0.60', 'daggerpy>=0.0.14', 'matplotlib', 'taichi', 'rasterio', 'scipy', 'cmcrameri']
+requirements = ['Click>=7.0', 'numpy>=2', 'numba>=0.60', 'daggerpy>=0.0.14', 'matplotlib', 'taichi', 'rasterio', 'scipy', 'cmcrameri', 'h5py', 'topotoolbox']
 
 test_requirements = [ ]
 

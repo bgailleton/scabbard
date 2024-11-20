@@ -3,6 +3,23 @@ History
 =======
 
 
+0.0.11 (2024-11-20)
+-----------------------
+
+* Adapting the install process to pip topotoolbox
+* Migrating to new ttb
+* Minor fixes and additions
+* Adding the start of a multi-backend unified graphflood interface
+
+
+0.0.11 (2024-11-05)
+-----------------------
+
+* Loads of minor fixes in the install process
+* Adding an hdf5 io/helper
+* Refactor part of the ray tracing 3D plotter
+* Adding orthographic projection
+
 0.0.9 (2024-10-25)
 --------------------------
 
