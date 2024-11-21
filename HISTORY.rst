@@ -3,7 +3,11 @@ History
 =======
 
 
-0.0.11 (2024-11-20)
+0.0.13 (2024-11-20)
+-----------------------
+* Adding an option for changing the exponent in Riverdale friction equation (e.g. migrating from manning to chezy)
+
+0.0.12 (2024-11-20)
 -----------------------
 
 * Adapting the install process to pip topotoolbox

@@ -427,6 +427,18 @@ class RDParams:
 			self._manning = value
 
 	@property
+	def exponent_flow(self):
+		return rdhy.PARAMHYDRO.exponent_flow
+
+	@exponent_flow.setter
+	def exponent_flow(self, value):
+		# At the moment it needs to be compile-time constant
+		if(self._RD is not None):
+			raise Exception("Flow exponent for the friction equation cannot yet be modified after setting up the model. Working on a robust way to do so but so far it is a compile-time constant for performance reasons and therefore cannot be changed after creating the model instance")
+		else:
+			rdhy.PARAMHYDRO.exponent_flow = value
+
+	@property
 	def dt_hydro(self):
 		'''
 			Returns the time step used in the simulation for hydrodynamics

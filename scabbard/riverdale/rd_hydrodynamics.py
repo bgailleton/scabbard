@@ -35,6 +35,7 @@ class HydroParams:
 		self.dt_hydro = 1e-3
 		# Constant manning coefficient
 		self.manning = 0.033
+		self.exponent_flow = np.float32(5./3.)
 		self.flowmode = FlowMode.static_incremental
 		self.hydro_slope_bc_mode = 0
 		self.hydro_slope_bc_val = 0
@@ -258,7 +259,7 @@ def _compute_Qw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 			thw = ti.math.max(0., hw[i,j])
 
 			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
-			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(thw, 5./3) * sumSw/ti.math.sqrt(gradSw)
+			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(thw, PARAMHYDRO.exponent_flow) * sumSw/ti.math.sqrt(gradSw)
 
 				
 			# Transferring flow to neighbours
@@ -278,7 +279,7 @@ def _compute_Qw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 		else:
 			tSw = ti.max(hsw.Zw(Z,hw,i,j) -  PARAMHYDRO.hydro_slope_bc_val, 1e-6)/GRID.dx if PARAMHYDRO.hydro_slope_bc_mode == 0 else PARAMHYDRO.hydro_slope_bc_val
 			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
-			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), 5./3) * ti.math.sqrt(tSw)
+			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), PARAMHYDRO.exponent_flow) * ti.math.sqrt(tSw)
 
 @ti.kernel
 def _compute_Qw_dynamic(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.template(), QwC:ti.template(), BCs:ti.template()):
@@ -370,7 +371,7 @@ def _compute_Qw_dynamic(Z:ti.template(), hw:ti.template(), QwA:ti.template(), Qw
 			thw = ti.math.max(0., hw[i,j])
 
 			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
-			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(thw, 5./3) * sumSw/ti.math.sqrt(gradSw)
+			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(thw, PARAMHYDRO.exponent_flow) * sumSw/ti.math.sqrt(gradSw)
 
 				
 			# Transferring flow to neighbours
@@ -390,7 +391,7 @@ def _compute_Qw_dynamic(Z:ti.template(), hw:ti.template(), QwA:ti.template(), Qw
 		else:
 			tSw = ti.max(hsw.Zw(Z,hw,i,j) -  PARAMHYDRO.hydro_slope_bc_val, 1e-6)/GRID.dx if PARAMHYDRO.hydro_slope_bc_mode == 0 else PARAMHYDRO.hydro_slope_bc_val
 			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
-			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), 5./3) * ti.math.sqrt(tSw)
+			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), PARAMHYDRO.exponent_flow) * ti.math.sqrt(tSw)
 
 
 
@@ -701,7 +702,7 @@ def _compute_Qw_surfrec(Z:ti.template(), hw:ti.template(), QwA:ti.template(), Qw
 			thw = ti.max(hw[i,j], 0.)
 
 			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
-			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(thw, 5./3.) * sumSw/ti.math.sqrt(gradSw)
+			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(thw, PARAMHYDRO.exponent_flow) * sumSw/ti.math.sqrt(gradSw)
 
 
 			# Transferring flow to neighbours
@@ -721,7 +722,7 @@ def _compute_Qw_surfrec(Z:ti.template(), hw:ti.template(), QwA:ti.template(), Qw
 		else:
 			tSw = ti.max(hsw.Zw(Z,hw,i,j) -  PARAMHYDRO.hydro_slope_bc_val, 1e-6)/GRID.dx if PARAMHYDRO.hydro_slope_bc_mode == 0 else PARAMHYDRO.hydro_slope_bc_val
 			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
-			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), 5./3) * ti.math.sqrt(tSw)
+			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), PARAMHYDRO.exponent_flow) * ti.math.sqrt(tSw)
 			
 			
 
@@ -1063,13 +1064,13 @@ def _compute_QwA_from_Zw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), B
 				continue
 
 			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
-			QwA[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), 5./3) * sumSw/ti.math.sqrt(gradSw)
+			QwA[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), PARAMHYDRO.exponent_flow) * sumSw/ti.math.sqrt(gradSw)
 
 		# Boundary case
 		else:
 			tSw = ti.max(hsw.Zw(Z,hw,i,j) -  PARAMHYDRO.hydro_slope_bc_val, 1e-6)/GRID.dx if PARAMHYDRO.hydro_slope_bc_mode == 0 else PARAMHYDRO.hydro_slope_bc_val
 			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
-			QwA[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), 5./3) * ti.math.sqrt(tSw)
+			QwA[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), PARAMHYDRO.exponent_flow) * ti.math.sqrt(tSw)
 
 @ti.kernel
 def _compute_Qw_drape(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.template(), QwC:ti.template(), BCs:ti.template() ):
@@ -1162,7 +1163,7 @@ def _compute_Qw_drape(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:
 				continue
 
 			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
-			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), 5./3) * sumSw/ti.math.sqrt(gradSw)
+			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), PARAMHYDRO.exponent_flow) * sumSw/ti.math.sqrt(gradSw)
 
 			# Transferring flow to neighbours
 			for k in range(4):
@@ -1181,7 +1182,7 @@ def _compute_Qw_drape(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:
 		else:
 			tSw = ti.max(hsw.Zw(Z,hw,i,j) -  PARAMHYDRO.hydro_slope_bc_val, 1e-6)/GRID.dx if PARAMHYDRO.hydro_slope_bc_mode == 0 else PARAMHYDRO.hydro_slope_bc_val
 			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
-			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), 5./3) * ti.math.sqrt(tSw)
+			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), PARAMHYDRO.exponent_flow) * ti.math.sqrt(tSw)
 
 
 @ti.kernel
@@ -1697,7 +1698,7 @@ def _compute_link_based(Z:ti.template(), hw:ti.template(), QwA:ti.template(), Qw
 				
 				hw_eff = ti.max(hsw.Zw(Z,hw,i,j),hsw.Zw(Z,hw,ir,jr)) - ti.max(Z[i,j],Z[ir,jr])
 				# hw_eff = ti.max(0,hw[i,j])
-				tQw = GRID.dx * ti.math.pow(hw_eff,5./3.)/PARAMHYDRO.manning * Sws[k]/ti.math.sqrt(sumSw)
+				tQw = GRID.dx * ti.math.pow(hw_eff,PARAMHYDRO.exponent_flow)/PARAMHYDRO.manning * Sws[k]/ti.math.sqrt(sumSw)
 				QwC[i,j] += tQw
 
 				# Transferring prop to the hydraulic slope
@@ -1707,7 +1708,7 @@ def _compute_link_based(Z:ti.template(), hw:ti.template(), QwA:ti.template(), Qw
 		else:
 			tSw = ti.max(hsw.Zw(Z,hw,i,j) -  PARAMHYDRO.hydro_slope_bc_val, 1e-6)/GRID.dx if PARAMHYDRO.hydro_slope_bc_mode == 0 else PARAMHYDRO.hydro_slope_bc_val
 			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
-			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), 5./3) * ti.math.sqrt(tSw)
+			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), PARAMHYDRO.exponent_flow) * ti.math.sqrt(tSw)
 
 
 
@@ -1826,7 +1827,7 @@ def _archive_compute_Qw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), Qw
 				thw = ti.math.max(0., hw[i,j])
 
 			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
-			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(thw, 5./3) * sumSw/ti.math.sqrt(gradSw)
+			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(thw, PARAMHYDRO.exponent_flow) * sumSw/ti.math.sqrt(gradSw)
 
 			# If I am in a local minima
 			# either I propel the drainage area along a predefined railway to ensure its escape
@@ -1871,7 +1872,7 @@ def _archive_compute_Qw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), Qw
 		else:
 			tSw = ti.max(hsw.Zw(Z,hw,i,j) -  PARAMHYDRO.hydro_slope_bc_val, 1e-6)/GRID.dx if PARAMHYDRO.hydro_slope_bc_mode == 0 else PARAMHYDRO.hydro_slope_bc_val
 			# Calculating local discharge: manning's equations for velocity and u*h*W to get Q
-			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), 5./3) * ti.math.sqrt(tSw)
+			QwC[i,j] = GRID.dx/PARAMHYDRO.manning * ti.math.pow(ti.max(0.,hw[i,j]), PARAMHYDRO.exponent_flow) * ti.math.sqrt(tSw)
 
 
 
