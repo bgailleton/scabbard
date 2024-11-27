@@ -96,8 +96,8 @@ def mask_to_BCs(grid, mask):
 	# dag.mask_to_BCs_f32(gridcpp, mask, BCs, False)
 	_mask_to_BCs(BCs,mask,nx,ny)
 
-	BCs[[0,-1],:] = 3
-	BCs[:, [0,-1]] = 3
+	BCs[[0,-1],:][BCs[[0,-1],:] > 0] = 3
+	BCs[:, [0,-1]][BCs[:, [0,-1]] > 0] = 3
 
 	return BCs
 
@@ -111,6 +111,7 @@ def mask_seas(grid, sea_level = 0., extra_mask = None):
 
 	mask = np.ones_like(tgrid, dtype = np.uint8)
 	mask[tgrid < sea_level] = 0
+	mask[np.isfinite(tgrid) == False] = 0
 	
 	if (extra_mask is None):
 		return mask
@@ -149,7 +150,6 @@ def mask_single_watershed_from_outlet(grid, location, BCs = None, extra_mask = N
 
 	return mask if extra_mask is None else combine_masks(mask,extra_mask)
 
-
 def remove_seas(grid, sea_level = 0., extra_mask = None):
 
 	# Preprocessing the boundary conditions
@@ -158,8 +158,36 @@ def remove_seas(grid, sea_level = 0., extra_mask = None):
 	BCs = np.ones_like(grid.Z2D, dtype = np.uint8)
 	
 	mask = mask_seas(gridcpp, sea_level, extra_mask)
+
+	# nanmask = 
 	
 	if (extra_mask is None):
 		mask = combine_masks(mask, extra_mask)
 
 	return mask_to_BCs(grid,mask)
+
+def mask_main_basin(grid, sea_level = None, BCs = None, extra_mask = None, MFD = True, stg = None):
+
+	if(sea_level is not None):
+		BCs = remove_seas(grid, sea_level, extra_mask = None if (BCs is None) else (BCs > 0))
+
+	if(stg is None):
+		stg = scb.flow.SFGraph(grid.Z, BCs = BCs, D4 = False, dx = 1., backend = 'ttb', fill_LM = True, step_fill = 1e-3)
+
+	A = scb.flow.drainage_area(stg).ravel()
+	index = np.argmax(A)
+	row,col = index // grid.geo.nx, index % grid.geo.nx
+
+	if(BCs is None):
+		BCs = scb.flow.get_normal_BCs(grid)
+
+	if(MFD):
+		gridcpp = dag.GridCPP_f32(grid.geo.nx,grid.geo.ny,grid.geo.dx,grid.geo.dx,3)
+		mask = np.zeros_like(grid.Z,dtype = np.uint8)
+		dag.mask_upstream_MFD_f32(gridcpp, mask, grid.Z, BCs, row, col)
+	else:
+		mask = bch.mask_watershed_SFD(index, stg.Stack, stg.Sreceivers).reshape((grid.geo.ny,grid.geo.nx))
+	return mask if extra_mask is None else combine_masks(mask,extra_mask)
+
+
+

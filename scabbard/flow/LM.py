@@ -71,7 +71,6 @@ def priority_flood(Z, BCs = None, D4 = True, in_place = True, dx = 1., gridcpp =
 	if(isinstance(Z,np.ndarray)):
 		return _priority_flood_from_Z(Z, BCs, D4, in_place, dx, gridcpp, backend, step_fill)
 	elif(isinstance(Z,scb.raster.RegularRasterGrid)):
-		print("FILLING")
 		return _priority_flood_from_dem(Z, BCs, D4, in_place, dx, gridcpp, backend, step_fill)
 
 	
