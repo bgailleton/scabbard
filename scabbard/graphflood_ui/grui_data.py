@@ -1,3 +1,6 @@
+'''
+WIP for graphflood universale interface
+'''
 import numpy as np
 import scabbard as scb
 import scipy.io as sio
@@ -5,7 +8,7 @@ import scipy.io as sio
 
 class GFUI:
 
-	def __init__(self, backend, grid = None):
+	def __init__(self, backend, grid):
 
 
 		backend = backend.lower()
@@ -38,8 +41,9 @@ class GFUI:
 		self._rd = None
 
 
-		# Surface Topography
-		self.grid = grid # if self.backend not in ['ttb', 'topotoolbox'] else grid.grid2ttb()
+	def _init_riverdale_backend(self, grid):
+		pass
+
 
 
 		

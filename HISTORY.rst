@@ -2,6 +2,14 @@
 History
 =======
 
+0.0.15 (2024-12-08)
+-----------------------
+* Fixing the new import system for legacy graphflood
+* Renamed graphflood.py to legacy_graphflood.py
+
+0.0.14 (2024-11-20)
+-----------------------
+* Small fixes on the boundary condition helpers
 
 0.0.13 (2024-11-20)
 -----------------------

@@ -82,7 +82,7 @@ from .grid import *
 from .Dax import *
 from .Dfig import *
 from .Dplot import *
-from .graphflood import *
+from .legacy_graphflood import *
 from .phineas import *
 from .graphflood_helper import *
 from .environment import *
