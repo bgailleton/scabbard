@@ -181,7 +181,7 @@ def _std_hillshading_cpu_D4(Z, light_dir, light_elev, Z_exaggeration, inverted:b
 
 
 @nb.njit()
-def _std_hillshading_cpu_D8(Z, light_dir: ti.f32, light_elev: ti.f32, Z_exaggeration:ti.f32, inverted:bool, dx:float):
+def _std_hillshading_cpu_D8(Z, light_dir, light_elev, Z_exaggeration, inverted:bool, dx:float):
 	'''
 	🛠🛠🛠 core kernel for producing a nice hillshade
 
@@ -203,56 +203,91 @@ def _std_hillshading_cpu_D8(Z, light_dir: ti.f32, light_elev: ti.f32, Z_exaggera
 
 	hillshade = np.zeros_like(Z)
 	BCs = np.ones(Z.shape).astype(np.uint8)
+	BCs[0,  :] = 3
+	BCs[-1, :] = 3
+	BCs[:,  0] = 3
+	BCs[:, -1] = 3
 	ny,nx = BCs.shape
 	
+	hillshade = hillshade.ravel()
+	BCs = BCs.ravel()
+
+	dxy = dx*np.sqrt(2.)
 
 	# Yolo yolo beng beng
-	for i in range(Z.shape[0]):
-		for j in range(Z.shape[1]):
+	for i in range(Z.ravel().shape[0]):
 
-			# defaulting to no shade
-			shaded = 0.
+		# defaulting to no shade
+		shaded = 0.
 
-			# Ignoring nodes inactive (e.g. no data and all)
-			if i > 0 and i < Z.shape[0] - 1 and j>0 and j < Z.shape[1] - 1:
+		# Ignoring nodes inactive (e.g. no data and all)
+	
 
-				bottomleft = ste.neighbours_D8(i, j, 5, BCs, nx, ny)
-				bottom = ste.neighbours_D8(i, j, 6, BCs, nx, ny)
-				bottomright = ste.neighbours_D8(i, j, 7, BCs, nx, ny)
-				topleft = ste.neighbours_D8(i, j, 0, BCs, nx, ny)
-				top = ste.neighbours_D8(i, j, 1, BCs, nx, ny)
-				topright = ste.neighbours_D8(i, j, 2, BCs, nx, ny)
-				left = ste.neighbours_D8(i, j, 3, BCs, nx, ny)
-				right = ste.neighbours_D8(i, j, 4, BCs, nx, ny)
+		bottomleft = ste.neighbours_D8_flat(i, 5, BCs, nx, ny)
+		bottom = ste.neighbours_D8_flat(i, 6, BCs, nx, ny)
+		bottomright = ste.neighbours_D8_flat(i, 7, BCs, nx, ny)
+		topleft = ste.neighbours_D8_flat(i, 0, BCs, nx, ny)
+		top = ste.neighbours_D8_flat(i, 1, BCs, nx, ny)
+		topright = ste.neighbours_D8_flat(i, 2, BCs, nx, ny)
+		left = ste.neighbours_D8_flat(i, 3, BCs, nx, ny)
+		right = ste.neighbours_D8_flat(i, 4, BCs, nx, ny)
 
-				# Get elevation differences between D4 neighbors
-				dzdx = (Z[bottom[0],bottom[1]] - Z[top[0],top[1]]) * Z_exaggeration / (2*dx)
-				dzdy = (Z[right[0],right[1]] - Z[left[0],left[1]]) * Z_exaggeration / (2*dx)
-				dzdxy1 = (Z[bottomright[0],bottomright[1]] - Z[topleft[0],topleft[1]]) * Z_exaggeration / (2*dx*math.sqrt(2.))
-				dzdxy2 = (Z[bottomleft[0],bottomleft[1]] - Z[topright[0],topright[1]]) * Z_exaggeration / (2*dx*math.sqrt(2.))
-				
-				# Calculate slope and aspect
-				slope = math.atan2(math.sqrt(dzdx**2 + dzdy**2),1)
-				aspect = math.atan2(dzdy, dzdx)
+		if bottomleft == -1 or bottom == -1 or bottomright == -1 or topleft == -1 or top == -1 or topright == -1 or left == -1 or right == -1:
+			continue
 
-				# Calculate slope and aspect (diag)
-				slope_diag = math.atan2(math.sqrt(dzdxy1**2 + dzdxy2**2),1)
-				aspect_diag = math.atan2(dzdy, dzdx)
-				
-				# Calculate illuminamathon angle
-				zenith = math.radians(90 - light_elev)
-				azimuth = math.radians(light_dir)
+		# Get elevation differences between D4 neighbors
+		dzdx = (Z.ravel()[bottom] - Z.ravel()[top]) * Z_exaggeration / (2*dx)
+		dzdy = (Z.ravel()[right] - Z.ravel()[left]) * Z_exaggeration / (2*dx)
+		dzdxy1 = (Z.ravel()[bottomright] - Z.ravel()[topleft]) * Z_exaggeration / (2*dxy)
+		dzdxy2 = (Z.ravel()[bottomleft] - Z.ravel()[topright]) * Z_exaggeration / (2*dxy)
+		# print(dzdx)
+		
+		# Calculate slope and aspect
+		slope = np.atan2(np.sqrt(dzdx**2 + dzdy**2),1)
+		aspect = np.atan2(dzdy, dzdx)
 
-				
-				# Calculate the hillshade value
-				shaded = math.cos(zenith) * math.cos(slope) + math.sin(zenith) * math.sin(slope) * math.cos(azimuth - aspect)
-				shaded_diag = math.cos(zenith) * math.cos(slope_diag) + math.sin(zenith) * math.sin(slope_diag) * math.cos(azimuth - aspect_diag)
-				shaded = max(0, (shaded + shaded_diag)/2.)  # Ensure non-negative
+		# Calculate slope and aspect (diag)
+		slope_diag = np.atan2(np.sqrt(dzdxy1**2 + dzdxy2**2),1)
+		aspect_diag = np.atan2(dzdy, dzdx)
+		
+		# Calculate illuminanpon angle
+		zenith = np.radians(90 - light_elev)
+		azimuth = np.radians(light_dir)
 
-			# Saving the value aaaaaand
-			hillshade[i, j] = shaded if(inverted) else (1 - shaded)
+		
+		# Calculate the hillshade value
+		shaded = np.cos(zenith) * np.cos(slope) + np.sin(zenith) * np.sin(slope) * np.cos(azimuth - aspect)
+		shaded_diag = np.cos(zenith) * np.cos(slope_diag) + np.sin(zenith) * np.sin(slope_diag) * np.cos(azimuth - aspect_diag)
+		shaded = max(0, (shaded + shaded_diag)/2.)  # Ensure non-negative
 
-	return hillshade
+		# Saving the value aaaaaand
+		hillshade[i] = shaded if(inverted) else (1 - shaded)
+
+	return hillshade.reshape(Z.shape)
+
+def _compute_hillshade(Z, light_dir, light_elev, Z_exaggeration, inverted, dx):
+	"""
+	Optimized hillshading function using numpy.
+	"""
+	# Precompute light direction components
+	zenith_rad = np.radians(90 - light_elev)
+	azimuth_rad = np.radians(light_dir)
+
+	cos_zenith = np.cos(zenith_rad)
+	sin_zenith = np.sin(zenith_rad)
+
+	# Compute gradients
+	dzdx, dzdy = np.gradient(Z * Z_exaggeration, dx)
+
+	# Compute slope and aspect
+	slope = np.arctan(np.sqrt(dzdx**2 + dzdy**2))
+	aspect = np.arctan2(dzdy, dzdx)
+
+	# Compute hillshade
+	shaded = cos_zenith * np.cos(slope) + sin_zenith * np.sin(slope) * np.cos(azimuth_rad - aspect)
+	shaded = np.clip(shaded, 0, 1)  # Ensure non-negative
+
+	return 1 - shaded if inverted else shaded
 
 def hillshading(rd, direction = 315., inclinaison = 45., exaggeration = 4.):
 	'''
@@ -320,5 +355,5 @@ def std_hillshading(Z2D, direction = 315., inclinaison = 45., exaggeration = 4.,
 
 	else:
 
-		return _std_hillshading_cpu_D4(Z2D, direction, inclinaison, exaggeration, True, dx) if D4 else _std_hillshading_cpu_D8(Z2D, direction, inclinaison, exaggeration, True, dx)
+		return _compute_hillshade(Z2D, direction, inclinaison, exaggeration, False, dx) if D4 else _compute_hillshade(Z2D, direction, inclinaison, exaggeration, False, dx)
 

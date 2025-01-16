@@ -23,7 +23,7 @@ def cli_nice_terrain(fname, sea_lvl):
 
 def nice_terrain(dem, cmap = 'terrain', alpha = 0.55, 
 	sea_level = None, vmin = None,
-	vmax = None, res = None, mask = None, **kwargs):
+	vmax = None, res = None, mask = None, use_gpu = False, **kwargs):
 	'''
 	Quick visualisation of a DEM as a hillshade + an imshow-like data on the top of it with the same extent
 
@@ -46,7 +46,7 @@ def nice_terrain(dem, cmap = 'terrain', alpha = 0.55,
 	'''
 
 	fig,ax = base.hs_drape(dem, (dem.Z if isinstance(dem,scb.raster.RegularRasterGrid) else dem.Z2D), cmap = cmap, label = 'Elevation', alpha = alpha, 
-		sea_level = sea_level, vmin = vmin, vmax = vmax, mask = mask, **kwargs)
+		sea_level = sea_level, vmin = vmin, vmax = vmax, mask = mask, use_gpu = use_gpu, res = res, **kwargs)
 
 	return fig,ax
 

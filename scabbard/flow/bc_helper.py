@@ -86,6 +86,9 @@ def mask_to_BCs(grid, mask):
 		- B.G. (last modification: 09/2024 for MTJ project)
 	'''
 
+	if mask is None:
+		raise ValueError('scabbard.flow.bc_helper.mask_to_BCs::Mask is None')
+
 	tgrid = grid.Z if isinstance(grid, scb.raster.RegularRasterGrid) else grid.Z2D
 	ny,nx = (grid.geo.ny, grid.geo.nx) if isinstance(grid, scb.raster.RegularRasterGrid) else (grid.ny, grid.nx)
 	dx = grid.geo.dx if isinstance(grid, scb.raster.RegularRasterGrid) else grid.dx
@@ -150,14 +153,14 @@ def mask_single_watershed_from_outlet(grid, location, BCs = None, extra_mask = N
 
 	return mask if extra_mask is None else combine_masks(mask,extra_mask)
 
-def remove_seas(grid, sea_level = 0., extra_mask = None):
+def _legacy_remove_seas(grid, sea_level = 0., extra_mask = None):
 
 	# Preprocessing the boundary conditions
 	gridcpp = dag.GridCPP_f32(grid.nx,grid.ny,grid.dx,grid.dx,3)
 
 	BCs = np.ones_like(grid.Z2D, dtype = np.uint8)
 	
-	mask = mask_seas(gridcpp, sea_level, extra_mask)
+	mask = mask_seas(grid, sea_level, extra_mask)
 
 	# nanmask = 
 	
@@ -165,6 +168,28 @@ def remove_seas(grid, sea_level = 0., extra_mask = None):
 		mask = combine_masks(mask, extra_mask)
 
 	return mask_to_BCs(grid,mask)
+
+def remove_seas(grid, sea_level = 0., extra_mask = None):
+
+	if( isinstance(grid, scb.raster.RegularRasterGrid) == False):
+		return _legacy_remove_seas(grid, sea_level, extra_mask)
+
+	else:
+
+		# Preprocessing the boundary conditions
+		gridcpp = dag.GridCPP_f32(grid.geo.nx, grid.geo.ny, grid.geo.dx, grid.geo.dx, 3)
+
+		BCs = np.ones_like(grid.Z, dtype = np.uint8)
+		
+		mask = mask_seas(grid, sea_level, extra_mask)
+		
+		if (extra_mask is not None):
+			mask = combine_masks(mask, extra_mask)
+
+
+		return mask_to_BCs(grid, mask)
+
+
 
 def mask_main_basin(grid, sea_level = None, BCs = None, extra_mask = None, MFD = True, stg = None):
 

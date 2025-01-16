@@ -46,3 +46,26 @@ def slope2D_S(
 	BCs[-1,:] = 3
 
 	return grid, BCs
+
+def white_noise(nx, ny, dx, magnitude = 1., BCs = None):
+
+	Z = np.random.rand(ny,nx) * magnitude
+	grid = scb.raster.raster_from_array(Z, dx=dx, xmin=0.0, ymin=0.0, dtype=np.float32)
+
+	if(BCs is None):
+		BCs = scb.ut.normal_BCs_from_shape(nx,ny)
+	elif isinstance(BCs, str):
+		if(BCs == '4edges'):
+			BCs = scb.ut.normal_BCs_from_shape(nx,ny)
+		elif(BCs == 'periodicNS'):
+			BCs = scb.ut.periodic_NS_BCs_from_shape(nx,ny)
+		elif(BCs == 'periodicEW'):
+			BCs = scb.ut.periodic_NS_BCs_from_shape(nx,ny)
+		else:
+			raise ValueError('scabbard.raster.raster_factory.white_noise::BCs is string but not 4edges, periodicNS or periodicEW')
+	elif isinstance(BCs,scb.raster.RegularRasterGrid):
+		grid.Z[BCs == 0] = 0.
+	else:
+		raise ValueError('scabbard.raster.raster_factory.white_noise::BCs is not recognised')
+
+	return grid, BCs

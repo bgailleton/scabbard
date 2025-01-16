@@ -80,9 +80,9 @@ def hillshaded_basemap(dem, sea_level = None, fig = None, ax = None, use_gpu = F
 	# array to plot
 	tp = scb.rvd.std_hillshading(dem.Z, 
 		direction = 40., inclinaison = 55., exaggeration = 1.2, 
-		use_gpu = use_gpu, D4 = True, dx = dem.geo.dx) + scb.rvd.std_hillshading(dem.Z, 
+		use_gpu = use_gpu, D4 = False, dx = dem.geo.dx) + scb.rvd.std_hillshading(dem.Z, 
 		direction = 85., inclinaison = 55., exaggeration = 1.2, use_gpu = use_gpu,
-		 D4 = True, dx = dem.geo.dx)
+		 D4 = False, dx = dem.geo.dx)
 	
 	tp /= 2
 	
@@ -107,7 +107,7 @@ def hillshaded_basemap(dem, sea_level = None, fig = None, ax = None, use_gpu = F
 
 def hs_drape(dem, arr2D, cmap = 'cividis', label = 'Metrics', alpha = 0.6, 
 	cut_off_min = None, cut_off_max = None, sea_level = None, vmin = None,
-	vmax = None, res = None, fig = None, ax = None, mask = None, kwargs_imshow = None, **kwargs):
+	vmax = None, res = None, fig = None, ax = None, mask = None, kwargs_imshow = None, use_gpu = False, **kwargs):
 	'''
 	Quick visualisation of a DEM as a hillshade + an imshow-like data on the top of it with the same extent
 
@@ -130,9 +130,9 @@ def hs_drape(dem, arr2D, cmap = 'cividis', label = 'Metrics', alpha = 0.6,
 	'''
 
 	if(fig is None):
-		fig, ax = hillshaded_basemap(dem, sea_level = sea_level, mask = mask, **kwargs)
+		fig, ax = hillshaded_basemap(dem, sea_level = sea_level, mask = mask,use_gpu = use_gpu ,**kwargs)
 	else:
-		hillshaded_basemap(dem, sea_level = sea_level, fig = fig, ax = ax, mask = mask, **kwargs)
+		hillshaded_basemap(dem, sea_level = sea_level, fig = fig, ax = ax, mask = mask,use_gpu = use_gpu, **kwargs)
 
 	if(isinstance(dem, scb.RGrid)):
 		legacy = True

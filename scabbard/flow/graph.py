@@ -28,13 +28,19 @@ class SFGraph(object):
 	def __init__(self, Z, BCs = None, D4 = True, dx = 1., backend = 'ttb', fill_LM = False, step_fill = 1e-3):
 		'''
 		'''
-		
-		if(len(Z.shape) != 2):
+		if(isinstance(Z, np.ndarray)):
+			tZ = Z
+		elif(isinstance(Z,scb.raster.RegularRasterGrid)):
+			tZ = Z.Z
+		else:
+			raise ValueError("scabbard.flow.graph.SFGraph: does not recognize elevation data type")
+
+		if(len(tZ.shape) != 2):
 			raise ValueError('Need a 2D array as input for topography to infer the shape')
 
 		# Geometrical infos
 		## Overall shape
-		self.shape = Z.shape
+		self.shape = tZ.shape
 		self.dim = np.array(self.shape, dtype = np.uint64)
 		# Geometrical infos
 		self.D4 = D4
@@ -59,7 +65,7 @@ class SFGraph(object):
 		self.Stack = np.zeros(self.nxy, dtype = (np.uint64 if self.backend == 'ttb' else np.int32))
 
 		# Initialising the graph
-		self.update(Z, BCs, fill_LM,step_fill)
+		self.update(tZ, BCs, fill_LM,step_fill)
 
 	
 
@@ -68,7 +74,14 @@ class SFGraph(object):
 		Updates the graph to a new topography and optional boundary conditions
 		'''
 
-		if(Z.shape != self.shape):
+		if(isinstance(Z, np.ndarray)):
+			tZ = Z
+		elif(isinstance(Z,scb.raster.RegularRasterGrid)):
+			tZ = Z.Z
+		else:
+			raise ValueError("scabbard.flow.graph.SFGraph.update: does not recognize elevation data type")
+
+		if(tZ.shape != self.shape):
 			raise AttributeError('topography needs to be same shape as the graph')
 
 		if(BCs is None):
@@ -76,16 +89,16 @@ class SFGraph(object):
 
 		if(self.backend == 'dagger'):
 			if self.D4:
-				dag.compute_SF_stack_D4_full_f32(self.gridcpp, Z, self.Sreceivers.reshape(self.ny,self.nx), self.Ndonors.reshape(self.ny,self.nx), self.donors.reshape(self.ny,self.nx), self.Stack, BCs)
+				dag.compute_SF_stack_D4_full_f32(self.gridcpp, tZ, self.Sreceivers.reshape(self.ny,self.nx), self.Ndonors.reshape(self.ny,self.nx), self.donors.reshape(self.ny,self.nx), self.Stack, BCs)
 			else:
 				raise ValueError('D8 SFGraph not implemented yet')
 		elif self.backend == 'ttb':
 			self.Ndonors.fill(0)
 			#Theer is a bug in my implementation in ttb, I need to sort it but the vanilla fill LM does not fill the flats
 			if(fill_LM):
-				scb.ttb.graphflood.funcdict['priority_flood_TO'](Z.ravel(), self.Stack, BCs.ravel(), self.dim, not self.D4, step_fill)
+				scb.ttb.graphflood.funcdict['priority_flood_TO'](tZ.ravel(), self.Stack, BCs.ravel(), self.dim, not self.D4, step_fill)
 				
-			ttb.graphflood.funcdict['sfgraph'](Z.ravel(), self.Sreceivers, self.Sdx, self.donors, self.Ndonors, self.Stack, BCs.ravel(), self.dim, self.dx * self.dx, not self.D4, False, step_fill) # False cause I fill lm above
+			ttb.graphflood.funcdict['sfgraph'](tZ.ravel(), self.Sreceivers, self.Sdx, self.donors, self.Ndonors, self.Stack, BCs.ravel(), self.dim, self.dx * self.dx, not self.D4, False, step_fill) # False cause I fill lm above
 
 
 	@property

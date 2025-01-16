@@ -201,7 +201,10 @@ class RegularGeometry(BaseGeometry):
 		Authors:
 		- B.G. (last modifications: 08/2024)
 		'''
-		return (col * self.dx) + self.xmin + self.dx/2, ( (self.ny - 1 - row) * self.dx) + self.ymin + self.dx/2 
+		if(self.Y_inverted):
+			return (col * self.dx) + self.xmin + self.dx/2, ( (self.ny - 1 - row) * self.dx) + self.ymin + self.dx/2 
+		else:
+			return (col * self.dx) + self.xmin + self.dx/2, (row * self.dx) + self.ymin + self.dx/2
 
 
 
@@ -212,7 +215,10 @@ class RegularGeometry(BaseGeometry):
 		Authors:
 		- B.G. (last modifications: 08/2024)
 		'''
-		return self.ny - 1 - np.floor(Y - self.ymin), np.floor(X - self.xmin)
+		if(self.Y_inverted):
+			return int((self.ny - 1 - np.floor(Y - self.ymin))/self.dx), int(np.floor(X - self.xmin)/self.dx)
+		else:
+			return int(np.floor(Y - self.ymin)/self.dx), int(np.floor(X - self.xmin)/self.dx)
 
 	def flatID_to_X_Y(self, flatID):
 		'''
@@ -265,6 +271,16 @@ class RegularGeometry(BaseGeometry):
 		'''
 		return np.linspace(self.yt_centered, self.yb_centered, self.ny)
 
+	@property
+	def Y_inverted(self):
+		'''
+		return if Y is inverted (top to down) or not (down to top)
+		'''
+		tY = self.Y
+		if(tY[0] > tY[-1]):
+			return True
+		else:
+			return False
 	@property
 	def XY(self):
 		'''

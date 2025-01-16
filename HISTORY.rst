@@ -2,6 +2,15 @@
 History
 =======
 
+0.0.16 (2025-01-16)
+-----------------------
+* Updating some calls for legacy graphflood
+* Adding some steenbok routines (LEM, neighbouring)
+* Improving the geometry module
+* Improving CPU hillshading
+* minor fixes and additions
+
+
 0.0.15 (2024-12-08)
 -----------------------
 * Fixing the new import system for legacy graphflood

@@ -507,6 +507,9 @@ class RDParams:
 		# if I reach here I can set the parameters
 		self._precipitations = value
 
+		if(input2D):
+			self._2D_precipitations = True
+
 		# Apply the modification to the model in the case it is already instantiated
 		if(self._RD is not None):
 			if(isinstance(value,np.ndarray)):

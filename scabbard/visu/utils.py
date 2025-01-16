@@ -35,7 +35,7 @@ def m_to_km(ax, ndec = 1):
 
 
 
-def tickgrid(ax, marker = '+', size = 40, color = 'k', alpha = 0.7):
+def tickgrid(ax, marker = '+', size = 40, color = 'k', alpha = 0.7, lw = 1):
 	'''
 	Adds a tick grid to an existing axis
 	tickgrid is a grid only plotting markers at the crossings of the grid lines
@@ -62,12 +62,19 @@ def tickgrid(ax, marker = '+', size = 40, color = 'k', alpha = 0.7):
 		if(x < ax.get_xlim()[0] or x > ax.get_xlim()[1]):
 			continue
 		for y in list(ax.get_yticks()):
-			if(y < ax.get_ylim()[0] or y > ax.get_ylim()[1]):
+			
+			limymin,limymax = ax.get_ylim()
+			# Swapping if Y inverted
+			if(limymax < limymin):
+				limymin,limymax = limymax,limymin
+
+			if(y < limymin or y > limymax):
 				continue
+
 			X.append(x)
 			Y.append(y)
 
-	ax.scatter(X, Y, marker = marker, s = size, alpha = alpha, edgecolor = color, facecolor = color, lw = 1)
+	ax.scatter(X, Y, marker = marker, s = size, alpha = alpha, edgecolor = color, facecolor = color, lw = lw)
 
 
 def convert_log_colorbar_labels_to_scientific(cb):
