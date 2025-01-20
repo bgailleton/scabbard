@@ -71,6 +71,14 @@ class GridParams:
 # Class Holder
 GRID = GridParams()
 
+def _manual_set_GridParams_custom(dx,dy,nx,ny):
+	GRID.dx = dx
+	GRID.dy = dy
+	GRID.nx = nx
+	GRID.ny = ny
+	GRID.nxy = nx*ny
+	GRID.boundaries = BoundaryConditions.customs
+
 
 
 #################################################################################################
@@ -594,7 +602,32 @@ def oppk(k:ti.i32):
 	'''
 	return 3 if k == 0 else (2 if k == 1 else (1 if k == 2 else (0 if k == 3 else 5)))
 
+@ti.func
+def parak(i:ti.i32, j:ti.i32, k:ti.i32, baseref:ti.u1):
+	'''
+	Returns the parallel neighbours to a direction given by k
+	
+	Arguments:
+		i: row index
+		j: col index
+		k: the neihgbour code
+		baseref: based in receiver pov in False else base node 
+	returns:
+		The opposite neighbour code
 
+	Authors:
+		- B.G. (last modifications: 06/2024)
+	'''
+	ret0,ret1,ret2,ret3 = -1,-1,-1,-1
+	if(k == 0):
+		ret0,ret1,ret2,ret3 = (i,j-1,i,j+1) if baseref else (i-1,j-1,i-1,j+1)
+	elif(k == 3):
+		ret0,ret1,ret2,ret3 = (i,j-1,i,j+1) if baseref else (i+1,j-1,i+1,j+1)
+	elif(k == 2):
+		ret0,ret1,ret2,ret3 = (i-1,j,i+1,j) if baseref else (i-1,j-1,i+1,j-1)
+	elif(k == 3):
+		ret0,ret1,ret2,ret3 = (i-1,j,i+1,j) if baseref else (i-1,j+1,i+1,j+1)
+	return ret0,ret1,ret2,ret3
 
 
 ########################################################################
