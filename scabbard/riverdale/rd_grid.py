@@ -623,9 +623,9 @@ def parak(i:ti.i32, j:ti.i32, k:ti.i32, baseref:ti.u1):
 		ret0,ret1,ret2,ret3 = (i,j-1,i,j+1) if baseref else (i-1,j-1,i-1,j+1)
 	elif(k == 3):
 		ret0,ret1,ret2,ret3 = (i,j-1,i,j+1) if baseref else (i+1,j-1,i+1,j+1)
-	elif(k == 2):
+	elif(k == 1):
 		ret0,ret1,ret2,ret3 = (i-1,j,i+1,j) if baseref else (i-1,j-1,i+1,j-1)
-	elif(k == 3):
+	elif(k == 2):
 		ret0,ret1,ret2,ret3 = (i-1,j,i+1,j) if baseref else (i-1,j+1,i+1,j+1)
 	return ret0,ret1,ret2,ret3
 

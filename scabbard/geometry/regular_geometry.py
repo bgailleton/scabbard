@@ -44,8 +44,8 @@ class RegularGeometry(BaseGeometry):
 		self._ny = ny
 		self._nxy = nx * ny
 		self._dx = dx
-		self._lx = dx * (nx+1)
-		self._ly = dx * (ny+1)
+		self._lx = dx * nx
+		self._ly = dx * ny
 		self._dxy = 2**0.5 * dx
 		self._xmin = xmin
 		self._ymin = ymin
@@ -151,7 +151,7 @@ class RegularGeometry(BaseGeometry):
 		Authors:
 		- B.G. (last modifications: 08/2024)
 		'''
-		return self._xmin + (self.nx + 1) * self.dx
+		return self._xmin + (self.nx) * self.dx
 
 	@property
 	def ymin(self):
@@ -171,7 +171,7 @@ class RegularGeometry(BaseGeometry):
 		Authors:
 		- B.G. (last modifications: 08/2024)
 		'''
-		return self._ymin + (self.ny + 1) * self.dx
+		return self._ymin + (self.ny) * self.dx
 
 
 

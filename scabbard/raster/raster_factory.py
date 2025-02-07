@@ -104,7 +104,7 @@ def white_noise(nx, ny, dx, magnitude = 1., BCs = None):
 
 
 
-def red_noise(ny, nx, beta=2, variance=1, periodic=False, BCs = None):
+def red_noise(ny, nx, dx = 1., beta=2, variance=1, periodic=False, BCs = None):
 	"""
 	Generates a self-affine surface characterized by:
 	P = f^-beta

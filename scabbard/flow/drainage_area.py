@@ -30,12 +30,11 @@ def _drainage_area_sfg(Stack,Sreceivers, dx = 1., BCs = None):
 
 def drainage_area(input_data):
 
-	if(isinstance(input_data, SFGraph) == False):
-		raise RuntimeError('drainage area WIP, so far requires SFGraph object to calculate')
-
-	return _drainage_area_sfg(input_data.Stack, input_data.Sreceivers, dx = input_data.dx).reshape(input_data.ny,input_data.nx)
-
-
+	if(isinstance(input_data, SFGraph) == True):
+		return _drainage_area_sfg(input_data.Stack, input_data.Sreceivers, dx = input_data.dx).reshape(input_data.ny,input_data.nx)
+	elif isinstance(input_data, scb.raster.RegularRasterGrid) == True:
+		sgraph = scb.flow.SFGraph(input_data, BCs = None, D4 = True, dx = input_data.geo.dx, backend = 'ttb', fill_LM = False, step_fill = 1e-3)
+		return _drainage_area_sfg(sgraph.Stack, sgraph.Sreceivers, dx = sgraph.dx).reshape(sgraph.ny,sgraph.nx)
 
 
 @nb.njit()
