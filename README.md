@@ -23,12 +23,23 @@ Python package to design, use or visualise topographic analysis, landscape evolu
 
 ## How to install
 
+**If you are comfortable with conda environments**: within your environment of choice, `conda/mamba install daggerpy -c conda-forge` then `pip install topotoolbox pyscabbard`.
 
-`pip install pyscabbard`
+**Else:**
 
-As simple as that. Thanks to github actions allowing smooth CI, you do not have to compile anything yourself.
+First you need a `conda` environment to install the `daggerpy` backend. See [here](https://github.com/conda-forge/miniforge?tab=readme-ov-file#requirements-and-installers) for instructions. Once installed, open a prompt (terminal, conda prompt, miniforge prompt, ... you know it is the right one if `(base)` is written at the left.).
 
-**NOTE**: `pytopotoolbox` official installation procedure is still WIP. I provide binary wheels within this project ([./wheels/pytopotoolbox](https://github.com/bgailleton/scabbard/tree/main/wheels/pytopotoolbox) ). At first import, `scabbard` will provide instruction (i.e. a single command line to run).
+Then run **ONCE** these instructions sequentially:
+
+`conda create -n scabbard` 
+`conda activate scabbard` 
+`conda install install daggerpy -c conda-forge` 
+`pip install pyscabbard pytopotoolbox`
+
+**Each time you restart a new terminal,** you will just need to reactivate the environment: `conda activate scabbard` .
+
+
+Done!
 
 
 ## Features
