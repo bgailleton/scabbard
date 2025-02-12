@@ -343,7 +343,7 @@ def Sf_manning(h, u, v, manning, Sfx, Sfy, HE_CA):
 
 
 
-ny,nx = 256,128
+ny,nx = 1024,128
 dx = 2.
 dy = dx
 S0 = 1e-2
@@ -508,11 +508,15 @@ velocity_max_y = 5000.	# TBDfullswof.
 
 
 itfig = 0.
+import time
+
+st = time.time()
+
 while(True):
 # while(T < 600):
 	it+=1
 	# print("Starting", it)
-	print(T)
+	# print(T)
 
 	# Step 2: precalculate delz (last col/row is 0)
 	delzx[:,:-1] = z[:,1:] - z[:,:-1] # x
@@ -665,9 +669,9 @@ while(True):
 
 	h = hs.copy()
 
-	if it%2 == 0:
-		Sf_manning(h, u, v, fric_coeff, Sfx, Sfy, HE_CA)
-		morpho_step(h, z, Sfx, Sfy, qsx, qsy, dt, GRAV, RHOW, Ke, TL, tau_c)
+	# if it%2 == 0:
+	# 	Sf_manning(h, u, v, fric_coeff, Sfx, Sfy, HE_CA)
+	# 	morpho_step(h, z, Sfx, Sfy, qsx, qsy, dt, GRAV, RHOW, Ke, TL, tau_c)
 	# quit() if it == 20 else 0
 
 	# u[mask] = 0
@@ -676,7 +680,7 @@ while(True):
 	# print("Done", it)
 
 
-	if(it % 100 == 0):
+	if(it % 10000 == 0):
 		ax.set_title('time ='+str(T)+'s')
 		pzz[0].set_ydata(z[:,round(nx/2)])
 		pzh[0].set_ydata(z[:,round(nx/2)] + h[:,round(nx/2)])
@@ -689,10 +693,13 @@ while(True):
 
 		fig.canvas.draw_idle()
 		fig.canvas.start_event_loop(0.01)
-		itfig+=1
-		name = str(itfig)
-		while(len(name) <5):
-			name = '0' + name
+		print('took', time.time() - st)
+		st = time.time()
+
+		# itfig+=1
+		# name = str(itfig)
+		# while(len(name) <5):
+		# 	name = '0' + name
 		# plt.savefig('tempfig/'+ name+'.png', dpi = 300)
 # np.save('final_h_calib.py', h)
 # fig,ax = plt.subplots()
