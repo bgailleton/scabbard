@@ -32,6 +32,7 @@ jobs:
     - name: Check architecture
       if: |
         (runner.os != 'macOS' && matrix.architecture == 'arm64') ||
+        (matrix.os == 'windows-latest' && matrix.architecture == 'arm64') ||
         (matrix.os == 'macos-13' && matrix.architecture == 'arm64') ||
         (matrix.os == 'macos-latest' && matrix.architecture != 'arm64')
 
