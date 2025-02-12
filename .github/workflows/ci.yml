@@ -30,7 +30,10 @@ jobs:
 
     steps:
     - name: Check architecture
-      if: (runner.os != 'macOS'  && matrix.architecture == 'arm64') || (startsWith(runner.image, 'macos-latest' && matrix.architecture == 'arm64') && env.SKIP == 0
+      if: |
+        (runner.os != 'macOS' && matrix.architecture == 'arm64') ||
+        (startsWith(runner.image, 'macos-latest') && matrix.architecture == 'arm64' && env.SKIP == '0')
+
       run: |
         echo "Architecture is ARM but OS is not macOS. Skipping build."
         echo "SKIP=1" >> $GITHUB_ENV
