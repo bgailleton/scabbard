@@ -23,9 +23,17 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest, macos-12]
-        python-version: ['3.10', 3.11, 3.12, 3.13]
+        python-version: ['3.10', '3.11', '3.12', '3.13']
+        architecture: [x86_64, arm64]  # Add architecture matrix
 
     steps:
+    - name: Check architecture
+      if: runner.os != 'macOS' && matrix.architecture == 'arm64'
+      run: |
+        echo "Architecture is ARM but OS is not macOS. Skipping build."
+        exit 0
+
+
     - name: Checkout code
       uses: actions/checkout@v2
 
@@ -41,6 +49,9 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install build-essential -y
+        sudo apt-get install -y gcc-8 g++-8  # Ensure GCC 8 is installed for C++17 support
+        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 60
+        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 60
 
     - name: Install build dependencies on macOS
       if: runner.os == 'macOS'
@@ -66,7 +77,7 @@ jobs:
         rm -rf /usr/local/bin/conda
         rm -rf $HOME/miniforge
 
-        ARCH=$(uname -m)
+        ARCH=${{ matrix.architecture }}
         if [ "$ARCH" = "x86_64" ]; then
           echo "Installing Miniforge for Intel (x86_64)"
           curl -L "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-x86_64.sh" -o miniforge.sh
@@ -88,8 +99,6 @@ jobs:
         curl -L -o miniforge.exe "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Windows-x86_64.exe"
         Start-Process -FilePath "miniforge.exe" -ArgumentList '/InstallationType=JustMe', '/AddToPath=1', '/RegisterPython=0', '/S', "/D=$env:USERPROFILE\miniforge3" -NoNewWindow -Wait
 
-
-
     # Install the correct Python environment based on matrix
     - name: Install Python environment with Miniforge on Linux
       if: runner.os == 'Linux'
@@ -110,8 +119,6 @@ jobs:
         set "CONDA=%UserProfile%\miniforge3"  # Set the correct path for Miniforge
         cmd /c "%CONDA%\Scripts\activate.bat && conda create -n build_env python=${{ matrix.python-version }} -y"
         # cmd /c "%CONDA%\Scripts\activate.bat && conda run -n build_env conda install -c conda-forge xtensor-python -y"
-
-
 
     # Install pip build tools (build, wheel) and create wheels
     - name: Install pip build tools on Linux
@@ -148,17 +155,15 @@ jobs:
         $env:CONDA = "$env:USERPROFILE\miniforge3"
         $env:XTENSOR_INCLUDE_PATH = "$env:CONDA\envs\build_env_dagger\Library\include"
         $env:INCLUDE = "$env:XTENSOR_INCLUDE_PATH;$env:INCLUDE"
-        
+
         # Ensure the environment is created
         cmd /c "%CONDA%\Scripts\activate.bat && conda create -n build_env_dagger python=${{ matrix.python-version }} -y"
 
         # Install xtensor-python to the environment
         cmd /c "%CONDA%\Scripts\activate.bat && conda run -n build_env_dagger conda install -c conda-forge xtensor-python -y"
-        
+
         # Finally, run the build process
         cmd /c "%CONDA%\Scripts\activate.bat && conda run -n build_env_dagger pip wheel ./DAGGER/wrappers/python -w wheelhouse/dagger --no-deps"
-
-
 
     # Build wheels for scabbard, ONLY ONCE so arbitrary choosing one run (i.e. one python version and one OS)
     - name: Build scabbard Wheel
@@ -171,7 +176,7 @@ jobs:
       run: |
         if [ "${{ runner.os }}" == "Linux" ] || [ "${{ runner.os }}" == "macOS" ]; then
           mv wheelhouse/dagger/*.whl wheels/dagger/
-          
+
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
@@ -255,7 +260,6 @@ jobs:
           powershell -File script.ps1
         fi
       shell: bash
-
 
     # Commit and push the built wheels for scabbard (done once)
     - name: Commit scabbard wheel to repository
