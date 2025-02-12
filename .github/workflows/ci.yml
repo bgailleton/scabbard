@@ -23,7 +23,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest, macos-12]
-        python-version: ['3.10', 3.11, 3.12]
+        python-version: ['3.10', 3.11, 3.12, 3.13]
 
     steps:
     - name: Checkout code
@@ -33,12 +33,6 @@ jobs:
       run: |
         git clone https://github.com/bgailleton/DAGGER.git
         cd DAGGER
-        git checkout main
-
-    - name: Clone pytopotoolbox (and libtopotoolbox)
-      run: |
-        git clone https://github.com/TopoToolbox/pytopotoolbox.git
-        cd pytopotoolbox
         git checkout main
 
     # Install dependencies per OS
@@ -136,23 +130,6 @@ jobs:
       run: |
         cmd /c "%CONDA%\Scripts\activate.bat && conda run -n build_env pip install build wheel"
 
-
-    # Build wheels for pytopotoolbox
-    - name: Build pytopotoolbox Wheels on Linux
-      if: runner.os == 'Linux'
-      run: |
-        source $HOME/miniforge/bin/activate && mamba run -n build_env pip wheel ./pytopotoolbox -w wheelhouse/pytopotoolbox --no-deps
-
-    - name: Build pytopotoolbox Wheels on macOS
-      if: runner.os == 'macOS'
-      run: |
-        source $HOME/miniforge/bin/activate && mamba run -n build_env pip wheel ./pytopotoolbox -w wheelhouse/pytopotoolbox --no-deps
-
-    - name: Build pytopotoolbox Wheels on Windows
-      if: runner.os == 'Windows'
-      run: |
-       cmd /c "%CONDA%\Scripts\activate.bat && conda run -n build_env pip wheel ./pytopotoolbox -w wheelhouse/pytopotoolbox --no-deps"
-
     # Build wheels for DAGGER
     - name: Build DAGGER Wheels on Linux
       if: runner.os == 'Linux'
@@ -193,8 +170,6 @@ jobs:
     - name: Commit wheels to repository
       run: |
         if [ "${{ runner.os }}" == "Linux" ] || [ "${{ runner.os }}" == "macOS" ]; then
-          mkdir -p wheels/pytopotoolbox wheels/dagger wheels/scabbard
-          mv wheelhouse/pytopotoolbox/*.whl wheels/pytopotoolbox/
           mv wheelhouse/dagger/*.whl wheels/dagger/
           
           git config --global user.name "github-actions[bot]"
@@ -235,11 +210,9 @@ jobs:
 
         elif [ "${{ runner.os }}" == "Windows" ]; then
           # Write PowerShell script to a file
-          echo "New-Item -ItemType Directory -Path wheels\pytopotoolbox -Force;" > script.ps1
           echo "New-Item -ItemType Directory -Path wheels\dagger -Force;" >> script.ps1
 
           echo "# Move files" >> script.ps1
-          echo "Move-Item -Path wheelhouse\pytopotoolbox\*.whl -Destination wheels\pytopotoolbox;" >> script.ps1
           echo "Move-Item -Path wheelhouse\dagger\*.whl -Destination wheels\dagger;" >> script.ps1
 
           echo "git config --global user.name 'github-actions[bot]';" >> script.ps1
