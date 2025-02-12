@@ -176,6 +176,7 @@ jobs:
 
     # Commit and push the built wheels
     - name: Commit wheels to repository
+      if: env.SKIP == 0
       run: |
         if [ "${{ runner.os }}" == "Linux" ] || [ "${{ runner.os }}" == "macOS" ]; then
           mv wheelhouse/dagger/*.whl wheels/dagger/
