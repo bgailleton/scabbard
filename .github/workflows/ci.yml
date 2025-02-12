@@ -32,7 +32,7 @@ jobs:
     - name: Check architecture
       if: |
         (runner.os != 'macOS' && matrix.architecture == 'arm64') ||
-        (startsWith(runner.image, 'macos-13') && matrix.architecture == 'arm64' && env.SKIP == '0')
+        (matrix.os == 'macos-13') && matrix.architecture == 'arm64')
 
       run: |
         echo "Architecture is ARM but OS is not macOS. Skipping build."
