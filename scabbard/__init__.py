@@ -101,6 +101,7 @@ from . import filters
 from . import flow
 from . import visu
 from . import io
+from . import gdcom
 from . import graphflood_ui as graphflood
 
 

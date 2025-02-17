@@ -54,6 +54,8 @@ setup(
 				'scb-reset-config=scabbard.config:defaultConfig' ,
 				'scb-visu2D=scabbard.phineas:visu2Dnpy' ,
 				'scb-quick-hydro=scabbard.phineas:GPUgraphflood' ,
+				'scbftgd-load=scabbard.gdcom:simple_load' ,
+				
 		],
 	},
 	
