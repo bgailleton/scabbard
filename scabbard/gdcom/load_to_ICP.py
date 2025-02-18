@@ -56,8 +56,7 @@ def simple_load(fname, prefix):
 	with open("/dev/shm/"+prefix+"_array", "wb+") as f:
 	    f.truncate(grid.Z.size * grid.Z.itemsize)
 
-	
-
+	# Actually saving the data
 	with open("/dev/shm/"+prefix+"_array", "r+b") as f:
 		shared_mem  = mmap.mmap(f.fileno(), grid.Z.size * grid.Z.itemsize )
 
