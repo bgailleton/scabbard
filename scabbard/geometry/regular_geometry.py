@@ -290,6 +290,22 @@ class RegularGeometry(BaseGeometry):
 		return np.meshgrid(self.X, self.Y)
 
 	@property
+	def XX(self):
+		'''
+		return a mesh grid of X and Y coorditates
+		i.e. 2 2d arrays of Xs and Ys for each nodes
+		'''
+		return np.meshgrid(self.X, self.Y)[0]
+
+	@property
+	def YY(self):
+		'''
+		return a mesh grid of X and Y coorditates
+		i.e. 2 2d arrays of Xs and Ys for each nodes
+		'''
+		return np.meshgrid(self.X, self.Y)[1]
+
+	@property
 	def dxnxny(self):
 		return self.dx,self.nx,self.ny	 
 

@@ -27,7 +27,22 @@ class SFGraph(object):
 
 	def __init__(self, Z, BCs = None, D4 = True, dx = 1., backend = 'ttb', fill_LM = False, step_fill = 1e-3):
 		'''
+			Constructor for the graph object
+
+			Arguments:
+				- Z  : array of elevation or RegularRasterGrid
+				- BCs: Boundary Conditions
+				- D4 : D4 (True) or D8 (False)
+				- dx : the spatial step
+				- backend: 'ttb' for topotoolbox, 'dagger' for a cpp backend (will evolve with dagger 2.0)
+				- fill_LM: if True, fills the local minima
+				- step_fill: if filling the dem, what minimum increment to use
+
+			Authors:
+				- B.G. (last modifications: 12/2024) 
 		'''
+
+		# First checking if this is an array or a RegularRasterGrid
 		if(isinstance(Z, np.ndarray)):
 			tZ = Z
 		elif(isinstance(Z,scb.raster.RegularRasterGrid)):
@@ -42,14 +57,9 @@ class SFGraph(object):
 		## Overall shape
 		self.shape = tZ.shape
 		self.dim = np.array(self.shape, dtype = np.uint64)
-		# Geometrical infos
 		self.D4 = D4
-
 		self.dx = dx
-
-
 		self.backend = backend
-
 		self.gridcpp = dag.GridCPP_f32(self.nx,self.ny, dx, dx,3) 
 
 		# Getting the graph structure ready
@@ -72,6 +82,18 @@ class SFGraph(object):
 	def update(self, Z, BCs = None, fill_LM = False, step_fill = 1e-3):
 		'''
 		Updates the graph to a new topography and optional boundary conditions
+		
+		Arguments:
+				- Z  : array of elevation or RegularRasterGrid
+				- BCs: Boundary Conditions
+				- D4 : D4 (True) or D8 (False)
+				- dx : the spatial step
+				- backend: 'ttb' for topotoolbox, 'dagger' for a cpp backend (will evolve with dagger 2.0)
+				- fill_LM: if True, fills the local minima
+				- step_fill: if filling the dem, what minimum increment to use
+
+		Authors:
+			- B.G. (last modifications: 12/2024) 
 		'''
 
 		if(isinstance(Z, np.ndarray)):
