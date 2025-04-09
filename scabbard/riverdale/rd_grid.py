@@ -63,6 +63,7 @@ class GridParams:
 		self.ny = 1.
 		self.nxy = 1.
 		self.boundaries = BoundaryConditions.normal
+		# self.force_permissive_boundaries = False # this parameter forces all the "out" boundary codes to potentially redirect_flow if a neighbour is 
 
 
 

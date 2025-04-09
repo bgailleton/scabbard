@@ -54,6 +54,8 @@ class HydroParams:
 
 		self.CA_redis = 0.1
 
+		self.compute_hw_out = True
+
 PARAMHYDRO = HydroParams()
 
 @ti.kernel
@@ -417,6 +419,8 @@ def _compute_hw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 	# print(PARAMHYDRO.dt_hydro,"OIOIOIOI")
 	# Traversing nodes
 	for i,j in Z:
+		if(PARAMHYDRO.compute_hw_out == False and gridfuncs.can_out(i,j,BCs)):
+			continue
 		
 		# Updating local discharge to new time step
 		QwA[i,j] = QwB[i,j]

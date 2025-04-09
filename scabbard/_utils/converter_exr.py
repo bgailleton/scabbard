@@ -36,7 +36,7 @@ def calculate_normal_map(elevation_data):
 	return normal_map
 
 
-def write_exr(array, nx:int, ny:int, filename:str):
+def write_exr(array, nx:int, ny:int, filename:str, norm:bool = True):
 
 	try:
 		import OpenEXR
@@ -52,8 +52,10 @@ def write_exr(array, nx:int, ny:int, filename:str):
 		filename+='.exr'
 	exr = OpenEXR.OutputFile(filename, header)
 	if (array.ndim == 2):
-		array-=array.min()
-		array/=array.max()
+		if(norm):
+			array-=array.min()
+			array/=array.max()
+
 		exr.writePixels({'R': array.tobytes(), 'G': array.tobytes(), 'B': array.tobytes()})
 	elif (array.ndim == 3 and array.shape[2] == 3):
 		exr.writePixels({'R': array[:,:,0].tobytes(), 'G': array[:,:,1].tobytes(), 'B': array[:,:,2].tobytes()})

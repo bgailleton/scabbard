@@ -81,15 +81,16 @@ class RegularRasterGrid(object):
         '''
         Returns a libtopotoolbox-compatible grid
         '''
+        from rasterio.crs import CRS
         import topotoolbox as ttb
         ttbgrid = ttb.GridObject()
         ttbgrid.z = self.Z
-        ttbgrid.rows = self.geo.ny
-        ttbgrid.columns = self.geo.nx
-        ttbgrid.shape = self.Z.shape
         ttbgrid.cellsize = self.geo.dx
         ttbgrid.bounds = self.geo.extent
         ttbgrid.name = "from_scabbard"
+
+        ttbgrid.crs = CRS.from_string(self.geo._crs)
+        # print(ttbgrid.crs)
 
         return ttbgrid
 
