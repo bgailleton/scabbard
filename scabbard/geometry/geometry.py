@@ -163,7 +163,7 @@ class BaseGeometry(ABC):
 
 	@property
 	def crs(self):
-		return crs
+		return self._crs
 
 	@abstractmethod
 	def row_col_to_flatID(self, row, col):

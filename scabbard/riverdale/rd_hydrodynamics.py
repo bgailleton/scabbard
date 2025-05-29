@@ -1,6 +1,10 @@
 '''
 Sets of function to compute hydrodynamics with RiverDale
 
+It's dangerous to go alone, take this:
+
+---{:::::::::::::::::>
+
 B.G. - 29/04/2024
 '''
 
@@ -46,15 +50,17 @@ class HydroParams:
 		self.use_heffmax = False
 
 		self.use_original_dir_for_LM = True
-		self.LM_pathforcer = 1
-		self.clamp_div_hw = True
+		self.LM_pathforcer = 10
+		self.clamp_div_hw = False
 		self.clamp_div_hw_val = 1e-3
 
 		self.checkboard_checker = False
 
 		self.CA_redis = 0.1
 
-		self.compute_hw_out = True
+		self.compute_hw_out = True # fixes hw at boundaries if False
+		self.damp_QwA = False
+		self.damp_QwA_coeff = 0.8
 
 PARAMHYDRO = HydroParams()
 
@@ -423,8 +429,11 @@ def _compute_hw(Z:ti.template(), hw:ti.template(), QwA:ti.template(), QwB:ti.tem
 			continue
 		
 		# Updating local discharge to new time step
-		QwA[i,j] = QwB[i,j]
-		
+		if(PARAMHYDRO.damp_QwA == False):
+			QwA[i,j] = QwB[i,j]
+		else:
+			QwA[i,j] = (QwA[i,j] * PARAMHYDRO.damp_QwA_coeff) + (QwB[i,j] * (1-PARAMHYDRO.damp_QwA_coeff))
+
 		# ONGOING TEST DO NOT DELETE
 		# # Only where nodes are active (i.e. flow cannot leave and can traverse)
 		# if(gridfuncs.can_out(i,j,BCs)):

@@ -340,6 +340,32 @@ class Riverdale:
 		with open(fname+'.rvd', 'wb') as f:
 			pickle.dump(tosave, f)
 
+	def save_outputs(self, fname = 'riverdale_outputs'):
+		'''
+		Export a bunch of GraphFlood outputs
+		'''
+		import pickle
+
+		param = self.param
+		param._RD = None
+
+		tosave = {
+			'hw' :self.hw.to_numpy(), 
+			'Z'  :self.Z.to_numpy(), 
+			'QwA':self.QwA.to_numpy(), 
+			'QwC':self.QwC.to_numpy(),
+			'Sw':scb.rvd.compute_hydraulic_gradient(self),
+			'tau':scb.rvd.compute_shear_stress(self),
+			'u':scb.rvd.compute_flow_velocity(self, use_Qwin = False),
+			'q':scb.rvd.compute_flow_velocity(self, use_Qwin = False) * self.hw.to_numpy(),
+			}
+
+
+		with open(fname+'.rvd', 'wb') as f:
+			pickle.dump(tosave, f)
+
+
+
 
 
 
@@ -483,9 +509,12 @@ def create_from_params(param):
 	if(param.use_fdir_D8):
 		# print('debug info: computing fdir')
 		# creating the original hydraulic pattern by pre filling the topography with water
-		rdlm.priority_flood(instance)
+		temphw = instance.hw.to_numpy()
+		rdlm.priority_flood(instance, Zw = True)
 		# Calculating the motherflow direction, used to trasfer Qw out of local minimas
 		rdfl.compute_D4_Zw(instance.Z, instance.hw, instance.fdir, instance.BCs)
+		instance.hw.from_numpy(temphw)
+		del temphw
 		# print(np.unique(instance.fdir.to_numpy()))
 	else:
 		fsurf = scb.raster.raster_from_array(instance.Z.to_numpy()+instance.hw.to_numpy(),instance.param._dx)

@@ -101,7 +101,7 @@ def _propagate_mfd_propS(Z, Stack, values, nx, ny, dx = 1., BCs = None, D4 = Tru
 
 
 
-def propagate(input_data, input_values, method = 'sfd', BCs = None, D4 = True, fill_LM = False, step_fill = 1e-3):
+def propagate(input_data, input_values, method = 'sfd', BCs = None, D4 = True, fill_LM = False, step_fill = 1e-3, out = None):
 	'''
 	Propagates values with the flow, following a drainage-area-like path
 
@@ -124,6 +124,9 @@ def propagate(input_data, input_values, method = 'sfd', BCs = None, D4 = True, f
 		else:
 			raise RuntimeError('drainage area using SFD method requires a SFGraph object or a RegularRasterGrid as input_data')
 
+		if out is not None:
+			out['Stack'] = input_data.Stack
+			out['Sreceivers'] = input_data.Sreceivers
 		return _propagate_sfg(input_data.Stack, input_data.Sreceivers, input_values.ravel(), dx = input_data.dx).reshape(input_data.ny,input_data.nx)
 
 	elif (method.lower() == 'mfd_s'):
@@ -135,9 +138,12 @@ def propagate(input_data, input_values, method = 'sfd', BCs = None, D4 = True, f
 		if(fill_LM):
 			Stack = np.zeros_like(input_data.Z.ravel(), dtype = np.uint64)
 			scb.ttb.graphflood.funcdict['priority_flood_TO']( input_data.Z.ravel(), Stack, BCs.ravel(), input_data.dims, not D4, step_fill)
-
+			
 		else:
 			Stack = np.argsort(input_data.Z.ravel()).astype(np.uint64)
+
+		if out is not None:
+			out['Stack'] = Stack
 
 		return _propagate_mfd_propS(input_data.Z.ravel(), Stack.ravel(), input_values.ravel(), input_data.geo.nx, input_data.geo.ny, dx = input_data.geo.dx, BCs = tBCs.ravel(), D4 = D4).reshape(input_data.geo.ny,input_data.geo.nx)
 

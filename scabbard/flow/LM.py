@@ -24,10 +24,13 @@ def _priority_flood_from_Z(Z, BCs, D4, in_place, dx, gridcpp, backend, step_fill
 	if(BCs is None):
 		BCs = ut.normal_BCs_from_shape(Z.shape[1], Z.shape[0])
 
+	temp = np.copy(tZ)
+
 	if(backend == 'ttb'):
 		dims = np.array( [Z.shape[0], Z.shape[1]],dtype = np.uint64)
-		# ttb.graphflood.funcdict['priority_flood'](Z.ravel(), BCs.ravel(), dims, not D4)
-		ttb.graphflood.funcdict['priority_flood_TO'](Z.ravel(), np.zeros_like(Z, dtype = np.uint64), BCs.ravel(), dims, not D4, step_fill)
+		ttb.graphflood.funcdict['priority_flood'](tZ.ravel(), BCs.ravel(), dims, not D4, step_fill)
+		# print('YOLO')
+		# ttb.graphflood.funcdict['priority_flood_TO'](tZ.ravel(), np.zeros_like(Z, dtype = np.uint64), BCs.ravel(), dims, not D4, step_fill)
 
 	elif backend == 'dagger':
 		if(gridcpp is None):
@@ -36,6 +39,10 @@ def _priority_flood_from_Z(Z, BCs, D4, in_place, dx, gridcpp, backend, step_fill
 
 	if(in_place == False):
 		return tZ
+	else:
+		Z[:,:]=tZ[:,:]
+
+
 
 def _priority_flood_from_dem(dem, BCs, D4, in_place, dx, gridcpp, backend, step_fill):
 

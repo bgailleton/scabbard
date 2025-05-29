@@ -166,7 +166,7 @@ def compute_effective_width(rd, use_Qwin = True):
 	'''
 	EXPERIMENTAL
 
-	Will probably evolve quite a lot in the coming weeks so I'll comment at that moment
+	Will probably evolve quite a lot in the coming months so I'll comment at that moment
 	'''
 
 	if(rd.param.precipitations_are_2D):

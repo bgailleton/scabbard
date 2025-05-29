@@ -69,6 +69,18 @@ class RegularRasterGrid(object):
         topotoolbox-friendly dim parameter
         """
         return np.array([self.geo.ny, self.geo.nx], dtype=np.uint64)
+    @property
+    def z(self):
+        """
+        topotoolbox-friendly dim parameter
+        """
+        return self.Z
+    @z.setter
+    def z(self, val):
+        """
+        topotoolbox-friendly dim parameter
+        """
+        self.Z = val
 
     @property
     def rshp(self):
