@@ -9,8 +9,8 @@ from ldnoise import generate_landscape_dataset_pattern
 from razorscape import generate_landscape
 import random
 
-save = True
-visu = False
+save = False
+visu = True
 
 def rng_complexity():
 	return random.choice(['simple','medium','complex'])
@@ -25,6 +25,7 @@ initopo = perlin_noise_2d(nx, ny, scale=0.01, octaves=5, persistence=0.5, lacuna
 fig,ax = plt.subplots()
 
 im = ax.imshow(initopo, cmap = 'terrain')
+imhs = ax.imshow(scb.visu.generate_hillshade(initopo), cmap = 'gray', alpha = 0.5)
 
 if(visu):
 	fig.show()
@@ -64,6 +65,7 @@ for it in range(1000):
 	if(visu):
 		ax.set_title(tbc)
 		im.set_data(topo)
+		imhs.set_data(scb.visu.generate_hillshade(topo))
 		im.set_clim(topo.min(), topo.max())
 		fig.canvas.draw_idle()
 		fig.canvas.start_event_loop(0.1)
