@@ -18,7 +18,7 @@ from multiprocessing import Pool
 import functools
 
 # Number of landscape to generate (in addition to the existing ones)
-NGEN = 1000
+NGEN = 500
 
 def get_next_npy_number(folder_path):
    """
@@ -127,7 +127,7 @@ def generate_single_landscape(args):
    if save_flag:
        # Normalize topography to [0,1] range
        topo_normalized = (topo - topo.min())/(topo.max() - topo.min())
-       np.save(f'./dataset/{str(baseit + it)}.npy', topo_normalized)
+       np.save(f'./validation/{str(baseit + it)}.npy', topo_normalized)
    
    return f"Landscape {it} processed successfully"
 
@@ -143,7 +143,7 @@ def main():
    initopo = perlin_noise_2d(nx, ny, scale=0.01, octaves=5, persistence=0.5, lacunarity=2.0, seed=0)
    
    # Get the starting file number for the dataset
-   baseit = get_next_npy_number("./dataset")
+   baseit = get_next_npy_number("./validation")
    print(f"Starting dataset generation from file number: {baseit}")
    
    # Prepare arguments for multiprocessing
