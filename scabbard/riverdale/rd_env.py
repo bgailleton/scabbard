@@ -1,11 +1,12 @@
 '''
 Riverdale environment:
 
-This is the main high level class interfacing with the model. 
-This is the API users use to get the data out of the model and run time steps.
-The other high level class class managing the model inputs and parameters is the RDParams class (see rd_params.py) 
-The (internal) structure is a bit convoluted for the sake of optimising calculation time.
+This module defines the `Riverdale` class, which serves as the primary high-level interface for interacting with the Riverdale model.
+It provides the API for users to extract data from the model and advance simulation time steps.
+The `RDParams` class (defined in `rd_params.py`) manages the model's input parameters and configurations.
+The internal structure of the `Riverdale` class is designed for optimizing calculation time, which may result in a somewhat convoluted organization.
 
+Author: B.G.
 '''
 
 import taichi as ti
@@ -24,38 +25,59 @@ from scipy.ndimage import gaussian_filter
 
 # @ti.data_oriented
 class Riverdale:
-	'''
-	Main class controlling riverdale's model.
-	Cannot be directly instantiated, please use the factory function at the end of this script.
-	'''
+	"""
+	Main class controlling the Riverdale model.
 
-	#
-	# _already_created = False
-	# _instance_created = False
-	
+	This class cannot be directly instantiated. Instead, use the `create_from_params`
+	factory function at the end of this script to create an instance of `Riverdale`
+	and bind the input parameter sheet.
+
+	Attributes:
+		param (RDParams): The parameter sheet for the model.
+		GRID (rdgd.GRID): Grid parameters for the model.
+		PARAMHYDRO (rdhy.PARAMHYDRO): Hydrodynamic parameters for the model.
+		PARAMMORPHO (rdmo.PARAMMORPHO): Morphodynamic parameters for the model.
+		QwA (ti.field): Taichi field for water discharge component A.
+		QwB (ti.field): Taichi field for water discharge component B.
+		QwC (ti.field): Taichi field for water discharge component C.
+		Z (ti.field): Taichi field for topography.
+		hw (ti.field): Taichi field for water depth.
+		P (ti.field or float): Taichi field or float for precipitation.
+		input_rows_Qw (ti.field): Taichi field for row indices of water input points.
+		input_cols_Qw (ti.field): Taichi field for column indices of water input points.
+		input_Qw (ti.field): Taichi field for water input values.
+		convrat (ti.field): Taichi field for convergence ratio.
+		constraints (ti.field): Taichi field for hydrodynamic constraints.
+		fdir (ti.field): Taichi field for flow direction (D8).
+		fsurf (ti.field): Taichi field for surface elevation.
+		QsA (ti.field): Taichi field for sediment discharge component A.
+		QsB (ti.field): Taichi field for sediment discharge component B.
+		QsC (ti.field): Taichi field for sediment discharge component C.
+		input_rows_Qs (ti.field): Taichi field for row indices of sediment input points.
+		input_cols_Qs (ti.field): Taichi field for column indices of sediment input points.
+		input_Qs (ti.field): Taichi field for sediment input values.
+		temp_fields (dict): Dictionary to store temporary Taichi fields for memory management.
+
+	Author: B.G.
+	"""
+
 	def __init__(self):
+		"""
+		Initializes the Riverdale model.
 
-# 		if not Riverdale._instance_created:
-# 			raise Exception("Riverdale cannot be instantiated directly. Please use the factory functions.")
-
-# 		if Riverdale._already_created:
-# 			raise Exception("""
-# Riverdale cannot be instantiated more than once so far within the same runtime (~= within the same script). 
-# This is because only one unique taichi lang context can exist at once as far as I know, I am working on solutions 
-# but in the meantime you can run the model in batch using subprocess.
-# """)
+		This constructor should not be called directly. Use the `create_from_params`
+		factory function to properly initialize a Riverdale instance.
+		"""
 		
-		# Place holders for the different variables
-		## This is the parameter sheet
-		self.param = None
+		# Placeholders for the different variables
+		self.param = None  # The parameter sheet
 
-		## Model-side params
+		# Model-side parameters
 		self.GRID = rdgd.GRID
 		self.PARAMHYDRO = rdhy.PARAMHYDRO
 		self.PARAMMORPHO = rdmo.PARAMMORPHO
 
-
-		## Fields for hydro
+		# Fields for hydrodynamics
 		self.QwA = None
 		self.QwB = None
 		self.QwC = None
@@ -71,7 +93,7 @@ class Riverdale:
 		self.fdir = None
 		self.fsurf = None
 
-		## Field for morpho
+		# Fields for morphodynamics
 		self.QsA = None
 		self.QsB = None
 		self.QsC = None
@@ -79,82 +101,123 @@ class Riverdale:
 		self.input_cols_Qs = None
 		self.input_Qs = None
 
-		# temporary fields
+		# Temporary fields for memory management
 		self.temp_fields = {ti.u8:[], ti.i32:[], ti.f32:[], ti.f64:[]}
 
 
 
 	def run_hydro(self, n_steps, recompute_flow = False, expe_N_prop = 0, expe_CFL_variable = False, flush_LM = False):
-		'''
-		Main runner function for the hydrodynamics part of the model.
-		NOte that all the parameters have been compiled prior to running that functions, so not much to control here
-		Arguments:
-			- nsteps: The number of time step to run
-		returns:
-			- Nothing, update the model internally
-		Authors:
-			- B.G (last modification 20/05/2024)
-		'''
+		"""
+		Runs the main hydrodynamic simulation loop for a specified number of steps.
+
+		This function orchestrates the hydrodynamic calculations, including flow recomputation,
+		handling external water inputs (precipitation, discrete points), and running the runoff simulation.
+		Parameters are typically compiled prior to calling this function, limiting direct control here.
+
+		Args:
+			n_steps (int): The number of time steps to run the hydrodynamic simulation.
+			recompute_flow (bool, optional): If True, recomputes the flow direction (fdir) or surface (fsurf)
+											 based on the current topography and water depth. Defaults to False.
+			expe_N_prop (int, optional): Experimental parameter, not currently used in the active code path. Defaults to 0.
+			expe_CFL_variable (bool, optional): Experimental parameter to use a variable CFL condition for `hw` computation. Defaults to False.
+			flush_LM (bool, optional): If True, flushes the water discharge (QwA) only, typically used for
+									   local minima handling. Defaults to False.
+
+		Returns:
+			None: Updates the model's internal state (e.g., water depth, discharge fields).
+
+		Author: B.G. (last modification: 20/05/2024)
+		"""
 
 		if(recompute_flow):
 			if(self.param.use_fdir_D8):
+				# Recompute D8 flow direction based on current Z and hw
 				rdfl.compute_D4_Zw(self.Z, self.hw, self.fdir, self.BCs)
 			else:
+				# Recompute surface for flow routing if not using D8
 				fsurf = scb.raster.raster_from_array(self.Z.to_numpy()+self.hw.to_numpy(),self.param._dx)
 				tBCs = None if self.param.BCs is None else self.BCs.to_numpy()
+				# Apply priority flood and Gaussian filter for surface smoothing
 				scb.flow.priority_flood(fsurf, in_place = True,BCs = tBCs)
 				scb.filters.gaussian_fourier(fsurf, in_place = True, magnitude = 50,BCs = tBCs)				 
 				scb.flow.priority_flood(fsurf, in_place = True,BCs = tBCs)
 				self.fsurf.from_numpy(fsurf.Z.astype(np.float32))
 
-		# Running loop
+		# Main simulation loop
 		for it in range(n_steps):
 			
-			# Initialising step: setting stuff to 0, reset some counters and things like that
+			# Initialize step: reset counters and temporary variables
 			self._run_init_hydro()
 			
-			# Add external water inputs: rain, discrete entry points, ...
+			# Apply external water inputs (e.g., rain, discrete sources)
 			self._run_hydro_inputs()
 
-			# Actually runs the runoff simulation
-			# self._run_hydro() if expe_N_prop <= 1 or (it % expe_N_prop == 0) else rdhy._propagate_QwA_only(self.Z, self.hw, self.QwA, self.QwB, self.BCs )
+			# Run the core runoff simulation
 			self._run_hydro(expe_CFL_variable = expe_CFL_variable, flush_LM = flush_LM)
 
-		# That's it reallly, see bellow for the internal functions
+		# Internal functions are defined below for further details.
 
 	def _run_init_hydro(self):
+		"""
+		Initializes the hydrodynamic step.
+
+		This internal function prepares the model for a new hydrodynamic time step,
+		typically by resetting or initializing relevant fields.
+
+		Returns:
+			None
+
+		Author: B.G.
+		"""
 		rdhy.initiate_step(self.QwB)
 
 	def _run_hydro_inputs(self):
-		'''
-		Internal function automating the runniong of anything that adds water to the model (precipitations, input points, ...)
-		It determines everything automatically from the param sheet (RDparam class)
-		
-		Returns: 
-			- Nothing, runs a subpart of the model
-		
-		Authors:
-			- B.G (last modification: 28/05/2024)
-		'''
+		"""
+		Automates the application of water inputs to the model.
 
-		# First checking if we need the  precipitations inputs
+		This internal function handles various water input mechanisms, such as precipitation
+		(both 1D and 2D) and discrete input points. It automatically determines which inputs
+		to apply based on the settings in the `RDParam` (param) sheet.
+
+		Returns:
+			None: Runs a subpart of the model, updating internal water fields.
+
+		Author: B.G. (last modification: 28/05/2024)
+		"""
+
+		# Check if precipitation inputs are needed
 		if(self.param.need_precipitations):
 
-			# then running the 2D precipitations
+			# Run 2D precipitations if specified
 			if(self.param.precipitations_are_2D):
 					rdhy.variable_rain(self.QwA, self.QwB, self.P,self.BCs)
-			# or the 1D
+			# Otherwise, run 1D constant precipitation
 			else:
 				rdhy.constant_rain(self.QwA, self.QwB, self.P,self.BCs)
-		# Secondly, applying the discrete inputs if needed too				
+		# Apply discrete water inputs if needed				
 		if(self.param.need_input_Qw):
 			rdhy.input_discharge_points(self.input_rows_Qw, self.input_cols_Qw, self.input_Qw, self.QwA, self.QwB, self.BCs)
 
 	def _run_hydro(self, expe_CFL_variable = False, flush_LM = False):
-		'''
-		Internal runner for hydro functions
+		"""
+		Internal runner for the core hydrodynamic functions.
 
-		'''
+		This function computes water discharge (Qw) and water depth (hw) based on the
+		model's current state and parameters. It handles different flow computation modes
+		(D8 or surface reconstruction) and can optionally flush local minima or use
+		an experimental variable CFL condition.
+
+		Args:
+			expe_CFL_variable (bool, optional): If True, uses an experimental variable CFL
+												condition for `hw` computation. Defaults to False.
+			flush_LM (bool, optional): If True, flushes the water discharge (QwA) only,
+									   typically used for local minima handling. Defaults to False.
+
+		Returns:
+			None: Updates the internal water discharge and water depth fields.
+
+		Author: B.G.
+		"""
 
 		if(flush_LM):
 			rdhy._flush_QwA_only(self.Z, self.hw, self.QwA, self.QwB, self.BCs, self.fdir)
@@ -177,23 +240,39 @@ class Riverdale:
 				rdhy.compute_hw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.BCs) if rdhy.FlowMode.static_drape != self.param.hydro_compute_mode else rdhy.compute_hw(self.Z, self.hw, self.QwA, self.QwB, self.QwC, self.constraints, self.BCs)
 				
 	def raise_analytical_hw(self):
-		'''
-		This function uses the current fields of hw and Qwin (QwA) to calculate an analytical hw.
-		This is useful in multiple occasions, for example speed up convergence of hillslopes if the rest is fine or creating an initial guess from an external Qwin.
-		WARNING: this is not a magical analytical solution, most of the time it creates a noisy combination of flow depth with walls. 
-		If 2D SWEs had a true easy analytical solution not involving gigantic inverse matrices it would be known
+		"""
+		Calculates an analytical water depth (`hw`) based on current `hw` and `QwA` fields.
 
-		Arguments:
-			- None
-		returns:
-			- Nothing, update the model internally
-		Authors:
-			- B.G (last modification 09/2024)
-		'''
+		This function can be useful for various purposes, such as accelerating the convergence
+		of hillslope simulations or generating an initial guess for `hw` from an external `QwA`.
+		
+		WARNING: This is not a perfect analytical solution and may produce noisy results,
+		especially in complex terrains. A truly simple analytical solution for 2D SWEs
+		(Shallow Water Equations) involving large inverse matrices is generally not known.
+
+		Returns:
+			None: Updates the model's internal `hw` field.
+
+		Author: B.G. (last modification 09/2024)
+		"""
 		temp, = self.query_temporary_fields(1)
 		rdhy._raise_analytical_hw(self.Z, self.hw, self.QwA, temp, self.BCs)
 
 	def diffuse_hw(self, n_steps = 100):
+		"""
+		Diffuses the water depth (`hw`) field using a cellular automaton (CA) smoothing approach.
+
+		This function applies a smoothing operation to the water depth field over a specified
+		number of steps, which can help in stabilizing the simulation or reducing noise.
+
+		Args:
+			n_steps (int, optional): The number of smoothing steps to apply. Defaults to 100.
+
+		Returns:
+			None: Updates the internal `hw` field.
+
+		Author: B.G.
+		"""
 
 		temp, = self.query_temporary_fields(1)
 		for i in range(n_steps):
@@ -202,6 +281,22 @@ class Riverdale:
 		
 
 	def propagate_QwA(self, SFD = True):
+		"""
+		Propagates water discharge (QwA) based on the current model state.
+
+		This function initializes hydrodynamic conditions, applies water inputs,
+		and then propagates the water discharge using either a Single Flow Direction (SFD)
+		graph or a Multiple Flow Direction (MFD) approach.
+
+		Args:
+			SFD (bool, optional): If True, uses a Single Flow Direction (SFD) graph for propagation.
+								If False, uses a Multiple Flow Direction (MFD) approach. Defaults to True.
+
+		Returns:
+			None: Updates the internal `QwA` field.
+
+		Author: B.G.
+		"""
 
 		self._run_init_hydro()
 		self._run_hydro_inputs()

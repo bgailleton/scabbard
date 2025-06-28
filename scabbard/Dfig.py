@@ -1,7 +1,8 @@
 '''
-This is a first attempt to make a map automator.
-Probably will just test different way here before making a better one
-B.G
+This module provides the `Dfig` class, a first attempt at creating a map automator
+for managing and updating Matplotlib figures and axes within the scabbard framework.
+
+Author: B.G.
 '''
 
 import numpy as np
@@ -9,13 +10,22 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from scabbard import Dax
 
-# My cat just walked on the keyboard, let's keep that
-# p0----------ppppppppppppppppppppppppp+699999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999990
-
 
 class Dfig(object):
 
-	"""docstring for Dfig"""
+	"""
+	Manages a Matplotlib Figure and its associated Dax (Dynamic Axes) objects.
+
+	This class provides a way to organize and update multiple plots within a single
+	figure, allowing for dynamic visualization of simulation results.
+
+	Attributes:
+		fig (matplotlib.figure.Figure): The parent Matplotlib Figure object.
+		axes (dict): A dictionary where keys are unique identifiers (from Dax objects)
+				 and values are `Dax` instances.
+
+	Author: B.G.
+	"""
 
 	def __init__(self, fig = None, axes = None):
 

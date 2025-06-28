@@ -15,9 +15,9 @@ def basemap(Rgrid, **kwargs):
 
 	fig, ax = plt.subplots()
 	if("figsize" in kwargs.keys()):
-		fig.set_size_inches(*figsize)
+		fig.set_size_inches(*kwargs["figsize"])
 
-	tDax = RGridDax(Rgrid, ax)
+	tDax = RGridDax(Rgrid, ax, **kwargs)
 	tdfig = Dfig(fig, tDax)
 	return tdfig
 

@@ -1,247 +1,213 @@
-'''
-this script defines the geometry features of given elements
-They are made to be accessed from the top level (end users)
+# -*- coding: utf-8 -*-
+"""
+This module defines the abstract base class for all geometry objects within scabbard.
 
+It establishes a common interface for accessing geometric properties and performing
+coordinate transformations, ensuring consistency across different grid types.
+"""
 
-B.G.
-'''
+# __author__ = "B.G."
 
 import numpy as np
 from abc import ABC, abstractmethod
 
-
 class BaseGeometry(ABC):
-	"""
-	Base abstract class for the geometry objects
-	Defines all the functions that have to be defined for each geometry type, 
-	even if only to throw an error if not possible (e.g. row and cols for a irregular grid)
+    """
+    Base abstract class for geometry objects.
 
-	Authors:
-		- B.G. (last modifications: 08/2024)
+    This class defines the essential properties and methods that any concrete
+    geometry implementation must provide, such as dimensions, spatial extent,
+    and coordinate conversion functions.
+    """
 
+    def __init__(self):
+        """
+        Initializes the BaseGeometry object.
+        """
+        self._crs = None  # Coordinate Reference System
 
-	"""
+    @property
+    @abstractmethod
+    def N(self):
+        """Returns the total number of nodes/cells in the geometry."""
+        pass
 
-	def __init__(self):
-		self._crs = None
+    @property
+    def nxy(self):
+        """Alias for the total number of nodes/cells (N)."""
+        return self.N
 
-	@property
-	@abstractmethod
-	def N(self):
-		'''
-		return the number of nodes in the element
+    @property
+    @abstractmethod
+    def dx(self):
+        """Returns the spatial step (cell size) in the x-direction."""
+        pass
 
-		Authors:
-		- B.G. (last modifications: 08/2024)
-		'''
-		pass
+    @property
+    @abstractmethod
+    def nx(self):
+        """Returns the number of nodes/columns in the x-direction."""
+        pass
 
-	@property
-	def nxy(self):
-		'''
-		Alias for the number of nodes
+    @property
+    def ncolumns(self):
+        """Alias for the number of columns (nx)."""
+        return self.nx
 
-		Authors:
-		- B.G. (last modifications: 08/2024)
-		'''
-		return self.N
+    @property
+    @abstractmethod
+    def ny(self):
+        """Returns the number of nodes/rows in the y-direction."""
+        pass
 
-	@property
-	@abstractmethod
-	def dx(self):
-		'''
-		return the spatial step
+    @property
+    def nrows(self):
+        """Alias for the number of rows (ny)."""
+        return self.ny
 
-		Authors:
-		- B.G. (last modifications: 08/2024)
-		'''
-		pass
+    @property
+    @abstractmethod
+    def xmin(self):
+        """Returns the minimum x-coordinate of the geometry's extent."""
+        pass
 
-	@property
-	@abstractmethod
-	def nx(self):
-		'''
-		return the number of nodes in the x directions
+    @property
+    def Xmin(self):
+        """Alias for the minimum x-coordinate (xmin)."""
+        return self.xmin
 
-		Authors:
-		- B.G. (last modifications: 08/2024)
-		'''
-		pass
+    @property
+    @abstractmethod
+    def xmax(self):
+        """Returns the maximum x-coordinate of the geometry's extent."""
+        pass
 
-	@property
-	def ncolumns(self):
-		return self.nx
+    @property
+    def Xmax(self):
+        """Alias for the maximum x-coordinate (xmax)."""
+        return self.xmax
 
+    @property
+    @abstractmethod
+    def ymin(self):
+        """Returns the minimum y-coordinate of the geometry's extent."""
+        pass
 
-	@property
-	@abstractmethod
-	def ny(self):
-		'''
-		return the number of nodes in the y directions
+    @property
+    def Ymin(self):
+        """Alias for the minimum y-coordinate (ymin)."""
+        return self.ymin
 
-		Authors:
-		- B.G. (last modifications: 08/2024)
-		'''
-		pass
+    @property
+    @abstractmethod
+    def ymax(self):
+        """Returns the maximum y-coordinate of the geometry's extent."""
+        pass
 
-	@property
-	def nrows(self):
-		'''
-		Alias for ny
+    @property
+    def Ymax(self):
+        """Alias for the maximum y-coordinate (ymax)."""
+        return self.ymax
 
-		Authors:
-		- B.G. (last modifications: 08/2024)
-		'''
-		return self.ny
+    @property
+    @abstractmethod
+    def shape(self):
+        """Returns the shape of the geometry (e.g., (ny, nx) for a 2D grid)."""
+        pass
 
+    @property
+    def crs(self):
+        """Returns the Coordinate Reference System (CRS) of the geometry."""
+        return self._crs
 
-	@property
-	@abstractmethod
-	def xmin(self):
-		'''
-		return the number of nodes in the y directions
+    @abstractmethod
+    def row_col_to_flatID(self, row, col):
+        """
+        Converts row and column indices to a flat (1D) index.
 
-		Authors:
-		- B.G. (last modifications: 08/2024)
-		'''
-		pass
+        Args:
+            row (int or numpy.ndarray): Row index or array of row indices.
+            col (int or numpy.ndarray): Column index or array of column indices.
 
-	@property
-	def Xmin(self):
-		return self.xmin
+        Returns:
+            int or numpy.ndarray: The corresponding flat index or array of flat indices.
+        """
+        pass
 
-	@property
-	@abstractmethod
-	def xmax(self):
-		'''
-		return the number of nodes in the y directions
+    @abstractmethod
+    def flatID_to_row_col(self, flatID):
+        """
+        Converts a flat (1D) index to row and column indices.
 
-		Authors:
-		- B.G. (last modifications: 08/2024)
-		'''
-		pass
+        Args:
+            flatID (int or numpy.ndarray): Flat index or array of flat indices.
 
-	@property
-	def Xmax(self):
-		return self.xmax
+        Returns:
+            tuple: A tuple (row, col) or (numpy.ndarray, numpy.ndarray) of row and column indices.
+        """
+        pass
 
-	@property
-	@abstractmethod
-	def ymin(self):
-		'''
-		return the number of nodes in the y directions
+    @abstractmethod
+    def row_col_to_X_Y(self, row, col):
+        """
+        Converts row and column indices to real-world X and Y coordinates.
 
-		Authors:
-		- B.G. (last modifications: 08/2024)
-		'''
-		pass
+        Args:
+            row (int or numpy.ndarray): Row index or array of row indices.
+            col (int or numpy.ndarray): Column index or array of column indices.
 
-	@property
-	def Ymin(self):
-		return self.ymin
+        Returns:
+            tuple: A tuple (X, Y) or (numpy.ndarray, numpy.ndarray) of X and Y coordinates.
+        """
+        pass
 
-	@property
-	@abstractmethod
-	def ymax(self):
-		'''
-		return the number of nodes in the y directions
+    @abstractmethod
+    def X_Y_to_row_col(self, X, Y):
+        """
+        Converts real-world X and Y coordinates to row and column indices.
 
-		Authors:
-		- B.G. (last modifications: 08/2024)
-		'''
-		pass
+        Args:
+            X (float or numpy.ndarray): X coordinate or array of X coordinates.
+            Y (float or numpy.ndarray): Y coordinate or array of Y coordinates.
 
-	@property
-	def Ymax(self):
-		return self.ymax
+        Returns:
+            tuple: A tuple (row, col) or (numpy.ndarray, numpy.ndarray) of row and column indices.
+        """
+        pass
 
+    @abstractmethod
+    def flatID_to_X_Y(self, flatID):
+        """
+        Converts a flat (1D) index to real-world X and Y coordinates.
 
-	@property
-	@abstractmethod
-	def shape(self):
-		pass
+        Args:
+            flatID (int or numpy.ndarray): Flat index or array of flat indices.
 
-	@property
-	def crs(self):
-		return self._crs
+        Returns:
+            tuple: A tuple (X, Y) or (numpy.ndarray, numpy.ndarray) of X and Y coordinates.
+        """
+        pass
 
-	@abstractmethod
-	def row_col_to_flatID(self, row, col):
-		'''
-		Take row col (single or array) and returns the flat index for regular datas
+    @abstractmethod
+    def X_Y_to_flatID(self, X, Y):
+        """
+        Converts real-world X and Y coordinates to a flat (1D) index.
 
-		Authors:
-		- B.G. (last modifications: 08/2024)
-		'''
-		pass
+        Args:
+            X (float or numpy.ndarray): X coordinate or array of X coordinates.
+            Y (float or numpy.ndarray): Y coordinate or array of Y coordinates.
 
-	@abstractmethod
-	def flatID_to_row_col(self, flatID):
-		'''
-		Take row col (single or array) and returns the flat index for regular datas
+        Returns:
+            int or numpy.ndarray: The corresponding flat index or array of flat indices.
+        """
+        pass
 
-		Authors:
-		- B.G. (last modifications: 08/2024)
-		'''
-		pass
+    @property
+    def extent(self):
+        """
+        Returns the bounding box of the geometry in a format suitable for Matplotlib's imshow.
 
-
-	@abstractmethod
-	def row_col_to_X_Y(self, row, col):
-		'''
-		Converts row col (for regular grids) to X Y coordinates (real world)
-
-		Authors:
-		- B.G. (last modifications: 08/2024)
-		'''
-
-		pass
-
-
-
-	@abstractmethod
-	def X_Y_to_row_col(self, X, Y):
-		'''
-		Converts  X Y coordinates (real world) to row col (for regular grids)
-
-		Authors:
-		- B.G. (last modifications: 08/2024)
-		'''
-
-		pass
-
-	@abstractmethod
-	def flatID_to_X_Y(self, flatID):
-		'''
-		Converts  flat ID to XY coordinates
-
-		Authors:
-		- B.G. (last modifications: 08/2024)
-		'''
-
-		pass
-
-	@abstractmethod
-	def X_Y_to_flatID(self, X, Y):
-		'''
-		Converts  X Y coordinates (real world) to flat ID (for regular grids)
-
-		Authors:
-		- B.G. (last modifications: 08/2024)
-		'''
-
-		pass
-
-
-	@property
-	def extent(self):
-		'''
-		Matplotlib friendly extent argument for imshow or more generally any bounding box
-
-		Authors:
-		- B.G. (last modifications: 08/2024)
-
-		'''
-		return [self.xmin,self.xmax, self.ymax, self.ymin]
-
-
+        Returns:
+            list: A list [xmin, xmax, ymax, ymin].
+        """
+        return [self.xmin, self.xmax, self.ymax, self.ymin]

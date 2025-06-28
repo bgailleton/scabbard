@@ -1,7 +1,9 @@
 '''
-Sets of function to compute hydrodynamics with RiverDale
+This module defines functions and Taichi kernels for computing morphodynamics within the Riverdale model.
+It includes classes for managing morphodynamic parameters and various functions for calculating sediment discharge,
+and topographic evolution due to erosion and deposition.
 
-B.G. - 29/04/2024
+Author: B.G. (last modification: 29/04/2024)
 '''
 
 import taichi as ti
@@ -16,9 +18,14 @@ import scabbard.riverdale.rd_hydrodynamics as hydrofunc
 
 
 class MorphoMode(Enum):
-	'''
-	Enumeration of the different boundary condition types possible
-	'''	
+	"""
+	Enumeration of the different morphodynamic computation modes available.
+
+	Attributes:
+		fbal (int): Flow-based erosion and deposition (mass balance).
+		MPM_like (int): Erosion and deposition based on a Meyer-Peter-Müller-like transport law.
+		fbal_links (int): Flow-based erosion and deposition using a link-based approach.
+	"""	
 	fbal = 0,
 	MPM_like = 1,
 	fbal_links = 2

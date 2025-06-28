@@ -1,7 +1,9 @@
 '''
-Sets of function to compute hydrodynamics with RiverDale
+This module provides functions for computing various hydrometric properties within the Riverdale model,
+such as hydraulic gradient, shear stress, flow velocity, and effective drainage area.
+These functions are primarily intended for analysis and post-processing of simulation results.
 
-B.G. - 29/04/2024
+Author: B.G. (last modification: 29/04/2024)
 '''
 
 import taichi as ti
@@ -18,26 +20,31 @@ import scabbard.riverdale.rd_LM as rlm
 
 @ti.kernel
 def _compute_hydraulic_gradient(Sw:ti.template(),Z:ti.template(), hw:ti.template(), BCs:ti.template()):
-	'''
-	Taichi kernel to compute the hydraulic gradient (as topographic analysis)
-	
-	Arguments:
-		- Sw: field of hydrualic gradient to be edited in place
-		- Z: field of topographic surface
-		- hw: field of flow depth
-		- BCs: field of boundary conditions
-	
-	Returns:
-		- nothing, but calculates Sw
+	"""
+	Taichi kernel to compute the hydraulic gradient for each active cell.
 
-	Authors:
-		- B.G. (06/2024)
-	'''
+	This kernel calculates the hydraulic gradient based on the topographic elevation (Z)
+	and water depth (hw) for each active grid cell. The result is stored in the `Sw` field.
+
+	Args:
+		Sw (ti.template()): The 2D Taichi field to store the computed hydraulic gradient (modified in-place).
+		Z (ti.template()): The 2D Taichi field representing the topographic surface elevation.
+		hw (ti.template()): The 2D Taichi field representing the flow depth.
+		BCs (ti.template()): The 2D Taichi field of boundary conditions.
+
+	Returns:
+		None: The `Sw` field is updated in-place.
+
+	Author: B.G. (06/2024)
+	"""
 
 	for i,j in Z:
+		# Check if the cell is active and can receive flow
 		if(gridfuncs.is_active(i,j,BCs) and gridfuncs.can_receive(i,j,BCs)):
+			# Compute the hydraulic gradient value using the helper function
 			Sw[i,j] = hsw.hydraulic_gradient_value(Z, hw, BCs, i, j) 
 		else:
+			# If the cell is inactive or cannot receive, set hydraulic gradient to 0
 			Sw[i,j] = 0.
 
 def compute_hydraulic_gradient(rd, fill_with_PF = False):

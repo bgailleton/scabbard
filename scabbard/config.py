@@ -4,19 +4,27 @@ import pkg_resources
 from importlib import resources 
 import os
 
+# Determine the path to the configuration file
 try:
-	# Path to your JSON file
-	# with resources.open_text('scabbard', 'config.json') as config_file:
-		# config_fname = config_file.name
-	# config_fname = pkg_resources.resource_filename('scabbard', 'data/config.json')
 	config_fname = os.path.join(os.path.dirname(__file__), 'data', 'config.json')
-
 except:
-	print("Unable to read config")
+	print("Unable to determine config file path.")
 	pass
 
-# Path to your JSON file
 def read_json(file_path):
+	"""
+	Reads a JSON file and returns its content.
+
+	If the file is empty or not a valid JSON, it returns an empty dictionary.
+
+	Args:
+		file_path (str): The path to the JSON file.
+
+	Returns:
+		dict: The content of the JSON file, or an empty dictionary if an error occurs.
+
+	Author: B.G.
+	"""
 	try:
 		with open(file_path, 'r') as file:
 			# Try to load the JSON content
@@ -28,10 +36,18 @@ def read_json(file_path):
 
 
 def load_config():
-	# Access the resource within the 'data' package/directory
+	"""
+	Loads the configuration settings from the `config.json` file.
+
+	If the file cannot be read or is empty, it returns an empty dictionary.
+
+	Returns:
+		dict: A dictionary containing the configuration settings.
+
+	Author: B.G.
+	"""
 	try:
 		with open(config_fname,'r') as config_file:
-			# print("config_file",config_file)
 			try:
 				config = json.load(config_file)
 			except json.JSONDecodeError:
@@ -44,16 +60,25 @@ def load_config():
 
 @click.command()
 def defaultConfig():
+	"""
+	Resets the configuration to default values and saves them to `config.json`.
+
+	This function is a Click command that reinitializes the 'blender' path in the
+	configuration file to a default value. It prints messages indicating its actions.
+
+	Returns:
+		None
+
+	Author: B.G.
+	"""
 
 	print("Reintialising config to default")
 
-	# data = {}
 	# Reading the JSON file
 	data = load_config()
 
-	# Edit the data
+	# Edit the data: Set default Blender path
 	data['blender'] = '/home/bgailleton/code/blender/blender-4.0.1-linux-x64/blender'  # Modify this line according to your needs
-	# data['blender'] = 'afslkdglasdfgsjldf'  # Modify this line according to your needs
 
 
 	try:
@@ -64,6 +89,17 @@ def defaultConfig():
 		print('unable to write config')
 
 def query(paramstr = 'blender'):
+	"""
+	Queries a specific parameter from the configuration settings.
+
+	Args:
+		paramstr (str, optional): The name of the parameter to query. Defaults to 'blender'.
+
+	Returns:
+		Any: The value of the queried parameter.
+
+	Author: B.G.
+	"""
 
 	# Reading the JSON file
 	data = load_config()

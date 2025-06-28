@@ -5,7 +5,7 @@ import scabbard as scb
 
 import subprocess as sub
 
-# Path to your JSON file
+# Path to the Blender script used for rendering
 with resources.open_text('scabbard', '_blandplot.py') as config_file:
 	blender_script = config_file.name
 
@@ -13,6 +13,24 @@ with resources.open_text('scabbard', '_blandplot.py') as config_file:
 
 @nb.njit()
 def _fill_arrays(data,displacement_array,color_array, intensity = 0.7):
+    """
+    Numba-optimized internal function to fill displacement and color arrays for Blender.
+
+    This function prepares the topographic data and color information into 1D arrays
+    suitable for Blender's image pixel format. It adds a 1-pixel border around the
+    topography and handles NaN values.
+
+    Args:
+        data (numpy.ndarray): 2D NumPy array of topographic elevation data.
+        displacement_array (numpy.ndarray): 1D NumPy array to store displacement values (modified in-place).
+        color_array (numpy.ndarray): 1D NumPy array to store color values (modified in-place).
+        intensity (float, optional): Luminosity intensity for the color array. Defaults to 0.7.
+
+    Returns:
+        None: `displacement_array` and `color_array` are modified in-place.
+
+    Author: B.G.
+    """
     k=0
     for j in range(0,data.shape[1]+2):
         for i in range(0,data.shape[0]+2):
@@ -47,6 +65,24 @@ def _fill_arrays(data,displacement_array,color_array, intensity = 0.7):
             
 @nb.njit()
 def _fill_arrays_cc(data, colors,displacement_array,color_array, intensity = 0.7):
+    """
+    Numba-optimized internal function to fill displacement and color arrays for Blender with custom colors.
+
+    This function is similar to `_fill_arrays` but uses a pre-defined `colors` array
+    for the color information instead of deriving it from the data itself.
+
+    Args:
+        data (numpy.ndarray): 2D NumPy array of topographic elevation data.
+        colors (numpy.ndarray): 2D NumPy array of custom color values.
+        displacement_array (numpy.ndarray): 1D NumPy array to store displacement values (modified in-place).
+        color_array (numpy.ndarray): 1D NumPy array to store color values (modified in-place).
+        intensity (float, optional): Luminosity intensity for the color array. Defaults to 0.7.
+
+    Returns:
+        None: `displacement_array` and `color_array` are modified in-place.
+
+    Author: B.G.
+    """
     k=0
     for j in range(0,data.shape[1]+2):
         for i in range(0,data.shape[0]+2):
@@ -109,38 +145,89 @@ def plot_blender_from_array(_data,
 	custom_colors = None
 
 	):
+	"""
+	Generates a 3D render of a topographic array using Blender.
+
+	This function takes a 2D NumPy array representing topography, prepares it for Blender,
+	and then executes a Blender script to render a 3D visualization. It handles data
+	normalization, color mapping, and various camera and lighting settings.
+
+	Args:
+		_data (numpy.ndarray): The 2D NumPy array of topographic elevation data.
+		fprefix (str, optional): File prefix for intermediate NumPy files used by Blender.
+							Defaults to "__blend".
+		save_prefix (str, optional): File prefix for the output rendered image (PNG).
+							Defaults to "render".
+		dx (float, optional): Spatial resolution (grid cell size) in meters. Defaults to 5.0.
+		gpu (bool, optional): If True, enables GPU acceleration for Blender rendering. Defaults to True.
+		perspective (bool, optional): If True, sets the Blender camera to perspective mode;
+								otherwise, sets it to orthogonal mode. Defaults to True.
+		ortho_scale (float, optional): Orthogonal scale for the camera (when in orthogonal mode).
+								Higher values "zoom" out. Defaults to 2.0.
+		focal_length (float, optional): Focal length of the camera in mm (when in perspective mode).
+								Higher values "zoom" in. Defaults to 40.
+		f_stop (float, optional): F-stop value for depth of field. Lower values result in a
+								shallower depth of field, higher values for a wider depth of field.
+								Defaults to 50000.
+		shiftx (float, optional): Camera shift in the X-direction to center the topography.
+							Defaults to 0.0.
+		shifty (float, optional): Camera shift in the Y-direction to center the topography.
+							Defaults to 0.0.
+		camera_tilt (float, optional): Camera tilt in degrees from horizontal. Defaults to 45.0.
+		camera_rotation (float, optional): Camera rotation in degrees clockwise from North. Defaults to 0.0.
+		sun_tilt (float, optional): Sun tilt in degrees from horizontal. Defaults to 25.0.
+		sun_rotation (float, optional): Sun rotation in degrees clockwise from North. Defaults to 315.0.
+		sun_intensity (float, optional): Intensity of the sun light. Defaults to 0.2.
+		exaggeration (float, optional): Vertical exaggeration factor for the topography. Defaults to 1.5.
+		recast_minZ (float, optional): Minimum Z-value for recasting (normalization). Defaults to 0.0.
+		recast_maxZ (float, optional): Maximum Z-value for recasting (normalization). Defaults to 1.0.
+		number_of_subdivisions (int, optional): Number of subdivisions for the mesh. More subdivisions
+								increase detail but also rendering time. Defaults to 1000.
+		res_x (int, optional): X-resolution of the rendered image. Defaults to 1920.
+		res_y (int, optional): Y-resolution of the rendered image. Defaults to 1080.
+		samples (int, optional): Number of rendering samples. More samples result in better quality
+							but longer render times. Defaults to 50.
+		intensity (float, optional): Luminosity intensity for the color array. Defaults to 0.7.
+		custom_colors (numpy.ndarray, optional): Optional 2D NumPy array for custom color mapping.
+								If provided, `intensity` is ignored for color. Defaults to None.
+
+	Returns:
+		None: The function executes Blender as a subprocess to generate the render.
+
+	Author: B.G.
+	"""
 	
 	data = np.copy(_data)
 
-	# create an image that holds the data
+	# Create empty arrays to hold displacement and color data for Blender
 	displacement_array = np.zeros(((data.shape[0]+2)*(data.shape[1]+2)*4), dtype=np.float32)
 	color_array = np.zeros(((data.shape[0]+2)*(data.shape[1]+2)*4), dtype=np.float32)
 
-	# find minimum elevation
+	# Find min/max elevation and normalize data
 	data_min = np.min(data[data!=-9999])
-	# find maximum elevation
 	data_max = np.max(data[data!=-9999])
-	# calculate total relief
 	relief = data_max - data_min
-	#scale values from 0 to 1
 	data[data!=-9999] = (data[data!=-9999] - data_min) / relief
-	# recasting the min max values
+	# Recast values based on specified min/max Z for visualization
 	data[data!=-9999] = (data[data!=-9999] - recast_minZ) / (recast_maxZ - recast_minZ)
 
+	# Fill the displacement and color arrays using Numba-optimized helper functions
 	_fill_arrays(data,displacement_array,color_array, intensity) if custom_colors is None else _fill_arrays_cc(data, custom_colors, displacement_array, color_array, intensity)
 
 
 
+	# Save intermediate NumPy arrays for Blender to load
 	np.save(fprefix + ".npy", data.astype(np.float32))
 	np.save(fprefix + "_displacement_array.npy", displacement_array)
 	np.save(fprefix + "_color_array.npy", color_array)
 
 
+	# Construct the Blender command with all arguments
 	cmd = ""
-	cmd += scb.config.query('blender')
-	cmd += "  --background --python " + blender_script + " "
-	cmd += "--gpu " if gpu else ""
-	cmd += "--perspective " if perspective else ""
+	cmd += scb.config.query('blender') # Get Blender executable path from scabbard config
+	cmd += "  --background --python " + blender_script + " " # Run Blender in background with the script
+	cmd += "--gpu " if gpu else "" # Add GPU flag if enabled
+	cmd += "--perspective " if perspective else "" # Add perspective flag if enabled
 	cmd += f"--fprefix '{fprefix}' "
 	cmd += f"--save_prefix '{save_prefix}' "
 	cmd += f"--ortho_scale {ortho_scale} "
@@ -165,31 +252,5 @@ def plot_blender_from_array(_data,
 
 
 
+	# Execute the Blender command as a subprocess
 	sub.run(cmd, shell = True, check = False)
-
-
-
-
-
-	# parser.add_argument('-G', '--gpu', action='store_true', help='GPU acceleration')
-	# parser.add_argument('-P', '--perspective', action='store_true', help='Camera set to perspective or orthogonal')
-	# parser.add_argument('-f', '--fprefix', type=str, help='file name')
-	# parser.add_argument('-o', '--save_prefix', type=str, help='file name')
-	# parser.add_argument('--ortho_scale', type=float, default = 2., help='file name')
-	# parser.add_argument('--focal_length', type=float, default = 40., help='file name')
-	# parser.add_argument('--f_stop', type=float, default = 500000., help='file name')
-	# parser.add_argument('--dx', type=float, default = 30., help='file name')
-	# parser.add_argument('--shiftx', type=float, default = 0., help='file name')
-	# parser.add_argument('--shifty', type=float, default = 0., help='file name')
-	# parser.add_argument('--camera_tilt', type = float, default = 45.0, help = '')
-	# parser.add_argument('--camera_rotation', type = float, default = 0., help = '')
-	# parser.add_argument('--sun_tilt', type = float, default = 25.0, help = '')
-	# parser.add_argument('--sun_rotation', type = float, default = 315.0, help = '')
-	# parser.add_argument('--sun_intensity', type = float, default = 0.2, help = '')
-	# parser.add_argument('--exaggeration', type = float, default = 1.5, help = '')
-	# parser.add_argument('--recast_minZ', type = float, default = 0., help = '')
-	# parser.add_argument('--recast_maxZ', type = float, default = 1.4, help = '')
-	# parser.add_argument('--number_of_subdivisions', type = int, default = 1000 , help = '')
-	# parser.add_argument('--res_x', type = int, default = 1920 , help = '')
-	# parser.add_argument('--res_y', type = int, default = 1080 , help = '')
-	# parser.add_argument('--samples', type = int, default = 50 , help = '')

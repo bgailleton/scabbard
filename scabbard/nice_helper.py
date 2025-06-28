@@ -1,5 +1,7 @@
 '''
-Helper functions to offset the actual code from the nice_haguid and let it focus on layout
+This module contains helper functions for the NiceGUI-based scabbard application.
+These functions abstract away some of the logic from the main GUI file (`nice_haguid.py`)
+allowing the main file to focus on UI layout and event handling.
 '''
 import scabbard as scb
 from nicegui import ui
@@ -25,6 +27,21 @@ import sys
 
 
 def _update_clim(stuff):
+	"""
+	Updates the color limits (zmin, zmax) of the main Plotly heatmap trace.
+
+	This function is typically called when the user adjusts the colormap range sliders.
+	It retrieves the current min/max values from the `stuff['model']['range']` dictionary
+	and applies them to the Plotly figure's `datamap` trace.
+
+	Args:
+		stuff (dict): The global dictionary containing UI and model data.
+
+	Returns:
+		None
+
+	Author: B.G.
+	"""
 	stuff['main_figure'].update_traces(
 		zmin=stuff['model']['range']['min'],
 		zmax=stuff['model']['range']['max'],

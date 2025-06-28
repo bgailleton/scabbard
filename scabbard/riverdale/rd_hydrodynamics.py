@@ -1,11 +1,9 @@
 '''
-Sets of function to compute hydrodynamics with RiverDale
+This module defines functions and Taichi kernels for computing hydrodynamics within the Riverdale model.
+It includes classes for managing hydrodynamic parameters and various functions for calculating water discharge,
+flow depth, and handling boundary conditions and local minima.
 
-It's dangerous to go alone, take this:
-
----{:::::::::::::::::>
-
-B.G. - 29/04/2024
+Author: B.G. (last modification: 29/04/2024)
 '''
 
 import taichi as ti
@@ -20,9 +18,14 @@ import scabbard.riverdale.rd_utils as rut
 
 
 class FlowMode(Enum):
-	'''
-	Enumeration of the different boundary condition types possible
-	'''	
+	"""
+	Enumeration of the different flow computation modes available in the hydrodynamic model.
+
+	Attributes:
+		static_incremental (int): Flow is computed incrementally based on local slopes.
+		static_drape (int): Flow computation includes a draping algorithm to handle local minima.
+		static_link (int): Flow computation based on a link-based approach.
+	"""	
 	static_incremental = 0
 	static_drape = 1
 	static_link = 2
@@ -30,10 +33,33 @@ class FlowMode(Enum):
 
 @scaut.singleton
 class HydroParams:
-	'''
-		Internal singleton class holding all the compile time constant parameters for the hydro simulations 
-		Not for users
-	'''
+	"""
+	Internal singleton class holding all the compile-time constant parameters for hydrodynamic simulations.
+
+	This class is not intended for direct use by users. Its purpose is to store and manage
+	parameters that need to be fixed before Taichi kernel compilation for performance optimization.
+
+	Attributes:
+		dt_hydro (float): Constant time step for hydrodynamic simulations.
+		manning (float): Constant Manning's roughness coefficient.
+		exponent_flow (float): Exponent used in flow calculations (e.g., for Manning's equation).
+		flowmode (FlowMode): The selected flow computation mode.
+		hydro_slope_bc_mode (int): Mode for handling hydraulic slope boundary conditions.
+		hydro_slope_bc_val (float): Value for hydraulic slope boundary conditions.
+		mini_drape_step (float): Minimum step size for the draping function, used to avoid local minima.
+		use_heffmax (bool): Flag to indicate whether to use effective maximum water depth.
+		use_original_dir_for_LM (bool): Flag to use original flow direction for local minima handling.
+		LM_pathforcer (int): Parameter controlling the path forcing for local minima.
+		clamp_div_hw (bool): Flag to enable clamping of changes in water depth.
+		clamp_div_hw_val (float): Value to clamp changes in water depth.
+		checkboard_checker (bool): Flag for an experimental checkboard pattern checker.
+		CA_redis (float): Parameter for cellular automaton redistribution.
+		compute_hw_out (bool): If False, fixes water depth at boundaries.
+		damp_QwA (bool): Flag to enable damping of water discharge QwA.
+		damp_QwA_coeff (float): Damping coefficient for QwA.
+
+	Author: B.G.
+	"""
 	def __init__(self):		
 		# Constant dt for hydrodynamics
 		self.dt_hydro = 1e-3

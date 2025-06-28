@@ -1,6 +1,12 @@
-'''
-High-level interface to graphflood, starting point to run the model to other backend
-'''
+# -*- coding: utf-8 -*-
+"""
+This module provides a high-level interface for running the Graphflood model.
+
+It abstracts away the complexities of different backends (GPU, Dagger, TopoToolbox)
+and provides a unified API for simulating hydrological processes.
+"""
+
+# __author__ = "B.G."
 
 import numpy as np
 import scabbard as scb
@@ -8,200 +14,276 @@ import dagger as dag
 import taichi as ti
 
 def _std_run_gpu_ndt(
-	grid,
-	P = None, # precipitations, numpy array or scalar
-	BCs = None, # Boundary codes
-	N_dt = 5000,
-	dt = 1e-3,
-	manning = 0.033,
-	init_hw = None,
-
+    grid,
+    P=None,  # precipitations, numpy array or scalar
+    BCs=None,  # Boundary codes
+    N_dt=5000,
+    dt=1e-3,
+    manning=0.033,
+    init_hw=None,
 ):
-	'''Internal runner function for the standalone gpu runner (Runs N iteration from "scratch")'''
-	try:
-		ti.init(ti.gpu)
-	except:
-		raise RuntimeError('Could not initiate taichi to GPU')
+    """
+    Internal runner function for the standalone GPU (Taichi) backend.
 
-	# Creating the parameter file
-	param = scb.rvd.param_from_grid(grid)
-	param.manning = manning
+    Args:
+        grid (scb.raster.RegularRasterGrid): The input grid.
+        P (numpy.ndarray or float, optional): Precipitation rate. Defaults to None.
+        BCs (numpy.ndarray, optional): Boundary conditions. Defaults to None.
+        N_dt (int, optional): Number of time steps. Defaults to 5000.
+        dt (float, optional): Time step size. Defaults to 1e-3.
+        manning (float, optional): Manning's roughness coefficient. Defaults to 0.033.
+        init_hw (numpy.ndarray, optional): Initial water depth. Defaults to None.
 
-	# Feeding in initial hw
-	if(init_hw is not None):
-		param.initial_hw = init_hw
+    Returns:
+        dict: A dictionary containing simulation results and model objects.
+    """
+    try:
+        ti.init(ti.gpu)
+    except Exception:
+        raise RuntimeError("Could not initiate Taichi to GPU. Check Taichi installation.")
 
-	# Feeding the BCs (if not default to flow everywhere, and can out from the edges)
-	if(BCs is not None):
-		param.BCs = BCs
+    # Create and configure the riverdale parameter object
+    param = scb.rvd.param_from_grid(grid)
+    param.manning = manning
+    if init_hw is not None:
+        param.initial_hw = init_hw
+    if BCs is not None:
+        param.BCs = BCs
+    param.dt_hydro = dt
+    param.precipitations = P
 
-	# Simulation time steps
-	param.dt_hydro = dt
+    # Compile parameters to a riverdale model object
+    rd = scb.rvd.create_from_params(param)
 
-	# Field of precipitation inputs
-	param.precipitations = P
+    # Run the simulation
+    rd.run_hydro(N_dt)
 
-	# COmpiling param to model object
-	rd = scb.rvd.create_from_params(param)
-
-	# Running the N time steps
-	rd.run_hydro(N_dt)
-
-	# Return metrics
-	return {'h':rd.hw.to_numpy(), 'Qi': rd.QwA.to_numpy(), 'Qo':rd.QwC.to_numpy(), 'model':rd, 'param':param, 'backend_graphflood': 'riverdale'}
-
+    # Return results
+    return {'h': rd.hw.to_numpy(), 'Qi': rd.QwA.to_numpy(), 'Qo': rd.QwC.to_numpy(),
+            'model': rd, 'param': param, 'backend_graphflood': 'riverdale'}
 
 def _std_rerun_gpu_ndt(
-	model_input,
-	N_dt = 1000,
-	new_dt = None):
+    model_input,
+    N_dt=1000,
+    new_dt=None
+):
+    """
+    Internal function to continue a simulation using the GPU (Taichi) backend.
 
-	if(new_dt is not None):
-		scb.rvd.change_dt_hydro(model_input['model'], model_input['param'], new_dt)
+    Args:
+        model_input (dict): The output dictionary from a previous `std_run` call.
+        N_dt (int, optional): Number of additional time steps. Defaults to 1000.
+        new_dt (float, optional): New time step size. If None, uses existing. Defaults to None.
 
-	rd = model_input['model']
-	# Running the N time steps
-	rd.run_hydro(N_dt)
+    Returns:
+        dict: An updated dictionary containing simulation results and model objects.
+    """
+    if new_dt is not None:
+        scb.rvd.change_dt_hydro(model_input['model'], model_input['param'], new_dt)
 
-	# Return metrics
-	return {'h':rd.hw.to_numpy(), 'Qi': rd.QwA.to_numpy(), 'Qo':rd.QwC.to_numpy(), 'model':rd, 'param':param, 'backend_graphflood': 'riverdale'}
+    rd = model_input['model']
+    rd.run_hydro(N_dt)
+
+    return {'h': rd.hw.to_numpy(), 'Qi': rd.QwA.to_numpy(), 'Qo': rd.QwC.to_numpy(),
+            'model': rd, 'param': model_input['param'], 'backend_graphflood': 'riverdale'}
 
 def _std_run_dagger_ndt(
-	grid,
-	P = None, # precipitations, numpy array or scalar
-	BCs = None,
-	N_dt = 5000,
-	dt = 1e-3,
-	manning = 0.033,
-	init_hw = None,
+    grid,
+    P=None,  # precipitations, numpy array or scalar
+    BCs=None,
+    N_dt=5000,
+    dt=1e-3,
+    manning=0.033,
+    init_hw=None,
+    **kwargs
+):
+    """
+    Internal function to run the simulation using the Dagger (C++) backend.
 
-	**kwargs
+    Args:
+        grid (scb.raster.RegularRasterGrid): The input grid.
+        P (numpy.ndarray or float, optional): Precipitation rate. Defaults to None.
+        BCs (numpy.ndarray, optional): Boundary conditions. Defaults to None.
+        N_dt (int, optional): Number of time steps. Defaults to 5000.
+        dt (float, optional): Time step size. Defaults to 1e-3.
+        manning (float, optional): Manning's roughness coefficient. Defaults to 0.033.
+        init_hw (numpy.ndarray, optional): Initial water depth. Defaults to None.
+        **kwargs: Additional keyword arguments, e.g., 'SFD' for single flow direction.
 
-	):
-	'''
-		Internal function managing the DAGGER interface
-	'''
+    Returns:
+        dict: A dictionary containing simulation results and model objects.
+    """
+    # Initialize Dagger objects
+    con = dag.D8N(grid.geo.nx, grid.geo.ny, grid.geo.dx, grid.geo.dx, grid.geo.xmin, grid.geo.ymin)
+    graph = dag.graph(con)
 
-	# init the DAGGER engine (connector and graph fix the topology of the grid)
-	con = dag.D8N(grid.geo.nx, grid.geo.ny, grid.geo.dx, grid.geo.dx, grid.geo.xmin, grid.geo.ymin)
-	graph = dag.graph(con)
+    if BCs is not None:
+        con.set_custom_boundaries(BCs.ravel())
 
-	# Eventual custom boundary conditions
-	if(BCs is not None):
-		con.set_custom_boundaries(BCs.ravel())
+    flood = dag.graphflood(graph, con)
+    flood.set_topo(grid.Z.ravel())
 
-	# Initialising the c++ graphflood object
-	flood = dag.graphflood(graph, con)
+    # Set flow direction mode (SFD or MFD)
+    setsfd = kwargs.get('SFD', False)
+    if setsfd:
+        flood.enable_SFD()
+    else:
+        flood.enable_MFD()
 
-	# feeding the topo
-	flood.set_topo(grid.Z.ravel())
-	
-	# Setting the topology
-	setsfd = False 
-	if ('SFD' in kwargs.keys()):
-		if(kwargs['SFD']):
-			setsfd = True
-	flood.enable_SFD() if setsfd else flood.enable_MFD() 
+    # Configure simulation parameters
+    flood.fill_minima()
+    flood.disable_courant_dt_hydro()
+    flood.set_dt_hydro(dt)
+    flood.set_mannings(manning)
 
-	# Legacy options, ignore
-	flood.fill_minima()
-	flood.disable_courant_dt_hydro()
+    if isinstance(P, np.ndarray):
+        flood.set_water_input_by_variable_precipitation_rate(P.ravel())
+    else:
+        flood.set_water_input_by_constant_precipitation_rate(P)
 
-	# Setting the time step
-	flood.set_dt_hydro(dt)
+    if init_hw is not None:
+        flood.set_hw(init_hw.ravel())
 
-	flood.set_mannings(manning)
+    # Run the simulation
+    for _ in range(N_dt):
+        flood.run()
 
-	if(isinstance(P, np.ndarray)):
-		flood.set_water_input_by_variable_precipitation_rate(P.ravel())
-	else:
-		flood.set_water_input_by_constant_precipitation_rate(P)
-
-	if(init_hw is not None):
-		flood.set_hw(init_hw.ravel())
-
-	for i in range(N_dt):
-		flood.run()
-
-	return {'h':flood.get_hw().reshape(grid.rshp), 'Qi': flood.get_Qwin().reshape(grid.rshp), 
-		'Qo':flood.compute_tuqQ(3).reshape(grid.rshp), 'model':flood, 'param':None, 'backend_graphflood': 'dagger'}
-
+    return {'h': flood.get_hw().reshape(grid.rshp), 'Qi': flood.get_Qwin().reshape(grid.rshp),
+            'Qo': flood.compute_tuqQ(3).reshape(grid.rshp), 'model': flood, 'param': None,
+            'backend_graphflood': 'dagger'}
 
 def _std_run_ttb_ndt(
-	grid,
-	P = None, # precipitations, numpy array or scalar
-	BCs = None,
-	N_dt = 5000,
-	dt = 1e-3,
-	manning = 0.033,
-	init_hw = None,
+    grid,
+    P=None,  # precipitations, numpy array or scalar
+    BCs=None,
+    N_dt=5000,
+    dt=1e-3,
+    manning=0.033,
+    init_hw=None,
+    **kwargs
+):
+    """
+    Internal function to run the simulation using the TopoToolbox backend.
 
-	**kwargs
-	):
-	
-	import topotoolbox as ttb
+    Args:
+        grid (scb.raster.RegularRasterGrid): The input grid.
+        P (numpy.ndarray or float, optional): Precipitation rate. Defaults to None.
+        BCs (numpy.ndarray, optional): Boundary conditions. Defaults to None.
+        N_dt (int, optional): Number of time steps. Defaults to 5000.
+        dt (float, optional): Time step size. Defaults to 1e-3.
+        manning (float, optional): Manning's roughness coefficient. Defaults to 0.033.
+        init_hw (numpy.ndarray, optional): Initial water depth. Defaults to None.
+        **kwargs: Additional keyword arguments, e.g., 'SFD' for single flow direction.
 
-	ttbgrid = grid.grid2ttb()
+    Returns:
+        dict: A dictionary containing simulation results.
+    """
+    import topotoolbox as ttb
 
-	sfd = False
-	if('SFD' in kwargs.keys()):
-		if(kwargs['SFD'] == True):
-			sfd = True
+    ttbgrid = grid.grid2ttb()
 
-	D8 = True
-	if('D4' in kwargs.keys()):
-		if(kwargs['D4'] == True):
-			D8 = False
-	
-	res = ttb.run_graphflood(
-		ttbgrid,
-		initial_hw=init_hw,
-		bcs=BCs,
-		dt=dt,
-		p=P,
-		manning=manning,
-		sfd=sfd,
-		d8=D8,
-		n_iterations=N_dt
-	)
+    sfd = kwargs.get('SFD', False)
+    d8 = not kwargs.get('D4', False)
 
-	return {'h': scb.raster.raster_from_ttb(res),'Qi': None,'Qo':None, 'model':None, 'param':None, 'backend_graphflood': 'ttb'}
+    res = ttb.run_graphflood(
+        ttbgrid,
+        initial_hw=init_hw,
+        bcs=BCs,
+        dt=dt,
+        p=P,
+        manning=manning,
+        sfd=sfd,
+        d8=d8,
+        n_iterations=N_dt
+    )
+
+    return {'h': scb.raster.raster_from_ttb(res), 'Qi': None, 'Qo': None,
+            'model': None, 'param': None, 'backend_graphflood': 'ttb'}
 
 def std_run(
-	model_input, # Sting or grid so far
-	P = 1e-5, # precipitations, numpy array or scalar
-	BCs = None, # Boundary codes
-	N_dt = 5000,
-	backend = 'gpu',
-	dt = 1e-3,
-	manning = 0.033,
-	init_hw = None,
-	**kwargs
+    model_input,  # String (path to raster) or grid object
+    P=1e-5,  # precipitations, numpy array or scalar
+    BCs=None,  # Boundary codes
+    N_dt=5000,
+    backend='gpu',
+    dt=1e-3,
+    manning=0.033,
+    init_hw=None,
+    **kwargs
 ):
+    """
+    Standardized function to run the Graphflood model with various backends.
 
-	if(isinstance(model_input, str)):
-		grid = scb.io.load_raster(model_input)
-	else:
-		grid = model_input
-	
-	if(backend.lower() == 'gpu'):
-		return _std_run_gpu_ndt(grid, P, BCs, N_dt, dt, manning, init_hw = init_hw, **kwargs)
-	elif(backend.lower() in [ 'dagger' , 'cpu']):
-		return _std_run_dagger_ndt(grid, P,	BCs, N_dt, dt, manning, init_hw, **kwargs)
-	elif(backend.lower() in ['ttb', 'topotoolbox']):
-		return _std_run_ttb_ndt(grid, P, BCs, N_dt, dt, manning, init_hw, **kwargs)
+    Args:
+        model_input (str or scb.raster.RegularRasterGrid): Path to a raster file or a grid object.
+        P (numpy.ndarray or float, optional): Precipitation rate. Defaults to 1e-5.
+        BCs (numpy.ndarray, optional): Boundary conditions. Defaults to None.
+        N_dt (int, optional): Number of time steps. Defaults to 5000.
+        backend (str, optional): The simulation backend to use ('gpu', 'dagger', 'ttb').
+                                Defaults to 'gpu'.
+        dt (float, optional): Time step size. Defaults to 1e-3.
+        manning (float, optional): Manning's roughness coefficient. Defaults to 0.033.
+        init_hw (numpy.ndarray, optional): Initial water depth. Defaults to None.
+        **kwargs: Additional keyword arguments passed to the backend-specific runner.
 
+    Returns:
+        dict: A dictionary containing simulation results and model objects.
 
+    Raises:
+        TypeError: If `model_input` is not a string or a RegularRasterGrid.
+    """
+    if isinstance(model_input, str):
+        grid = scb.io.load_raster(model_input)
+    elif isinstance(model_input, scb.raster.RegularRasterGrid):
+        grid = model_input
+    else:
+        raise TypeError("model_input must be a string (path) or a RegularRasterGrid object.")
 
-def std_rerun(model_input, N_dt = 1000, new_dt = None):
-	'''function to run further dts from an existing model output
-	'''
+    if backend.lower() == 'gpu':
+        return _std_run_gpu_ndt(grid, P, BCs, N_dt, dt, manning, init_hw=init_hw, **kwargs)
+    elif backend.lower() in ['dagger', 'cpu']:
+        return _std_run_dagger_ndt(grid, P, BCs, N_dt, dt, manning, init_hw, **kwargs)
+    elif backend.lower() in ['ttb', 'topotoolbox']:
+        return _std_run_ttb_ndt(grid, P, BCs, N_dt, dt, manning, init_hw, **kwargs)
+    else:
+        raise ValueError(f"Unsupported backend: {backend}")
 
-	# Checking if I can run these
+def std_rerun(model_input, N_dt=1000, new_dt=None):
+    """
+    Continues a Graphflood simulation from a previously returned model output.
 
-	if(isinstance(model_input,dict) == False):
-		raise RuntimeError(f'std_rerun takes an existing ouput from std_run to run it further, not a {type(model_input)}.')
-	elif('backend_graphflood' not in model_input):
-		raise RuntimeError(f'std_rerun takes an existing ouput from std_run to run it further, not a {type(model_input)}.')
+    Args:
+        model_input (dict): The output dictionary from a previous `std_run` call.
+        N_dt (int, optional): Number of additional time steps. Defaults to 1000.
+        new_dt (float, optional): New time step size. If None, uses existing. Defaults to None.
 
-	# Else starting again:
+    Returns:
+        dict: An updated dictionary containing simulation results and model objects.
+
+    Raises:
+        RuntimeError: If `model_input` is not a valid output from `std_run`.
+    """
+    if not isinstance(model_input, dict) or 'backend_graphflood' not in model_input:
+        raise RuntimeError("model_input must be a dictionary returned by std_run.")
+
+    backend = model_input['backend_graphflood']
+
+    if backend == 'riverdale':
+        return _std_rerun_gpu_ndt(model_input, N_dt, new_dt)
+    elif backend == 'dagger':
+        # Dagger backend does not have a separate rerun function, just continue running
+        flood = model_input['model']
+        if new_dt is not None:
+            flood.set_dt_hydro(new_dt)
+        for _ in range(N_dt):
+            flood.run()
+        return {'h': flood.get_hw().reshape(model_input['h'].shape), 'Qi': flood.get_Qwin().reshape(model_input['Qi'].shape),
+                'Qo': flood.compute_tuqQ(3).reshape(model_input['Qo'].shape), 'model': flood, 'param': None,
+                'backend_graphflood': 'dagger'}
+    elif backend == 'ttb':
+        # TopoToolbox backend does not have a separate rerun function, just continue running
+        # This would require re-calling run_graphflood with updated parameters
+        # For simplicity, this example assumes a new run for ttb, or a more complex state management
+        raise NotImplementedError("Rerunning for TopoToolbox backend is not directly supported via this interface.")
+    else:
+        raise ValueError(f"Unsupported backend for rerun: {backend}")

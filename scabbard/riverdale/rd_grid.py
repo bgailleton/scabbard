@@ -1,26 +1,23 @@
 '''
-This files contains the functions and compile-time constant to naviagate and test the grid from the GPU point of views. That includes:
-- Neighbouring operations
-- Management of the boundary conditions
-- Grid dimensions and other geometrical characteristics
+This module defines functions and compile-time constants for navigating and testing the grid from a GPU perspective.
+It includes functionalities for:
+- Neighboring operations
+- Management of boundary conditions
+- Grid dimensions and other geometrical characteristics.
 
-
-Riverdale's convention for the nth neighbouring:
-
-D4:
+Riverdale's convention for D4 (4-directional) neighboring:
 
 |   | 0 |   |
 | 1 |i,j| 2 |
 |   | 3 |   |
 
 In other words:
-- k=0: top neighbour
-- k=1: left neighbour
-- k=2: right neighbour
-- k=3: bottom neighbour
+- k=0: top neighbor
+- k=1: left neighbor
+- k=2: right neighbor
+- k=3: bottom neighbor
 
-B.G - 26/04/1992 - Acigné
-
+Author: B.G. (last modification: 26/04/1992 - Acigné)
 '''
 
 import taichi as ti
@@ -49,12 +46,24 @@ class BoundaryConditionsSlope(Enum):
 
 @scaut.singleton
 class GridParams:
-	'''
-		Holds all the constants describing the grid dimensions and boundary conditions
-		Needs to be set before compiling the taichi kernels and funcs and cannot be changed dynamically
-		This part of the code might evolve later, the reason behind this structure is to force these element to be
-		compile-time constants as it boosts performances (we are talking 10 - 20% speed up compared to having them as parameters of functions)
-	'''
+	"""
+	Holds all the constants describing the grid dimensions and boundary conditions.
+
+	These parameters need to be set before compiling the Taichi kernels and functions
+	 and cannot be changed dynamically. This structure ensures that these elements
+	 become compile-time constants, which significantly boosts performance (10-20% speedup)
+	 compared to passing them as function parameters.
+
+	Attributes:
+		dx (float): Grid cell size in the x-direction.
+		dy (float): Grid cell size in the y-direction.
+		nx (int): Number of grid cells in the x-direction.
+		ny (int): Number of grid cells in the y-direction.
+		nxy (int): Total number of grid cells (nx * ny).
+		boundaries (BoundaryConditions): Type of boundary conditions.
+
+	Author: B.G.
+	"""
 	def __init__(self):
 		# Grid parameters
 		self.dx = 1.
@@ -73,6 +82,17 @@ class GridParams:
 GRID = GridParams()
 
 def _manual_set_GridParams_custom(dx,dy,nx,ny):
+	"""
+	Manually sets custom grid parameters.
+
+	Args:
+		dx (float): Grid cell size in the x-direction.
+		dy (float): Grid cell size in the y-direction.
+		nx (int): Number of grid cells in the x-direction.
+		ny (int): Number of grid cells in the y-direction.
+
+	Author: B.G.
+	"""
 	GRID.dx = dx
 	GRID.dy = dy
 	GRID.nx = nx
@@ -112,93 +132,110 @@ def _check_top_row_normal(i:int, j:int, k:int, valid:bool):
 	# Done
 	return valid
 
-@ti.func
+	@ti.func
 def _check_leftest_col_normal(i:int, j:int, k:int, valid:bool):
-	'''
-	Internal function to check if neighbouring is possible for nodes at the leftest column
-	Caution: this is optimised for neighbouring checks and ignores the top and bottom rows
-	Arguments:
-		- i: Row index
-		- j: column index
-		- k: neighbour number (See top of this module for explanations)
+	"""
+	Internal Taichi function to check if neighboring is possible for nodes in the leftmost column
+	under normal boundary conditions.
+
+	This function is optimized for neighboring checks and ignores top and bottom rows.
+
+	Args:
+		i (int): Row index.
+		j (int): Column index.
+		k (int): Neighbor number (0-3, see module header for convention).
+		valid (bool): Current validity status of the neighbor.
+
 	Returns:
-		- a boolean: True = neighbour is valid, False: not a neighbour
-	Authors:
-		- B.G. (last modification 30/04/2024)
-	'''
+		bool: True if the neighbor is valid, False otherwise.
+
+	Author: B.G. (last modification 30/04/2024)
+	"""
 	
-	# Only checking if it actually is on the first col
+	# Only check if the current node is in the first column
 	if(j == 0):
 		if(k==1):
 			valid = False
-	# Done
 	return valid
 
 @ti.func
 def _check_rightest_col_normal(i:int, j:int, k:int, valid:bool):
-	'''
-	Internal function to check if neighbouring is possible for nodes at the rightest column
-	Caution: this is optimised for neighbouring checks and ignores the top and bottom rows
-	Arguments:
-		- i: Row index
-		- j: column index
-		- k: neighbour number (See top of this module for explanations)
+	"""
+	Internal Taichi function to check if neighboring is possible for nodes in the rightmost column
+	under normal boundary conditions.
+
+	This function is optimized for neighboring checks and ignores top and bottom rows.
+
+	Args:
+		i (int): Row index.
+		j (int): Column index.
+		k (int): Neighbor number (0-3, see module header for convention).
+		valid (bool): Current validity status of the neighbor.
+
 	Returns:
-		- a boolean: True = neighbour is valid, False: not a neighbour
-	Authors:
-		- B.G. (last modification 30/04/2024)
-	'''
+		bool: True if the neighbor is valid, False otherwise.
+
+	Author: B.G. (last modification 30/04/2024)
+	"""
 	
-	# Only checking if it actually is on the first col
+	# Only check if the current node is in the last column
 	if(j == GRID.nx-1):
 		if(k==2):
 			valid = False
-	# Done
 	return valid
 
 @ti.func
 def _check_bottom_row_normal(i:int, j:int, k:int, valid:bool):
-	'''
-	Internal function to check if neighbouring is possible for nodes at the bottom row
-	Caution: this is optimised for neighbouring checks and ignores the top and bottom rows
-	Arguments:
-		- i: Row index
-		- j: column index
-		- k: neighbour number (See top of this module for explanations)
+	"""
+	Internal Taichi function to check if neighboring is possible for nodes in the bottom row
+	under normal boundary conditions.
+
+	This function is optimized for neighboring checks and ignores top and bottom rows.
+
+	Args:
+		i (int): Row index.
+		j (int): Column index.
+		k (int): Neighbor number (0-3, see module header for convention).
+		valid (bool): Current validity status of the neighbor.
+
 	Returns:
-		- a boolean: True = neighbour is valid, False: not a neighbour
-	Authors:
-		- B.G. (last modification 30/04/2024)
-	'''
+		bool: True if the neighbor is valid, False otherwise.
+
+	Author: B.G. (last modification 30/04/2024)
+	"""
 	
-	# Only checking if it actually is on the first row
+	# Only check if the current node is in the last row
 	if(i == GRID.ny-1):
-		# Checking all the different cases: firs, last cols and the middle
+		# Check specific cases for corners and general bottom row
 		if((j == 0 and (k == 1 or k == 3)) or (j == GRID.nx-1 and (k == 3 or k == 2)) or (k==3)):
 			valid = False
-	# Done
 	return valid
 
 @ti.func
 def _cast_neighbour_normal(i:int, j:int, k:int, valid:bool):
-	'''
-	Internal function that cast the neighbours to the right values in the case of normal boundary conditions
-	Caution: this is optimised for neighbouring checks and should not be used on its own
-	Arguments:
-		- i: Row index
-		- j: column index
-		- k: neighbour number (See top of this module for explanations)
-		- valid: a boolean from previous checks 
-	Returns:
-		- a boolean: True = neighbour is valid, False: not a neighbour
-	Authors:
-		- B.G. (last modification 30/04/2024)
-	'''
+	"""
+	Internal Taichi function that casts neighbor coordinates to the correct values
+	for normal boundary conditions.
 
-	# Preformat the output
+	This function is optimized for neighboring checks and should not be used on its own.
+
+	Args:
+		i (int): Row index.
+		j (int): Column index.
+		k (int): Neighbor number (0-3, see module header for convention).
+		valid (bool): Validity status of the neighbor from previous checks.
+
+	Returns:
+		tuple[int, int]: A tuple (ir, jr) representing the row and column indices of the neighbor.
+					 If the neighbor is not valid, returns (-1, -1).
+
+	Author: B.G. (last modification 30/04/2024)
+	"""
+
+	# Initialize output to invalid coordinates
 	ir,jr = -1,-1
 
-	# if the neighbouring operation is still valid after that:
+	# If the neighboring operation is still valid after previous checks
 	if(valid):
 		if(k == 0):
 			ir,jr = i-1, j
@@ -213,46 +250,53 @@ def _cast_neighbour_normal(i:int, j:int, k:int, valid:bool):
 
 @ti.func
 def _neighbours_normal(i:int, j:int, k:int, BCs:ti.template()):
-	'''
-	GPU function returning the neighbours of a given pixel
-	Arguments:\
-		- i,j are the row and col indices
-		- k is the nth neighbour (4 in D4) following riverdale's convention (see top of this module)
-		- BCs: boundary conditions code. Note that for this function it does not do anything and won't be used but it complies to the standard
-	Returns:
-		- (-1,-1) if hte neighbour is not valid (e.g. normal boundaries at the left border has no left neighbour k=1)
-		- the indices of the row/col of the neighbours
-	Authors:
-		- B.G. (last modification on the 29th of April)
-	'''
+	"""
+	GPU function returning the neighbors of a given pixel under normal boundary conditions.
 
-	# I first assume this mneighbour is valid
+	Args:
+		i (int): Row index of the current pixel.
+		j (int): Column index of the current pixel.
+		k (int): The nth neighbor (0-3 for D4) following Riverdale's convention (see module header).
+		BCs (ti.template()): Boundary conditions field. (Not directly used in this function but kept for API consistency).
+
+	Returns:
+		tuple[int, int]: A tuple (ir, jr) representing the row and column indices of the neighbor.
+					 Returns (-1, -1) if the neighbor is not valid (e.g., attempting to get a left neighbor
+					 at the left boundary).
+
+	Author: B.G. (last modification on the 29th of April)
+	"""
+
+	# Assume the neighbor is valid initially
 	valid = True
 
-	# Breaking down the checks
+	# Perform boundary checks sequentially
 	valid = _check_top_row_normal(i,j,k,valid)
 	valid = _check_leftest_col_normal(i,j,k,valid)
 	valid = _check_rightest_col_normal(i,j,k,valid)
 	valid = _check_bottom_row_normal(i,j,k,valid)
 
-	# getting the actual neighbours
+	# Get the actual neighbor coordinates based on validity
 	return _cast_neighbour_normal(i,j,k,valid)
 
 @ti.func
 def _is_active_normal(i:int, j:int, BCs:ti.template()):
-	'''
-		Quick utility function determining if a node is active or not for normal boundaries
-		Arguments:
-			- i: the row index
-			- j: the column index
-			- BCs: a dummy field to keep the standard consistent
-		Returns:
-			- True if the node is active
-			- False if inactive (i.e in this case outs)
-	'''
+	"""
+	Quick utility function determining if a node is active for normal boundaries.
+
+	In normal boundary conditions, all nodes are considered active.
+
+	Args:
+		i (int): The row index.
+		j (int): The column index.
+		BCs (ti.template()): A dummy field to maintain API consistency.
+
+	Returns:
+		bool: Always True, as all nodes are active in normal boundary conditions.
+
+	Author: B.G.
+	"""
 	valid = True
-	# if(i==0 or j == 0 or i == GRID.ny - 1 or j == GRID.nx - 1):
-	# 	valid = False
 	return valid
 
 @ti.func

@@ -1,6 +1,6 @@
 '''
-Contains generic widgets customisation for matplotlib qt backend
-For example specific types of sliders (float, min max)
+This module contains GUI widgets for selecting colormaps, designed for use with Matplotlib's Qt backend.
+It provides a `ColorMapWidget` for easy selection of colormaps.
 '''
 
 import sys
@@ -14,13 +14,24 @@ from matplotlib.backends.qt_compat import QtWidgets, QtCore
 import matplotlib
 import cmcrameri as cm
 
-# Ensure using the Qt6Agg backend with PySide6
+# Ensure using the QtAgg backend with PySide6
 matplotlib.use('QtAgg')
 
 def str2cmap(tstr):
-	'''
-	Converts the string received from 
-	'''
+	"""
+	Converts a string to a valid Matplotlib colormap name.
+
+	Args:
+		tstr (str): The string representing the colormap name.
+
+	Returns:
+		str: The validated colormap name.
+
+	Raises:
+		ValueError: If the provided string is not a recognized Matplotlib colormap.
+
+	Author: B.G.
+	"""
 	if(tstr in plt.colormaps()):
 		return tstr
 	else:
@@ -28,23 +39,34 @@ def str2cmap(tstr):
 
 
 class ColorMapWidget(QtWidgets.QComboBox):
-	'''
-		Colormap picker, a simple widget containing a list of colormap and sends a signals wiht the right colormap when it has changed
-	'''
+	"""
+	A Qt ComboBox widget for selecting Matplotlib colormaps.
 
-	# signal whenever if a new colormap is chosen is changed 
+	This widget displays a list of common colormaps and emits a signal whenever
+	a new colormap is selected by the user.
+
+	Signals:
+		colormapChanged (str): Emitted when the selected colormap changes, carrying the new colormap name as a string.
+
+	Author: B.G.
+	"""
+
+	# Signal emitted when a new colormap is chosen
 	colormapChanged = QtCore.Signal((str))
 
 	def __init__(self):
-		'''
-		Simple widget in essence: only made of a list of options for colormaps and returns whichever is selected as a sring
-		'''
+		"""
+		Initializes the ColorMapWidget.
+
+		Sets up the QComboBox with a predefined list of colormaps and connects
+		its `currentIndexChanged` signal to emit the `colormapChanged` signal.
+		"""
 
 
 		super(ColorMapWidget, self).__init__()
-		# list of colormaps, to be completed
+		# List of colormaps to display (can be extended)
 		self.addItems(['gist_earth', 'magma', 'viridis', 'cividis', 'Blues', 'Reds', 'RdBu'])
-		# setting up the connection between inbuilt signal and my own
+		# Connect the built-in signal to the custom signal
 		self.currentIndexChanged.connect( lambda : self.colormapChanged.emit(self.currentText()) )
 
 

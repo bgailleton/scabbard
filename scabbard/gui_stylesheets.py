@@ -1,4 +1,13 @@
 dark_orange = '''
+/*
+This stylesheet provides a dark theme with orange accents for PyQt applications.
+It defines styles for various widgets including QToolTip, QWidget, QMenuBar, QMenu,
+QLineEdit, QPushButton, QComboBox, QScrollBar, QTextEdit, QPlainTextEdit, QHeaderView,
+QCheckBox, QRadioButton, QDockWidget, QMainWindow, QToolBar, QProgressBar, and QTabBar.
+
+Author: B.G.
+*/
+
 QToolTip
 {
      border: 1px solid black;

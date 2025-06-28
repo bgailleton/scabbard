@@ -1,8 +1,8 @@
 '''
-Riverdale's mirror for the numba engine (steenbock) convention for the nth neighbouring:
+This module provides Numba-optimized functions for flow routing and distance calculations
+within the Steenbok (Numba engine) mirror of Riverdale's conventions.
 
-B.G - 07/2024 - Acigné
-
+Author: B.G. (last modification: 07/2024 - Acigné)
 '''
 
 import numba as nb
@@ -13,61 +13,64 @@ import scabbard as scb
 
 @nb.njit()
 def mean_dist_to_outlet(Stack, Z, BCs, D8, nx, ny, dx):
-	'''
-	Internal computation of the mean flow distance to outlets
+	"""
+	Internal computation of the mean flow distance to outlets.
 
-	Arguments:
-		- Stack: topologically ordered nodes
-		- Z: array of topography
-		- BCs: array of boundary conditions codes
-		- D8: bool, D8 if True else D4 flow routing
-		- nx,ny,dx: dimensions and spatial steps
+	This function calculates the average flow distance from each node to an outlet
+	by traversing the topologically ordered nodes from downstream to upstream.
+
+	Args:
+		Stack (numpy.ndarray): A 1D NumPy array of topologically ordered node indices.
+		Z (numpy.ndarray): A 1D NumPy array of topographic elevations (flattened grid).
+		BCs (numpy.ndarray): A 1D NumPy array of boundary condition codes (flattened grid).
+		D8 (bool): If True, uses D8 (eight-direction) flow routing; otherwise, uses D4 (four-direction).
+		nx (int): Number of columns in the grid.
+		ny (int): Number of rows in the grid.
+		dx (float): Spatial step size.
+
 	Returns:
-		- an array of flow distance from outlet
+		numpy.ndarray: A 1D NumPy array of mean flow distances from outlets.
 
-	Authors:
-		- B.G. (last modifications 09/2024)
-	'''
+	Author: B.G. (last modifications 09/2024)
+	"""
 
-	# Init the distance to -1 as "not computed yet"
+	# Initialize the distance array to -1 (indicating "not computed yet")
 	dist = np.zeros_like(Z) - 1
 
-	# Traversing the nodes in ascending order, downstream to upstream
+	# Traverse the nodes in ascending order (downstream to upstream)
 	for node in Stack:
 
-		# Checking if node is outlet - i.e. starting point
+		# Check if the current node is an outlet (starting point for distance calculation)
 		if(scb.ste.can_out_flat(node,BCs)):
 			dist[node] = 0
 
-		# Checking if the node is valid to receive flow distance (e.g. can it give, is it no data)
+		# Skip if the node is invalid (e.g., inactive or cannot give flow)
 		if(scb.ste.is_active_flat(node,BCs) == False) or (scb.ste.can_give_flat(node,BCs) == False):
 			continue
 
-		# prospective value
+		# Initialize prospective value and counter for averaging
 		val = 0.
-		# Tracking number of values to average
 		N = 0
-		# For all neighbours (4 v. 8)
+		# Iterate over all neighbors (4 for D4, 8 for D8)
 		for k in range(8 if D8 else 4):
-			# get the neighbour
+			# Get the neighbor's flat index
 			rec = scb.ste.neighbours_D8_flat(node,k,BCs,nx,ny) if D8 else scb.ste.neighbours_D4_flat(node,k,BCs,nx,ny)
-			# Check if valid (will be -1 if no data or cannot give)
+			# Check if the neighbor is valid (will be -1 if no data or cannot give)
 			if(rec == -1):
 				continue
 
-			# Check edge case where internal unprocessed LM
+			# Check for edge case where internal unprocessed local minima might point to itself
 			if(rec == node):
 				continue
-			# Check if actually is a receiver
+			# Check if the neighbor is actually a receiver (downslope)
 			if(Z[node] <= Z[rec]):
 				continue
 
-			# Node is valid, increment number
+			# If valid, increment counter and add distance to the prospective value
 			N +=1
-			# incrementing the value
 			val += dist[rec] + (scb.ste.dx_from_k_D8(dx,k) if D8 else dx)
 		
-		# end of loop and applying the mean
+		# After checking all neighbors, apply the mean if there are valid receivers
 		if(N>0):
 			dist[node] = val/N
 
@@ -75,54 +78,59 @@ def mean_dist_to_outlet(Stack, Z, BCs, D8, nx, ny, dx):
 
 @nb.njit()
 def min_dist_to_outlet(Stack, Z, BCs, D8, nx, ny, dx):
-	'''
-	Internal computation of the min flow distance to outlets
+	"""
+	Internal computation of the minimum flow distance to outlets.
 
-	Arguments:
-		- Stack: topologically ordered nodes
-		- Z: array of topography
-		- BCs: array of boundary conditions codes
-		- D8: bool, D8 if True else D4 flow routing
-		- nx,ny,dx: dimensions and spatial steps
+	This function calculates the shortest flow distance from each node to an outlet
+	by traversing the topologically ordered nodes from downstream to upstream.
+
+	Args:
+		Stack (numpy.ndarray): A 1D NumPy array of topologically ordered node indices.
+		Z (numpy.ndarray): A 1D NumPy array of topographic elevations (flattened grid).
+		BCs (numpy.ndarray): A 1D NumPy array of boundary condition codes (flattened grid).
+		D8 (bool): If True, uses D8 (eight-direction) flow routing; otherwise, uses D4 (four-direction).
+		nx (int): Number of columns in the grid.
+		ny (int): Number of rows in the grid.
+		dx (float): Spatial step size.
+
 	Returns:
-		- an array of flow distance from outlet
+		numpy.ndarray: A 1D NumPy array of minimum flow distances from outlets.
 
-	Authors:
-		- B.G. (last modifications 09/2024)
-	'''
+	Author: B.G. (last modifications 09/2024)
+	"""
 
-	# Init the distance to -1 as "not computed yet"
+	# Initialize the distance array to -1 (indicating "not computed yet")
 	dist = np.zeros_like(Z) - 1
 
-	# Traversing the nodes in ascending order, downstream to upstream
+	# Traverse the nodes in ascending order (downstream to upstream)
 	for node in Stack:
 
-		# Checking if node is outlet - i.e. starting point
+		# Check if the current node is an outlet (starting point for distance calculation)
 		if(scb.ste.can_out_flat(node,BCs)):
 			dist[node] = 0
 
-		# Checking if the node is valid to receive flow distance (e.g. can it give, is it no data)
+		# Skip if the node is invalid (e.g., inactive or cannot give flow)
 		if(scb.ste.is_active_flat(node,BCs) == False) or (scb.ste.can_give_flat(node,BCs) == False):
 			continue
 
-		# prospective value
+		# Initialize prospective value to a very large number for minimum comparison
 		val = 1e32
-		# For all neighbours (4 v. 8)
+		# Iterate over all neighbors (4 for D4, 8 for D8)
 		for k in range(8 if D8 else 4):
-			# get the neighbour
+			# Get the neighbor's flat index
 			rec = scb.ste.neighbours_D8_flat(node,k,BCs,nx,ny) if D8 else scb.ste.neighbours_D4_flat(node,k,BCs,nx,ny)
-			# Check if valid (will be -1 if no data or cannot give)
+			# Check if the neighbor is valid (will be -1 if no data or cannot give)
 			if(rec == -1):
 				continue
 
-			# Check edge case where internal unprocessed LM
+			# Check for edge case where internal unprocessed local minima might point to itself
 			if(rec == node):
 				continue
-			# Check if actually is a receiver
+			# Check if the neighbor is actually a receiver (downslope)
 			if(Z[node] <= Z[rec]):
 				continue
 
-			# distance is the min of dist to that receiver and the other
+			# Update the minimum distance to that receiver and the other
 			val = min(dist[rec] + (scb.ste.dx_from_k_D8(dx,k) if D8 else dx), val)
 
 		dist[node] = val
@@ -132,54 +140,59 @@ def min_dist_to_outlet(Stack, Z, BCs, D8, nx, ny, dx):
 
 @nb.njit()
 def max_dist_to_outlet(Stack, Z, BCs, D8, nx, ny, dx):
-	'''
-	Internal computation of the max flow distance to outlets
+	"""
+	Internal computation of the maximum flow distance to outlets.
 
-	Arguments:
-		- Stack: topologically ordered nodes
-		- Z: array of topography
-		- BCs: array of boundary conditions codes
-		- D8: bool, D8 if True else D4 flow routing
-		- nx,ny,dx: dimensions and spatial steps
+	This function calculates the longest flow distance from each node to an outlet
+	by traversing the topologically ordered nodes from downstream to upstream.
+
+	Args:
+		Stack (numpy.ndarray): A 1D NumPy array of topologically ordered node indices.
+		Z (numpy.ndarray): A 1D NumPy array of topographic elevations (flattened grid).
+		BCs (numpy.ndarray): A 1D NumPy array of boundary condition codes (flattened grid).
+		D8 (bool): If True, uses D8 (eight-direction) flow routing; otherwise, uses D4 (four-direction).
+		nx (int): Number of columns in the grid.
+		ny (int): Number of rows in the grid.
+		dx (float): Spatial step size.
+
 	Returns:
-		- an array of flow distance from outlet
+		numpy.ndarray: A 1D NumPy array of maximum flow distances from outlets.
 
-	Authors:
-		- B.G. (last modifications 09/2024)
-	'''
+	Author: B.G. (last modifications 09/2024)
+	"""
 
-	# Init the distance to -1 as "not computed yet"
+	# Initialize the distance array to -1 (indicating "not computed yet")
 	dist = np.zeros_like(Z) - 1
 
-	# Traversing the nodes in ascending order, downstream to upstream
+	# Traverse the nodes in ascending order (downstream to upstream)
 	for node in Stack:
 
-		# Checking if node is outlet - i.e. starting point
+		# Check if the current node is an outlet (starting point for distance calculation)
 		if(scb.ste.can_out_flat(node,BCs)):
 			dist[node] = 0
 
-		# Checking if the node is valid to receive flow distance (e.g. can it give, is it no data)
+		# Skip if the node is invalid (e.g., inactive or cannot give flow)
 		if(scb.ste.is_active_flat(node,BCs) == False) or (scb.ste.can_give_flat(node,BCs) == False):
 			continue
 
-		# prospective value
+		# Initialize prospective value to 0 for maximum comparison
 		val = 0.
-		# For all neighbours (4 v. 8)
+		# Iterate over all neighbors (4 for D4, 8 for D8)
 		for k in range(8 if D8 else 4):
-			# get the neighbour
+			# Get the neighbor's flat index
 			rec = scb.ste.neighbours_D8_flat(node,k,BCs,nx,ny) if D8 else scb.ste.neighbours_D4_flat(node,k,BCs,nx,ny)
 			# Check if valid (will be -1 if no data or cannot give)
 			if(rec == -1):
 				continue
 
-			# Check edge case where internal unprocessed LM
+			# Check for edge case where internal unprocessed local minima might point to itself
 			if(rec == node):
 				continue
-			# Check if actually is a receiver
+			# Check if the neighbor is actually a receiver (downslope)
 			if(Z[node] <= Z[rec]):
 				continue
 
-			# distance is the max of dist to that receiver and the other
+			# Update the maximum distance to that receiver and the other
 			val = max(dist[rec] + (scb.ste.dx_from_k_D8(dx,k) if D8 else dx), val)
 
 		dist[node] = val

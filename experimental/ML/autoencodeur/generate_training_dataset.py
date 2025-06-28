@@ -18,7 +18,8 @@ from multiprocessing import Pool
 import functools
 
 # Number of landscape to generate (in addition to the existing ones)
-NGEN = 500
+NGEN = 2
+FOLDER = 'small_val'
 
 def get_next_npy_number(folder_path):
    """
@@ -108,8 +109,10 @@ def generate_single_landscape(args):
    UE *= 1e-3  # Scale to appropriate uplift rate
    
    # Generate random erosion parameters
-   tm = random.uniform(0.3, 0.8)  # m parameter for stream power law
-   tn = tm/random.uniform(0.1, 0.5)  # n parameter for stream power law
+   # tm = random.uniform(0.4, 0.6)  # m parameter for stream power law
+   # tn = tm/random.uniform(0.1, 0.45)  # n parameter for stream power law
+   tm = 0.4
+   tn = 1.5
    
    # Select random boundary conditions
    tbc = rng_BCs()
@@ -127,7 +130,7 @@ def generate_single_landscape(args):
    if save_flag:
        # Normalize topography to [0,1] range
        topo_normalized = (topo - topo.min())/(topo.max() - topo.min())
-       np.save(f'./validation/{str(baseit + it)}.npy', topo_normalized)
+       np.save(f'./{FOLDER}/{str(baseit + it)}.npy', topo_normalized)
    
    return f"Landscape {it} processed successfully"
 
@@ -143,7 +146,7 @@ def main():
    initopo = perlin_noise_2d(nx, ny, scale=0.01, octaves=5, persistence=0.5, lacunarity=2.0, seed=0)
    
    # Get the starting file number for the dataset
-   baseit = get_next_npy_number("./validation")
+   baseit = get_next_npy_number(f"./{FOLDER}")
    print(f"Starting dataset generation from file number: {baseit}")
    
    # Prepare arguments for multiprocessing

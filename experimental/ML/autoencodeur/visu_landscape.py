@@ -18,8 +18,8 @@ def rng_complexity():
 def rng_BCs():
 	return random.choice(['periodic_EW','periodic_NS','4edges'])
 
-nx,ny = 2048, 2048
-dx = 100.
+nx,ny = 1024, 1024
+dx = 25.
 initopo = perlin_noise_2d(nx, ny, scale=0.01, octaves=5, persistence=0.5, lacunarity=2.0, seed=0)
 
 fig,ax = plt.subplots()

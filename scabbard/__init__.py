@@ -26,6 +26,18 @@ wheel_urls = {
 }
 
 def suggest_installation():
+	"""
+	Suggests installation instructions for the `pytopotoolbox` wheel based on the user's OS and Python version.
+
+	This function checks the current operating system and Python version to provide a direct
+	`pip install` command for the pre-compiled `topotoolbox` wheel, which is a required
+	dependency for `scabbard`.
+
+	Returns:
+		None: Prints installation instructions or a message if no compatible wheel is found.
+
+	Author: B.G.
+	"""
 	python_version = f"{sys.version_info.major}{sys.version_info.minor}"
 	os_name = platform.system()
 

@@ -1,6 +1,6 @@
 '''
-Contains generic widgets customisation for matplotlib qt backend
-For example specific types of sliders (float, min max)
+This module serves as a template for creating new GUI widgets and applications using PyQt and Matplotlib.
+It includes basic imports and setup for a Matplotlib Qt backend.
 '''
 
 import sys

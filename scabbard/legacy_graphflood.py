@@ -13,7 +13,30 @@ import cmcrameri.cm as cm
 class GraphFlood(object):
 
 	"""
-		docstring for GraphFlood
+	High-level Python interface for the Dagger GraphFlood model.
+
+	This class provides a convenient way to set up, configure, run, and monitor
+	geomorphic simulations using the underlying C++ Dagger library. It handles
+	grid initialization, topographic data feeding, and various simulation options.
+
+	Attributes:
+		grid (scabbard.RGrid): The regular grid object representing the simulation domain.
+		flood (dagger.graphflood): The underlying C++ GraphFlood object.
+		active_figs (list): A list to keep track of active Matplotlib figures for dynamic updates.
+		_callbacks (list): A list of callback objects for updating plots.
+		hydro_dt (float): The hydrological time step.
+		verbose (bool): If True, prints detailed messages during simulation.
+		update_grid (bool): If True, updates the internal grid topography after each simulation step.
+		cumulative_time_hydro (float): Cumulative hydrological simulation time.
+		nit_hydro (int): Number of hydrological iterations performed.
+		cumulative_time_morpho (float): Cumulative morphodynamic simulation time.
+		convergence_trackers (bool): If True, enables tracking of convergence metrics.
+		n_trackers (int): Number of data points to keep for convergence tracking.
+		n_pits (list): List to store the number of pits over time.
+		dhw_monitoring (list): List to store statistics of water depth changes over time.
+		Qwratio (list): List to store statistics of Qwout/Qwin ratio over time.
+
+	Author: B.G.
 	"""
 
 	def __init__(self, 
@@ -22,6 +45,20 @@ class GraphFlood(object):
 		convergence_tracking = True,
 		**kwargs
 		):
+
+		"""
+		Initializes the GraphFlood object.
+
+		Args:
+			grid (scabbard.RGrid): The regular grid object for the simulation domain.
+			verbose (bool, optional): If True, enables verbose output during initialization and simulation.
+								Defaults to False.
+			convergence_tracking (bool, optional): If True, enables tracking of convergence metrics
+											(e.g., number of pits, dhw statistics, Qw ratio). Defaults to True.
+			**kwargs: Additional keyword arguments for configuring the model (e.g., 'SFD', 'minima', 'dt').
+
+		Author: B.G.
+		"""
 
 		super(GraphFlood, self).__init__()
 		
@@ -33,7 +70,7 @@ class GraphFlood(object):
 			self.grid.compute_graphcon()
 		elif (self.grid.con is not None and self.grid.graph is None):
 			self.grid.graph = dag.graph(self.grid.con)
-			self.grid.graph.compute_graph(self._Z, False, True)
+			self.grid.graph.compute_graph(self.grid._Z, False, True)
 		
 		# Initialising the c++ graphflood object
 		self.flood = dag.graphflood(self.grid.graph, self.grid.con)
